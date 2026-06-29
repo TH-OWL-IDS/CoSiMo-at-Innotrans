@@ -19,6 +19,8 @@ import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
 import { PersonaProvider } from "./agent/personas.js";
 import { createLightDriver } from "./cabin/driver.js";
+import { createSttProvider } from "./speech/stt.js";
+import { createTtsProvider } from "./speech/tts.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -28,10 +30,13 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 const personas = new PersonaProvider();
+const stt = createSttProvider();
+const tts = createTtsProvider();
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
-const agent = new CosimoAgent(hub, personas);
+hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
+const agent = new CosimoAgent(hub, personas, tts);
 
 // Load personas from the CMS (best-effort; built-in defaults otherwise),
 // then re-resolve the active persona so its theme reaches connected clients.
@@ -40,6 +45,27 @@ void personas.refresh().then(() => hub.setPersona("default"));
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
+});
+
+// Voice utterances → server STT → agent (voice modality).
+hub.onVoice(async (v) => {
+  try {
+    const audio = Buffer.from(v.audioBase64, "base64");
+    const text = await stt.transcribe(audio, v.mime, v.lang);
+    if (!text) return;
+    hub.emitTranscript(v.sessionId, text, v.lang);
+    void agent.handleUserTurn({
+      sessionId: v.sessionId,
+      deviceId: v.deviceId,
+      text,
+      lang: v.lang,
+      persona: v.persona,
+      modality: "voice",
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[cosimo-realtime] voice STT failed:", err);
+  }
 });
 
 io.on("connection", (socket) => {

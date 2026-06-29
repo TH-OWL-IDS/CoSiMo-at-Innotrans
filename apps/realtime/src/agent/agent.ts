@@ -11,6 +11,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   type ExpressiveEmotion,
   type Locale,
+  type Modality,
   type PersonaKey,
   type Turn,
   type TurnAction,
@@ -22,6 +23,7 @@ import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
+import type { TtsProvider } from "../speech/tts.js";
 
 export interface AgentTurnInput {
   sessionId: string;
@@ -29,6 +31,8 @@ export interface AgentTurnInput {
   text: string;
   lang: Locale;
   persona: PersonaKey;
+  /** How this turn was entered (text or voice). */
+  modality: Modality;
 }
 
 export class CosimoAgent {
@@ -36,11 +40,13 @@ export class CosimoAgent {
   private readonly hub: Hub;
   private readonly telemetry = new TelemetryProvider();
   readonly personas: PersonaProvider;
+  private readonly tts: TtsProvider;
   readonly recorder = new SessionRecorder();
 
-  constructor(hub: Hub, personas: PersonaProvider) {
+  constructor(hub: Hub, personas: PersonaProvider, tts: TtsProvider) {
     this.hub = hub;
     this.personas = personas;
+    this.tts = tts;
     this.client = config.anthropic.apiKey
       ? new Anthropic({ apiKey: config.anthropic.apiKey })
       : null;
@@ -52,13 +58,13 @@ export class CosimoAgent {
    * loop, streams the reply, records the CoSiMo turn.
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
-    const { sessionId, deviceId, text, lang, persona } = input;
+    const { sessionId, deviceId, text, lang, persona, modality } = input;
     const startedAt = Date.now();
 
     this.recorder.start(sessionId, deviceId, persona, /* consent */ true);
     this.recorder.addTurn(sessionId, {
       role: "user",
-      modality: "text",
+      modality,
       lang,
       transcript: text,
       at: new Date().toISOString(),
@@ -71,7 +77,8 @@ export class CosimoAgent {
           ? "Ich bin gerade offline – die Verbindung fehlt. Bitte versuche es gleich noch einmal."
           : "I'm offline right now — no connection. Please try again in a moment.";
       this.emitFullReply(sessionId, offline);
-      this.recordCosimoTurn(sessionId, lang, offline, undefined, "neutral", startedAt, "offline_canned");
+      await this.speak(sessionId, offline, lang, persona);
+      this.recordCosimoTurn(sessionId, lang, offline, undefined, "neutral", startedAt, modality, "offline_canned");
       return;
     }
 
@@ -148,7 +155,25 @@ export class CosimoAgent {
     this.hub.emitPhase("idle", sessionId);
     this.hub.setEmotion(chosenEmotion);
 
-    this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, outcome);
+    await this.speak(sessionId, assistantText, lang, persona);
+    this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
+  }
+
+  /**
+   * Speak the reply via server TTS when available and the persona wants audio.
+   * When no server TTS is configured the client speaks locally (Web Speech), so
+   * this is a no-op. Never throws — speech is best-effort.
+   */
+  private async speak(sessionId: string, text: string, lang: Locale, persona: PersonaKey): Promise<void> {
+    if (!this.tts.available || !text.trim()) return;
+    if (!this.personas.get(persona).presentation.speakAloud) return;
+    try {
+      const audio = await this.tts.synthesize(text, lang);
+      if (audio) this.hub.emitTtsAudio(sessionId, audio.audioBase64, audio.mime);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[cosimo-agent] tts failed:", err);
+    }
   }
 
   /** Emit a complete reply as a single delta + done (offline / error paths). */
@@ -166,11 +191,12 @@ export class CosimoAgent {
     action: TurnAction | undefined,
     faceEmotion: ExpressiveEmotion,
     startedAt: number,
+    modality: Modality,
     outcome: Turn["outcome"],
   ): void {
     this.recorder.addTurn(sessionId, {
       role: "cosimo",
-      modality: "text",
+      modality,
       lang,
       transcript,
       action,

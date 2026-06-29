@@ -15,6 +15,7 @@ import {
   type ConnectionStatus,
   type FaceEmotion,
   type Locale,
+  type Modality,
   type MonoCabTelemetry,
   type PersonaBroadcast,
   type PersonaKey,
@@ -39,9 +40,22 @@ export interface IncomingChat {
   text: string;
   lang: Locale;
   persona: PersonaKey;
+  modality: Modality;
 }
 
 export type ChatHandler = (chat: IncomingChat) => void;
+
+/** A recorded voice utterance the hub hands off for server-side STT. */
+export interface IncomingVoice {
+  sessionId: string;
+  deviceId: string;
+  audioBase64: string;
+  mime: string;
+  lang: Locale;
+  persona: PersonaKey;
+}
+
+export type VoiceHandler = (voice: IncomingVoice) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
@@ -56,6 +70,7 @@ export class Hub {
   private readonly io: Server<ClientToServerEvents, ServerToClientEvents>;
   private readonly devices = new Map<string, { role: "kiosk" | "host" }>();
   private chatHandler: ChatHandler | undefined;
+  private voiceHandler: VoiceHandler | undefined;
   private lightDriver: LightDriver | undefined;
   private personaResolver: PersonaResolver | undefined;
 
@@ -73,6 +88,8 @@ export class Hub {
       light: false,
       network: true,
       offlineCanned: false,
+      serverStt: false,
+      serverTts: false,
     },
   };
 
@@ -83,6 +100,11 @@ export class Hub {
   /** Register the agent that handles incoming user turns. */
   onChat(handler: ChatHandler): void {
     this.chatHandler = handler;
+  }
+
+  /** Register the handler for recorded voice utterances (server STT). */
+  onVoice(handler: VoiceHandler): void {
+    this.voiceHandler = handler;
   }
 
   /** Attach the hardware light driver and reflect its kind in the status. */
@@ -109,10 +131,32 @@ export class Hub {
       socket.emit("status:update", this.state.status);
     });
 
-    // Text-fallback message → hand to the agent with device + active persona.
-    socket.on("chat:send", ({ sessionId, text, lang }) => {
+    // Text or browser-transcribed message → hand to the agent.
+    socket.on("chat:send", ({ sessionId, text, lang, modality }) => {
       const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
-      this.chatHandler?.({ sessionId, deviceId, text, lang, persona: this.state.persona.persona });
+      this.chatHandler?.({
+        sessionId, deviceId, text, lang,
+        persona: this.state.persona.persona,
+        modality: modality ?? "text",
+      });
+    });
+
+    // Push-to-talk → reflect listening on the Face/phase while capturing.
+    socket.on("ptt:start", ({ sessionId }) => {
+      this.emitPhase("listening", sessionId);
+      this.setEmotion("listening");
+    });
+    socket.on("ptt:stop", ({ sessionId }) => {
+      this.emitPhase("idle", sessionId);
+    });
+
+    // Recorded utterance → server-side STT pipeline.
+    socket.on("voice:utterance", ({ sessionId, audioBase64, mime, lang }) => {
+      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      this.voiceHandler?.({
+        sessionId, deviceId, audioBase64, mime, lang,
+        persona: this.state.persona.persona,
+      });
     });
 
     // Host console actions.
@@ -163,6 +207,16 @@ export class Hub {
   /** Broadcast a telemetry snapshot to the on-screen displays. */
   emitTelemetry(telemetry: MonoCabTelemetry): void {
     this.io.emit("telemetry:update", telemetry);
+  }
+
+  /** Echo what CoSiMo heard from a voice utterance (server STT). */
+  emitTranscript(sessionId: string, text: string, lang: Locale): void {
+    this.io.emit("voice:transcript", { sessionId, text, lang });
+  }
+
+  /** Send synthesized speech for the clients to play (server TTS). */
+  emitTtsAudio(sessionId: string, audioBase64: string, mime: string): void {
+    this.io.emit("tts:audio", { sessionId, audioBase64, mime });
   }
 
   /**
