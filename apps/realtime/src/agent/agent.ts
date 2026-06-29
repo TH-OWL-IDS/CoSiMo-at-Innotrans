@@ -18,6 +18,7 @@ import {
 import { config } from "../config.js";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
+import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
@@ -34,10 +35,12 @@ export class CosimoAgent {
   private readonly client: Anthropic | null;
   private readonly hub: Hub;
   private readonly telemetry = new TelemetryProvider();
+  readonly personas: PersonaProvider;
   readonly recorder = new SessionRecorder();
 
-  constructor(hub: Hub) {
+  constructor(hub: Hub, personas: PersonaProvider) {
     this.hub = hub;
+    this.personas = personas;
     this.client = config.anthropic.apiKey
       ? new Anthropic({ apiKey: config.anthropic.apiKey })
       : null;
@@ -76,7 +79,7 @@ export class CosimoAgent {
     this.hub.setEmotion("thinking");
 
     const messages: Anthropic.MessageParam[] = [{ role: "user", content: text }];
-    const system = buildSystemPrompt({ persona });
+    const system = buildSystemPrompt(this.personas.get(persona));
 
     let assistantText = "";
     let startedSpeaking = false;
