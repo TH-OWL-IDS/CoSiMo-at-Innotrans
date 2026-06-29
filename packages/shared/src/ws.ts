@@ -10,7 +10,7 @@
 import type { FaceEmotion } from "./emotion.js";
 import type { MonoCabTelemetry, Locale } from "./telemetry.js";
 import type { CabinControlState, CabinControlId } from "./cabin.js";
-import type { PersonaKey } from "./persona.js";
+import type { PersonaBroadcast, PersonaKey } from "./persona.js";
 
 /** High-level conversation phase, used to mask latency in the UI. */
 export type PipelinePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -36,8 +36,8 @@ export interface ServerToClientEvents {
   "cabin:state": (payload: { controls: CabinControlState[] }) => void;
   /** Telemetry snapshot for the on-screen display. */
   "telemetry:update": (payload: MonoCabTelemetry) => void;
-  /** Active persona changed (host console or auto). */
-  "persona:active": (payload: { persona: PersonaKey }) => void;
+  /** Active persona changed (host console or auto) — carries theme + a11y. */
+  "persona:active": (payload: PersonaBroadcast) => void;
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */

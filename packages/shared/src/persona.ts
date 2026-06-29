@@ -13,6 +13,14 @@ export type PersonaKey =
   | "wheelchair"
   | "text-first";
 
+/** Accessibility presentation toggles. */
+export interface PersonaPresentation {
+  highContrast: boolean;
+  largeText: boolean;
+  /** Speak responses aloud by default (TTS). */
+  speakAloud: boolean;
+}
+
 export interface Persona {
   key: PersonaKey;
   label: Record<Locale, string>;
@@ -26,11 +34,17 @@ export interface Persona {
   preferredModality: "voice" | "text" | "both";
   /** UI theme id (maps to an appearance scheme ported from CoSiMo-mockup). */
   themeId: string;
-  /** Accessibility presentation toggles. */
-  presentation: {
-    highContrast: boolean;
-    largeText: boolean;
-    /** Speak responses aloud by default (TTS). */
-    speakAloud: boolean;
-  };
+  presentation: PersonaPresentation;
+}
+
+/**
+ * The slice of a persona the clients need to present it — broadcast over the
+ * WebSocket when the active persona changes (the full Persona, incl. the
+ * system-prompt support style, stays server-side).
+ */
+export interface PersonaBroadcast {
+  persona: PersonaKey;
+  label: Record<Locale, string>;
+  themeId: string;
+  presentation: PersonaPresentation;
 }
