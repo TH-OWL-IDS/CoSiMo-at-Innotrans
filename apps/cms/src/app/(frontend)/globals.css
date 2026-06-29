@@ -25,3 +25,37 @@ body {
   -webkit-touch-callout: none;
   overscroll-behavior: none;
 }
+
+/* Ambient motion for the animated CoSiMo face (ported from CoSiMo-mockup). */
+@keyframes cosimo-blink {
+  0%,
+  91%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.06);
+  }
+  97% {
+    transform: scaleY(1);
+  }
+}
+@keyframes cosimo-talk {
+  from {
+    transform: scaleY(0.55);
+  }
+  to {
+    transform: scaleY(1.15);
+  }
+}
+.cosimo-blink,
+.cosimo-talk {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.cosimo-blink {
+  animation: cosimo-blink 4.6s ease-in-out infinite;
+}
+.cosimo-talk {
+  animation: cosimo-talk 0.28s ease-in-out infinite alternate;
+}
