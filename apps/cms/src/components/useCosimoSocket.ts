@@ -9,6 +9,8 @@ import type {
   FaceEmotion,
   Locale,
   MonoCabTelemetry,
+  PersonaBroadcast,
+  PersonaKey,
   PipelinePhase,
   ServerToClientEvents,
 } from "@cosimo/shared";
@@ -27,8 +29,12 @@ export interface CosimoState {
   status: ConnectionStatus | null;
   /** Live cabin-control state, kept in sync across all iPads. */
   cabin: CabinControlState[];
+  /** The active persona (theme + presentation), or null before first sync. */
+  persona: PersonaBroadcast | null;
   /** Send a text-fallback message to CoSiMo. */
   send: (text: string, lang: Locale) => void;
+  /** Switch the active persona (host action). */
+  setPersona: (key: PersonaKey) => void;
 }
 
 /** A stable session id for this kiosk tab/visit. */
@@ -55,6 +61,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
   const [telemetry, setTelemetry] = useState<MonoCabTelemetry | null>(null);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [cabin, setCabin] = useState<CabinControlState[]>([]);
+  const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
 
   useEffect(() => {
     const socket: CosimoSocket = io(realtimeUrl, { transports: ["websocket"] });
@@ -71,6 +78,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
     socket.on("telemetry:update", (t) => setTelemetry(t));
     socket.on("status:update", (s) => setStatus(s));
     socket.on("cabin:state", ({ controls }) => setCabin(controls));
+    socket.on("persona:active", (p) => setPersonaState(p));
 
     socket.on("chat:delta", ({ text, done }) => {
       if (done) {
@@ -95,5 +103,12 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
     socket.emit("chat:send", { sessionId: sessionRef.current, text, lang });
   };
 
-  return { connected, emotion, phase, reply, replying, telemetry, status, cabin, send };
+  const setPersona = (key: PersonaKey) => {
+    sockRef.current?.emit("host:setPersona", { persona: key });
+  };
+
+  return {
+    connected, emotion, phase, reply, replying,
+    telemetry, status, cabin, persona, send, setPersona,
+  };
 }

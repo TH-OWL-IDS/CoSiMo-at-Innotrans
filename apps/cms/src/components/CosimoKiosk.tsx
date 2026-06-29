@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { Locale, PipelinePhase } from "@cosimo/shared";
+import type { Locale, PersonaKey, PipelinePhase } from "@cosimo/shared";
 import CosimoFaceAnimated from "./CosimoFaceAnimated";
 import CabinPanel from "./CabinPanel";
+import { schemeById } from "../appearance/schemes";
 import { useCosimoSocket } from "./useCosimoSocket";
+
+/** Persona options for the switcher (full set lives in the CMS / host console). */
+const PERSONA_OPTIONS: { key: PersonaKey; de: string; en: string }[] = [
+  { key: "default", de: "Standard", en: "Default" },
+  { key: "eyes-free", de: "Ohne Sicht", en: "Eyes-free" },
+  { key: "wheelchair", de: "Rollstuhl", en: "Wheelchair" },
+  { key: "text-first", de: "Text", en: "Text-first" },
+];
 
 const PHASE_LABEL: Record<PipelinePhase, Record<Locale, string>> = {
   idle: { de: "Bereit", en: "Ready" },
@@ -35,6 +44,11 @@ export default function CosimoKiosk() {
     setDraft("");
   };
 
+  // Persona drives the theme + accessible presentation, live.
+  const scheme = schemeById(cosimo.persona?.themeId ?? "classic");
+  const largeText = cosimo.persona?.presentation.largeText ?? false;
+  const activeKey = cosimo.persona?.persona ?? "default";
+
   return (
     <main
       style={{
@@ -46,11 +60,44 @@ export default function CosimoKiosk() {
         gap: "1.5rem",
         padding: "2rem",
         textAlign: "center",
+        background: scheme.bg,
+        color: scheme.ink,
+        fontSize: largeText ? "1.2rem" : "1rem",
+        transition: "background 300ms, color 300ms",
+        // CSS vars consumed by the Face (currentColor) and inputs.
+        ["--bg" as string]: scheme.bg,
+        ["--ink" as string]: scheme.ink,
       }}
     >
       <div style={{ position: "fixed", top: 12, right: 16, fontSize: 12, opacity: 0.5 }}>
         {cosimo.connected ? "● live" : "○ offline"}
         {cosimo.status && !cosimo.status.llm ? " · no LLM key" : ""}
+      </div>
+
+      {/* Persona switcher (seed of the host console — Phase 7). */}
+      <div style={{ position: "fixed", top: 10, left: 12, display: "flex", gap: 6 }}>
+        {PERSONA_OPTIONS.map((o) => {
+          const active = o.key === activeKey;
+          return (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => cosimo.setPersona(o.key)}
+              style={{
+                padding: "4px 10px",
+                fontSize: 12,
+                borderRadius: 999,
+                cursor: "pointer",
+                border: "1px solid currentColor",
+                background: active ? scheme.ink : "transparent",
+                color: active ? scheme.bg : "inherit",
+                opacity: active ? 1 : 0.6,
+              }}
+            >
+              {lang === "de" ? o.de : o.en}
+            </button>
+          );
+        })}
       </div>
 
       <CosimoFaceAnimated
