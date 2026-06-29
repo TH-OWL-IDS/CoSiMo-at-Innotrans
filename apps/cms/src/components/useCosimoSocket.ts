@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
+  CabinControlState,
   ClientToServerEvents,
   ConnectionStatus,
   FaceEmotion,
@@ -24,6 +25,8 @@ export interface CosimoState {
   replying: boolean;
   telemetry: MonoCabTelemetry | null;
   status: ConnectionStatus | null;
+  /** Live cabin-control state, kept in sync across all iPads. */
+  cabin: CabinControlState[];
   /** Send a text-fallback message to CoSiMo. */
   send: (text: string, lang: Locale) => void;
 }
@@ -51,6 +54,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
   const [replying, setReplying] = useState(false);
   const [telemetry, setTelemetry] = useState<MonoCabTelemetry | null>(null);
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  const [cabin, setCabin] = useState<CabinControlState[]>([]);
 
   useEffect(() => {
     const socket: CosimoSocket = io(realtimeUrl, { transports: ["websocket"] });
@@ -66,6 +70,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
     socket.on("pipeline:phase", ({ phase }) => setPhase(phase));
     socket.on("telemetry:update", (t) => setTelemetry(t));
     socket.on("status:update", (s) => setStatus(s));
+    socket.on("cabin:state", ({ controls }) => setCabin(controls));
 
     socket.on("chat:delta", ({ text, done }) => {
       if (done) {
@@ -90,5 +95,5 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
     socket.emit("chat:send", { sessionId: sessionRef.current, text, lang });
   };
 
-  return { connected, emotion, phase, reply, replying, telemetry, status, send };
+  return { connected, emotion, phase, reply, replying, telemetry, status, cabin, send };
 }

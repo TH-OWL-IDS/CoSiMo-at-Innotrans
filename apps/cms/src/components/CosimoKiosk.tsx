@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import CosimoFaceAnimated from "./CosimoFaceAnimated";
+import CabinPanel from "./CabinPanel";
 import { useCosimoSocket } from "./useCosimoSocket";
 
 const PHASE_LABEL: Record<PipelinePhase, Record<Locale, string>> = {
@@ -73,6 +74,8 @@ export default function CosimoKiosk() {
         {cosimo.reply}
         {cosimo.replying ? " ▍" : ""}
       </p>
+
+      <CabinPanel cabin={cosimo.cabin} lang={lang} />
 
       <form onSubmit={submit} style={{ display: "flex", gap: 8, width: "min(90vw, 36rem)" }}>
         <button
