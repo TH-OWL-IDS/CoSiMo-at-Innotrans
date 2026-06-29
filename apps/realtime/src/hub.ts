@@ -41,6 +41,7 @@ export interface IncomingChat {
   lang: Locale;
   persona: PersonaKey;
   modality: Modality;
+  consent: boolean;
 }
 
 export type ChatHandler = (chat: IncomingChat) => void;
@@ -53,6 +54,7 @@ export interface IncomingVoice {
   mime: string;
   lang: Locale;
   persona: PersonaKey;
+  consent: boolean;
 }
 
 export type VoiceHandler = (voice: IncomingVoice) => void;
@@ -73,6 +75,8 @@ export class Hub {
   private voiceHandler: VoiceHandler | undefined;
   private lightDriver: LightDriver | undefined;
   private personaResolver: PersonaResolver | undefined;
+  private lastTelemetry: MonoCabTelemetry | undefined;
+  private readonly consentBySession = new Map<string, boolean>();
 
   private state: HubState = {
     emotion: "sleeping",
@@ -129,6 +133,12 @@ export class Hub {
       socket.emit("persona:active", this.state.persona);
       socket.emit("cabin:state", { controls: this.state.controls });
       socket.emit("status:update", this.state.status);
+      if (this.lastTelemetry) socket.emit("telemetry:update", this.lastTelemetry);
+    });
+
+    // Visitor consent for recording (GDPR) — gates how the session is stored.
+    socket.on("consent:set", ({ sessionId, consent }) => {
+      this.consentBySession.set(sessionId, consent);
     });
 
     // Text or browser-transcribed message → hand to the agent.
@@ -138,6 +148,7 @@ export class Hub {
         sessionId, deviceId, text, lang,
         persona: this.state.persona.persona,
         modality: modality ?? "text",
+        consent: this.consentBySession.get(sessionId) ?? false,
       });
     });
 
@@ -156,6 +167,7 @@ export class Hub {
       this.voiceHandler?.({
         sessionId, deviceId, audioBase64, mime, lang,
         persona: this.state.persona.persona,
+        consent: this.consentBySession.get(sessionId) ?? false,
       });
     });
 
@@ -204,8 +216,9 @@ export class Hub {
     this.io.emit("chat:delta", { sessionId, text, done });
   }
 
-  /** Broadcast a telemetry snapshot to the on-screen displays. */
+  /** Broadcast a telemetry snapshot to the on-screen displays (and cache it). */
   emitTelemetry(telemetry: MonoCabTelemetry): void {
+    this.lastTelemetry = telemetry;
     this.io.emit("telemetry:update", telemetry);
   }
 

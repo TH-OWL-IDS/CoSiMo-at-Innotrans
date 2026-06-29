@@ -33,20 +33,23 @@ export interface AgentTurnInput {
   persona: PersonaKey;
   /** How this turn was entered (text or voice). */
   modality: Modality;
+  /** Whether the visitor consented to recording (GDPR). */
+  consent: boolean;
 }
 
 export class CosimoAgent {
   private readonly client: Anthropic | null;
   private readonly hub: Hub;
-  private readonly telemetry = new TelemetryProvider();
+  private readonly telemetry: TelemetryProvider;
   readonly personas: PersonaProvider;
   private readonly tts: TtsProvider;
   readonly recorder = new SessionRecorder();
 
-  constructor(hub: Hub, personas: PersonaProvider, tts: TtsProvider) {
+  constructor(hub: Hub, personas: PersonaProvider, tts: TtsProvider, telemetry: TelemetryProvider) {
     this.hub = hub;
     this.personas = personas;
     this.tts = tts;
+    this.telemetry = telemetry;
     this.client = config.anthropic.apiKey
       ? new Anthropic({ apiKey: config.anthropic.apiKey })
       : null;
@@ -58,10 +61,10 @@ export class CosimoAgent {
    * loop, streams the reply, records the CoSiMo turn.
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
-    const { sessionId, deviceId, text, lang, persona, modality } = input;
+    const { sessionId, deviceId, text, lang, persona, modality, consent } = input;
     const startedAt = Date.now();
 
-    this.recorder.start(sessionId, deviceId, persona, /* consent */ true);
+    this.recorder.start(sessionId, deviceId, persona, consent);
     this.recorder.addTurn(sessionId, {
       role: "user",
       modality,

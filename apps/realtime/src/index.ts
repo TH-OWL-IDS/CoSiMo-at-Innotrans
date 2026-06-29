@@ -18,6 +18,7 @@ import { config } from "./config.js";
 import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
 import { PersonaProvider } from "./agent/personas.js";
+import { TelemetryProvider } from "./agent/telemetry.js";
 import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
@@ -30,17 +31,25 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 const personas = new PersonaProvider();
+const telemetry = new TelemetryProvider();
 const stt = createSttProvider();
 const tts = createTtsProvider();
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
-const agent = new CosimoAgent(hub, personas, tts);
+const agent = new CosimoAgent(hub, personas, tts, telemetry);
 
 // Load personas from the CMS (best-effort; built-in defaults otherwise),
 // then re-resolve the active persona so its theme reaches connected clients.
 void personas.refresh().then(() => hub.setPersona("default"));
+
+// Keep an always-on telemetry display: refresh from the CMS and broadcast.
+async function broadcastTelemetry(): Promise<void> {
+  hub.emitTelemetry(await telemetry.refresh());
+}
+void broadcastTelemetry();
+setInterval(() => void broadcastTelemetry(), 5000);
 
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
@@ -61,6 +70,7 @@ hub.onVoice(async (v) => {
       lang: v.lang,
       persona: v.persona,
       modality: "voice",
+      consent: v.consent,
     });
   } catch (err) {
     // eslint-disable-next-line no-console
