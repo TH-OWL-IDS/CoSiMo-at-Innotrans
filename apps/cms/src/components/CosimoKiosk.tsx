@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale, PersonaKey, PipelinePhase } from "@cosimo/shared";
 import CosimoFaceAnimated from "./CosimoFaceAnimated";
 import CabinPanel from "./CabinPanel";
+import PushToTalk from "./PushToTalk";
 import { schemeById } from "../appearance/schemes";
 import { useCosimoSocket } from "./useCosimoSocket";
 
@@ -47,7 +48,24 @@ export default function CosimoKiosk() {
   // Persona drives the theme + accessible presentation, live.
   const scheme = schemeById(cosimo.persona?.themeId ?? "classic");
   const largeText = cosimo.persona?.presentation.largeText ?? false;
+  const speakAloud = cosimo.persona?.presentation.speakAloud ?? true;
   const activeKey = cosimo.persona?.persona ?? "default";
+  const serverStt = cosimo.status?.serverStt ?? false;
+  const serverTts = cosimo.status?.serverTts ?? false;
+
+  // Browser TTS: when there is no server TTS, speak the reply once it finishes.
+  const spokenRef = useRef("");
+  useEffect(() => {
+    if (serverTts || !speakAloud || cosimo.replying) return;
+    const text = cosimo.reply.trim();
+    if (!text || text === spokenRef.current) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    spokenRef.current = text;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang === "de" ? "de-DE" : "en-US";
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }, [cosimo.replying, cosimo.reply, serverTts, speakAloud, lang]);
 
   return (
     <main
@@ -123,6 +141,26 @@ export default function CosimoKiosk() {
       </p>
 
       <CabinPanel cabin={cosimo.cabin} lang={lang} />
+
+      {cosimo.heard && (
+        <div style={{ fontSize: 13, opacity: 0.5, fontStyle: "italic" }}>
+          {lang === "de" ? "Gehört" : "Heard"}: “{cosimo.heard}”
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <PushToTalk
+          serverStt={serverStt}
+          lang={lang}
+          onStart={cosimo.pttStart}
+          onStop={cosimo.pttStop}
+          onUtterance={cosimo.sendUtterance}
+          onTranscript={(t, l) => cosimo.send(t, l, "voice")}
+        />
+        <span style={{ fontSize: 12, opacity: 0.5 }}>
+          {lang === "de" ? "halten & sprechen" : "hold & talk"}
+        </span>
+      </div>
 
       <form onSubmit={submit} style={{ display: "flex", gap: 8, width: "min(90vw, 36rem)" }}>
         <button
