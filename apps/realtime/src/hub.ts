@@ -16,10 +16,21 @@ import {
   type FaceEmotion,
   type Locale,
   type MonoCabTelemetry,
+  type PersonaBroadcast,
   type PersonaKey,
   type PipelinePhase,
   type ServerToClientEvents,
 } from "@cosimo/shared";
+
+/** Resolves a persona key to its client-facing broadcast slice. */
+export type PersonaResolver = (key: PersonaKey) => PersonaBroadcast;
+
+const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
+  persona: "default",
+  label: { de: "Standard", en: "Default" },
+  themeId: "classic",
+  presentation: { highContrast: false, largeText: false, speakAloud: true },
+};
 
 /** A user turn the hub hands off to the agent. */
 export interface IncomingChat {
@@ -36,7 +47,7 @@ type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 interface HubState {
   emotion: FaceEmotion;
-  persona: PersonaKey;
+  persona: PersonaBroadcast;
   controls: CabinControlState[];
   status: ConnectionStatus;
 }
@@ -46,10 +57,11 @@ export class Hub {
   private readonly devices = new Map<string, { role: "kiosk" | "host" }>();
   private chatHandler: ChatHandler | undefined;
   private lightDriver: LightDriver | undefined;
+  private personaResolver: PersonaResolver | undefined;
 
   private state: HubState = {
     emotion: "sleeping",
-    persona: "default",
+    persona: DEFAULT_PERSONA_BROADCAST,
     controls: CABIN_CONTROLS.map((c) => ({
       id: c.id,
       on: c.kind === "toggle" ? false : undefined,
@@ -79,13 +91,20 @@ export class Hub {
     this.setStatus({ light: true });
   }
 
+  /** Register how persona keys resolve to client-facing broadcasts. */
+  setPersonaResolver(resolver: PersonaResolver): void {
+    this.personaResolver = resolver;
+    // Re-resolve the current persona now that we can.
+    this.setPersona(this.state.persona.persona);
+  }
+
   register(socket: Sock): void {
     socket.on("hello", ({ deviceId, role }) => {
       this.devices.set(deviceId, { role });
       socket.data.deviceId = deviceId;
       // Snapshot current state to the freshly-connected client.
       socket.emit("face:emotion", { emotion: this.state.emotion, since: this.now() });
-      socket.emit("persona:active", { persona: this.state.persona });
+      socket.emit("persona:active", this.state.persona);
       socket.emit("cabin:state", { controls: this.state.controls });
       socket.emit("status:update", this.state.status);
     });
@@ -93,7 +112,7 @@ export class Hub {
     // Text-fallback message → hand to the agent with device + active persona.
     socket.on("chat:send", ({ sessionId, text, lang }) => {
       const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
-      this.chatHandler?.({ sessionId, deviceId, text, lang, persona: this.state.persona });
+      this.chatHandler?.({ sessionId, deviceId, text, lang, persona: this.state.persona.persona });
     });
 
     // Host console actions.
@@ -118,9 +137,12 @@ export class Hub {
     this.io.emit("face:emotion", { emotion, since: this.now() });
   }
 
+  /** Switch the active persona (resolved to its broadcast) and notify clients. */
   setPersona(persona: PersonaKey): void {
-    this.state.persona = persona;
-    this.io.emit("persona:active", { persona });
+    this.state.persona = this.personaResolver
+      ? this.personaResolver(persona)
+      : { ...DEFAULT_PERSONA_BROADCAST, persona };
+    this.io.emit("persona:active", this.state.persona);
   }
 
   setStatus(patch: Partial<ConnectionStatus>): void {

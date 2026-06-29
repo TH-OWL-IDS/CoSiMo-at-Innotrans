@@ -17,6 +17,7 @@ import type {
 import { config } from "./config.js";
 import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
+import { PersonaProvider } from "./agent/personas.js";
 import { createLightDriver } from "./cabin/driver.js";
 
 const app = express();
@@ -26,9 +27,15 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
   cors: { origin: config.corsOrigins, methods: ["GET", "POST"] },
 });
 
+const personas = new PersonaProvider();
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
-const agent = new CosimoAgent(hub);
+hub.setPersonaResolver((key) => personas.toBroadcast(key));
+const agent = new CosimoAgent(hub, personas);
+
+// Load personas from the CMS (best-effort; built-in defaults otherwise),
+// then re-resolve the active persona so its theme reaches connected clients.
+void personas.refresh().then(() => hub.setPersona("default"));
 
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
