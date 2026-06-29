@@ -17,8 +17,10 @@ export const config = {
     apiKey: process.env.PAYLOAD_API_KEY ?? "",
   },
   speech: {
-    sttProvider: process.env.STT_PROVIDER ?? "mock",
-    ttsProvider: process.env.TTS_PROVIDER ?? "mock",
+    deepgramApiKey: process.env.DEEPGRAM_API_KEY ?? "",
+    deepgramModel: process.env.DEEPGRAM_MODEL ?? "nova-2",
+    elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
+    elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID ?? "",
   },
   light: {
     driver: (process.env.LIGHT_DRIVER ?? "fake") as "fake" | "shelly",

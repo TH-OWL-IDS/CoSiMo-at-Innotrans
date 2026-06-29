@@ -11,6 +11,7 @@ import type { FaceEmotion } from "./emotion.js";
 import type { MonoCabTelemetry, Locale } from "./telemetry.js";
 import type { CabinControlState, CabinControlId } from "./cabin.js";
 import type { PersonaBroadcast, PersonaKey } from "./persona.js";
+import type { Modality } from "./session.js";
 
 /** High-level conversation phase, used to mask latency in the UI. */
 export type PipelinePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -22,6 +23,10 @@ export interface ConnectionStatus {
   network: boolean;
   /** True when serving the scripted offline demo. */
   offlineCanned: boolean;
+  /** Server-side STT available → clients upload audio instead of using Web Speech. */
+  serverStt: boolean;
+  /** Server-side TTS available → clients play tts:audio instead of Web Speech. */
+  serverTts: boolean;
 }
 
 /** Events the server pushes to clients. */
@@ -38,6 +43,10 @@ export interface ServerToClientEvents {
   "telemetry:update": (payload: MonoCabTelemetry) => void;
   /** Active persona changed (host console or auto) — carries theme + a11y. */
   "persona:active": (payload: PersonaBroadcast) => void;
+  /** What CoSiMo heard from a voice utterance (server STT), echoed for display. */
+  "voice:transcript": (payload: { sessionId: string; text: string; lang: Locale }) => void;
+  /** Synthesized speech to play (server TTS). When absent, clients speak locally. */
+  "tts:audio": (payload: { sessionId: string; audioBase64: string; mime: string }) => void;
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */
@@ -48,11 +57,23 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
   hello: (payload: { deviceId: string; role: "kiosk" | "host" }) => void;
-  /** Push-to-talk pressed/released (Phase 4 wires audio capture to this). */
+  /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;
-  /** Text-fallback message. */
-  "chat:send": (payload: { sessionId: string; text: string; lang: Locale }) => void;
+  /** A recorded voice utterance for server-side STT (when serverStt is on). */
+  "voice:utterance": (payload: {
+    sessionId: string;
+    audioBase64: string;
+    mime: string;
+    lang: Locale;
+  }) => void;
+  /** Text or browser-transcribed message. `modality` marks how it originated. */
+  "chat:send": (payload: {
+    sessionId: string;
+    text: string;
+    lang: Locale;
+    modality?: Modality;
+  }) => void;
   /** Visitor consent decision for recording. */
   "consent:set": (payload: { sessionId: string; consent: boolean }) => void;
 
