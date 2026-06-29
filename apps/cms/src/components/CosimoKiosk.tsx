@@ -5,6 +5,8 @@ import type { Locale, PersonaKey, PipelinePhase } from "@cosimo/shared";
 import CosimoFaceAnimated from "./CosimoFaceAnimated";
 import CabinPanel from "./CabinPanel";
 import PushToTalk from "./PushToTalk";
+import TelemetryStrip from "./TelemetryStrip";
+import ConsentOverlay from "./ConsentOverlay";
 import { schemeById } from "../appearance/schemes";
 import { useCosimoSocket } from "./useCosimoSocket";
 
@@ -36,6 +38,12 @@ export default function CosimoKiosk() {
   const cosimo = useCosimoSocket(REALTIME_URL);
   const [lang, setLang] = useState<Locale>("de");
   const [draft, setDraft] = useState("");
+  const [consentDecided, setConsentDecided] = useState(false);
+
+  const decideConsent = (consent: boolean) => {
+    cosimo.setConsent(consent);
+    setConsentDecided(true);
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,10 +95,31 @@ export default function CosimoKiosk() {
         ["--ink" as string]: scheme.ink,
       }}
     >
+      {!consentDecided && (
+        <ConsentOverlay
+          lang={lang}
+          onDecide={decideConsent}
+          onToggleLang={() => setLang((l) => (l === "de" ? "en" : "de"))}
+        />
+      )}
+
+      {/* Reconnect banner — socket.io retries automatically. */}
+      {!cosimo.connected && (
+        <div
+          role="status"
+          style={{ position: "fixed", top: 0, left: 0, right: 0, padding: "6px", textAlign: "center", fontSize: 13, background: scheme.ink, color: scheme.bg, zIndex: 40 }}
+        >
+          {lang === "de" ? "Verbindung wird wiederhergestellt …" : "Reconnecting …"}
+        </div>
+      )}
+
       <div style={{ position: "fixed", top: 12, right: 16, fontSize: 12, opacity: 0.5 }}>
         {cosimo.connected ? "● live" : "○ offline"}
-        {cosimo.status && !cosimo.status.llm ? " · no LLM key" : ""}
+        {cosimo.status?.offlineCanned ? (lang === "de" ? " · Demo-Modus" : " · demo mode") : ""}
+        {cosimo.status && !cosimo.status.llm ? (lang === "de" ? " · kein KI-Schlüssel" : " · no LLM key") : ""}
       </div>
+
+      <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
 
       {/* Persona switcher (seed of the host console — Phase 7). */}
       <div style={{ position: "fixed", top: 10, left: 12, display: "flex", gap: 6 }}>
@@ -123,11 +152,18 @@ export default function CosimoKiosk() {
         style={{ width: "min(60vw, 360px)", height: "auto", color: "var(--ink)" }}
       />
 
-      <div style={{ fontSize: 14, letterSpacing: 1, textTransform: "uppercase", opacity: 0.55 }}>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ fontSize: 14, letterSpacing: 1, textTransform: "uppercase", opacity: 0.55 }}
+      >
         {PHASE_LABEL[cosimo.phase][lang]}
       </div>
 
       <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
         style={{
           minHeight: "3.5rem",
           maxWidth: "40rem",

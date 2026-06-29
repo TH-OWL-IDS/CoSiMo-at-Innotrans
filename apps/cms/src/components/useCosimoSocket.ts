@@ -38,6 +38,8 @@ export interface CosimoState {
   send: (text: string, lang: Locale, modality?: Modality) => void;
   /** Switch the active persona (host action). */
   setPersona: (key: PersonaKey) => void;
+  /** Record the visitor's GDPR consent decision for this session. */
+  setConsent: (consent: boolean) => void;
   /** Push-to-talk lifecycle (drives the listening Face). */
   pttStart: () => void;
   pttStop: () => void;
@@ -127,6 +129,10 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
     sockRef.current?.emit("host:setPersona", { persona: key });
   };
 
+  const setConsent = (consent: boolean) => {
+    sockRef.current?.emit("consent:set", { sessionId: sessionRef.current, consent });
+  };
+
   const pttStart = () =>
     sockRef.current?.emit("ptt:start", { sessionId: sessionRef.current });
   const pttStop = () =>
@@ -146,7 +152,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
   return {
     connected, emotion, phase, reply, replying,
     telemetry, status, cabin, persona, heard,
-    send, setPersona, pttStart, pttStop, sendUtterance,
+    send, setPersona, setConsent, pttStart, pttStop, sendUtterance,
     sessionId: sessionRef.current,
   };
 }
