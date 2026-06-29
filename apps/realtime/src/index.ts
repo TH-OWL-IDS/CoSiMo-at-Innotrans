@@ -16,6 +16,7 @@ import type {
 } from "@cosimo/shared";
 import { config } from "./config.js";
 import { Hub } from "./hub.js";
+import { CosimoAgent } from "./agent/agent.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -25,6 +26,12 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 const hub = new Hub(io);
+const agent = new CosimoAgent(hub);
+
+// Route incoming user turns through the agent loop.
+hub.onChat((chat) => {
+  void agent.handleUserTurn(chat);
+});
 
 io.on("connection", (socket) => {
   hub.register(socket);
