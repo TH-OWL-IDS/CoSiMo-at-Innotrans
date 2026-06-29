@@ -100,7 +100,7 @@ export async function executeTool(
       const change: { on?: boolean; level?: number } = {};
       if (typeof input.on === "boolean") change.on = input.on;
       if (typeof input.level === "number") change.level = input.level;
-      const state = ctx.hub.applyCabinControl(control, change);
+      const state = await ctx.hub.applyCabinControl(control, change);
       return {
         text: `ok: ${control} is now ${JSON.stringify({ on: state.on, level: state.level })}`,
         action: { tool: name, control, args: change },

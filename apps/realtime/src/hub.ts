@@ -6,6 +6,7 @@
  */
 
 import type { Server, Socket } from "socket.io";
+import type { LightDriver } from "./cabin/driver.js";
 import {
   CABIN_CONTROLS,
   type CabinControlId,
@@ -44,6 +45,7 @@ export class Hub {
   private readonly io: Server<ClientToServerEvents, ServerToClientEvents>;
   private readonly devices = new Map<string, { role: "kiosk" | "host" }>();
   private chatHandler: ChatHandler | undefined;
+  private lightDriver: LightDriver | undefined;
 
   private state: HubState = {
     emotion: "sleeping",
@@ -71,6 +73,12 @@ export class Hub {
     this.chatHandler = handler;
   }
 
+  /** Attach the hardware light driver and reflect its kind in the status. */
+  attachLightDriver(driver: LightDriver): void {
+    this.lightDriver = driver;
+    this.setStatus({ light: true });
+  }
+
   register(socket: Sock): void {
     socket.on("hello", ({ deviceId, role }) => {
       this.devices.set(deviceId, { role });
@@ -88,8 +96,11 @@ export class Hub {
       this.chatHandler?.({ sessionId, deviceId, text, lang, persona: this.state.persona });
     });
 
-    // Host console actions (light/persona/etc. handled fully in later phases).
+    // Host console actions.
     socket.on("host:setPersona", ({ persona }) => this.setPersona(persona));
+    socket.on("host:overrideLight", ({ control, on }) => {
+      void this.applyCabinControl(control, { on });
+    });
     socket.on("host:resetSession", ({ deviceId }) =>
       this.io.emit("session:reset", { deviceId }),
     );
@@ -134,15 +145,32 @@ export class Hub {
 
   /**
    * Apply a cabin-control change and broadcast the new state to every iPad.
-   * Phase 0/1 uses an in-memory (fake) state; Phase 2 swaps in the Shelly
-   * driver for the real `interior-light` control.
+   * The real `interior-light` is driven through the hardware LightDriver; the
+   * others are simulated in memory. If the real device is unreachable we mark
+   * the control `degraded`, keep showing last-known intent, and flag the light
+   * status — the demo never breaks on a hardware hiccup.
    */
-  applyCabinControl(
+  async applyCabinControl(
     control: CabinControlId,
     change: { on?: boolean; level?: number },
-  ): CabinControlState {
+  ): Promise<CabinControlState> {
     const entry = this.state.controls.find((c) => c.id === control);
     if (!entry) throw new Error(`unknown cabin control: ${control}`);
+    const def = CABIN_CONTROLS.find((c) => c.id === control);
+
+    if (def?.real && change.on !== undefined && this.lightDriver) {
+      try {
+        await this.lightDriver.setOn(change.on);
+        entry.degraded = false;
+        if (!this.state.status.light) this.setStatus({ light: true });
+      } catch (err) {
+        entry.degraded = true;
+        this.setStatus({ light: false });
+        // eslint-disable-next-line no-console
+        console.error(`[hub] light driver failed for ${control}:`, err);
+      }
+    }
+
     if (change.on !== undefined) entry.on = change.on;
     if (change.level !== undefined) entry.level = change.level;
     this.io.emit("cabin:state", { controls: this.state.controls });

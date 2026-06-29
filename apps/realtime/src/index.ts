@@ -17,6 +17,7 @@ import type {
 import { config } from "./config.js";
 import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
+import { createLightDriver } from "./cabin/driver.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,6 +27,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 const hub = new Hub(io);
+hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 const agent = new CosimoAgent(hub);
 
 // Route incoming user turns through the agent loop.
