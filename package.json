@@ -1,0 +1,19 @@
+{
+  "name": "cosimo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CoSiMo — agentic AI for inclusive mobility. InnoTrans 2026 showcase.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "up": "docker compose up --build",
+    "up:d": "docker compose up --build -d",
+    "down": "docker compose down"
+  }
+}
