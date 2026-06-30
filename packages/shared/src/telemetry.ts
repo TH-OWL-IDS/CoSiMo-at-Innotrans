@@ -38,3 +38,11 @@ export interface MonoCabTelemetry {
   /** Free-form extras the author can attach (accessibility notes, etc.). */
   notes?: Record<Locale, string>;
 }
+
+/** Live telemetry overrides the host can force from the operator console. */
+export interface HostTelemetryPatch {
+  speedKmh?: number;
+  doorsOpen?: boolean;
+  batteryPct?: number;
+  occupancy?: number;
+}

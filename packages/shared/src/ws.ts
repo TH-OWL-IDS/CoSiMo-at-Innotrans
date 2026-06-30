@@ -8,10 +8,16 @@
  */
 
 import type { FaceEmotion } from "./emotion.js";
-import type { MonoCabTelemetry, Locale } from "./telemetry.js";
+import type { MonoCabTelemetry, HostTelemetryPatch, Locale } from "./telemetry.js";
 import type { CabinControlState, CabinControlId } from "./cabin.js";
 import type { PersonaBroadcast, PersonaKey } from "./persona.js";
 import type { Modality } from "./session.js";
+
+/** A device connected to the realtime hub (for the operator console). */
+export interface ConnectedDevice {
+  deviceId: string;
+  role: "kiosk" | "host";
+}
 
 /** High-level conversation phase, used to mask latency in the UI. */
 export type PipelinePhase = "idle" | "listening" | "thinking" | "speaking";
@@ -51,6 +57,8 @@ export interface ServerToClientEvents {
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */
   "session:reset": (payload: { deviceId: string }) => void;
+  /** Currently connected devices (for the operator console). */
+  "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
 }
 
 /** Events clients send to the server. */
@@ -82,4 +90,8 @@ export interface ClientToServerEvents {
   "host:overrideLight": (payload: { control: CabinControlId; on: boolean }) => void;
   "host:resetSession": (payload: { deviceId: string }) => void;
   "host:toggleOffline": (payload: { offline: boolean }) => void;
+  /** Force a live telemetry change (open doors, halt, …) for the demo. */
+  "host:patchTelemetry": (payload: HostTelemetryPatch) => void;
+  /** Recover a stuck conversation: settle phase to idle and the Face to neutral. */
+  "host:recover": (payload: Record<string, never>) => void;
 }

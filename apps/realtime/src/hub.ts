@@ -12,6 +12,7 @@ import {
   type CabinControlId,
   type CabinControlState,
   type ClientToServerEvents,
+  type ConnectedDevice,
   type ConnectionStatus,
   type FaceEmotion,
   type Locale,
@@ -128,6 +129,7 @@ export class Hub {
     socket.on("hello", ({ deviceId, role }) => {
       this.devices.set(deviceId, { role });
       socket.data.deviceId = deviceId;
+      this.broadcastDevices();
       // Snapshot current state to the freshly-connected client.
       socket.emit("face:emotion", { emotion: this.state.emotion, since: this.now() });
       socket.emit("persona:active", this.state.persona);
@@ -179,11 +181,40 @@ export class Hub {
     socket.on("host:resetSession", ({ deviceId }) =>
       this.io.emit("session:reset", { deviceId }),
     );
+    socket.on("host:toggleOffline", ({ offline }) =>
+      this.setStatus({ offlineCanned: offline }),
+    );
+    socket.on("host:patchTelemetry", (patch) => this.patchTelemetry(patch));
+    socket.on("host:recover", () => {
+      this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
+      this.io.emit("chat:delta", { sessionId: "*", text: "", done: true });
+      this.setEmotion("neutral");
+    });
 
     socket.on("disconnect", () => {
       const id = socket.data.deviceId as string | undefined;
       if (id) this.devices.delete(id);
+      this.broadcastDevices();
     });
+  }
+
+  private broadcastDevices(): void {
+    const devices: ConnectedDevice[] = Array.from(this.devices, ([deviceId, d]) => ({
+      deviceId,
+      role: d.role,
+    }));
+    this.io.emit("devices:update", { devices });
+  }
+
+  /** Apply a host-forced telemetry override and rebroadcast. */
+  private patchTelemetry(patch: {
+    speedKmh?: number;
+    doorsOpen?: boolean;
+    batteryPct?: number;
+    occupancy?: number;
+  }): void {
+    if (!this.lastTelemetry) return;
+    this.emitTelemetry({ ...this.lastTelemetry, ...patch });
   }
 
   // ── Broadcast helpers (used by the agent loop / drivers in later phases) ──
