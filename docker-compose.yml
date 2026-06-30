@@ -29,6 +29,7 @@ services:
     environment:
       DATABASE_URI: ${DATABASE_URI:-postgres://cosimo:cosimo_dev@postgres:5432/cosimo}
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-dev-secret}
+      PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3000}
       NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-http://localhost:4000}
     ports:
@@ -48,6 +49,7 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
       PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:3000}
       PAYLOAD_API_KEY: ${PAYLOAD_API_KEY:-}
+      PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3000}
       LIGHT_DRIVER: ${LIGHT_DRIVER:-fake}
       SHELLY_BASE_URL: ${SHELLY_BASE_URL:-}
