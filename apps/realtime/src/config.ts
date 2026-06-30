@@ -1,5 +1,17 @@
 /** Environment configuration for the realtime/agent service. */
 
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Local dev: load the gitignored root .env.local (no-op in Docker, where env is
+// injected by compose). Resolved relative to this file so cwd doesn't matter.
+const rootEnvLocal = fileURLToPath(new URL("../../../.env.local", import.meta.url));
+try {
+  if (existsSync(rootEnvLocal)) process.loadEnvFile(rootEnvLocal);
+} catch {
+  // ignore — fall back to the ambient environment
+}
+
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
   const n = raw ? Number(raw) : NaN;

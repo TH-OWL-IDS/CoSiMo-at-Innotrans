@@ -1,4 +1,15 @@
 import { withPayload } from "@payloadcms/next/withPayload";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Local dev: load the gitignored monorepo-root .env.local before Next reads env
+// (so NEXT_PUBLIC_* are inlined too). No-op in Docker, where compose injects env.
+const rootEnvLocal = fileURLToPath(new URL("../../.env.local", import.meta.url));
+try {
+  if (existsSync(rootEnvLocal)) process.loadEnvFile(rootEnvLocal);
+} catch {
+  // ignore — fall back to the ambient environment
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

@@ -23,3 +23,7 @@ npm-debug.log*
 
 # docker volumes (local)
 .docker-data/
+
+# generated
+apps/cms/next-env.d.ts
+apps/cms/src/payload-types.ts
