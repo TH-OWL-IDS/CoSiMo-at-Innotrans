@@ -23,6 +23,7 @@ import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
+import { PayloadSink } from "./sink.js";
 import type { TtsProvider } from "../speech/tts.js";
 
 export interface AgentTurnInput {
@@ -43,6 +44,7 @@ export class CosimoAgent {
   private readonly telemetry: TelemetryProvider;
   readonly personas: PersonaProvider;
   private readonly tts: TtsProvider;
+  private readonly sink = new PayloadSink();
   readonly recorder = new SessionRecorder();
 
   constructor(hub: Hub, personas: PersonaProvider, tts: TtsProvider, telemetry: TelemetryProvider) {
@@ -82,6 +84,7 @@ export class CosimoAgent {
       this.emitFullReply(sessionId, offline);
       await this.speak(sessionId, offline, lang, persona);
       this.recordCosimoTurn(sessionId, lang, offline, undefined, "neutral", startedAt, modality, "offline_canned");
+      this.persist(sessionId);
       return;
     }
 
@@ -160,6 +163,13 @@ export class CosimoAgent {
 
     await this.speak(sessionId, assistantText, lang, persona);
     this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
+    this.persist(sessionId);
+  }
+
+  /** Upsert the (consented) session into the CMS — best-effort, fire-and-forget. */
+  private persist(sessionId: string): void {
+    const rec = this.recorder.get(sessionId);
+    if (rec) void this.sink.save(rec);
   }
 
   /**

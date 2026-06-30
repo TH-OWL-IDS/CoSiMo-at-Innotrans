@@ -15,6 +15,8 @@ export const config = {
   payload: {
     internalUrl: process.env.PAYLOAD_INTERNAL_URL ?? "http://localhost:3000",
     apiKey: process.env.PAYLOAD_API_KEY ?? "",
+    /** Shared secret authorizing server-to-server writes to the CMS. */
+    internalKey: process.env.PAYLOAD_INTERNAL_KEY ?? "",
   },
   speech: {
     deepgramApiKey: process.env.DEEPGRAM_API_KEY ?? "",
