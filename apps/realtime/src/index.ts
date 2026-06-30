@@ -22,6 +22,7 @@ import { TelemetryProvider } from "./agent/telemetry.js";
 import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
+import { startHealthMonitor } from "./health.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -50,6 +51,9 @@ async function broadcastTelemetry(): Promise<void> {
 }
 void broadcastTelemetry();
 setInterval(() => void broadcastTelemetry(), 5000);
+
+// Watch connectivity → auto-switch to offline canned mode when the cloud drops.
+startHealthMonitor(hub);
 
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
