@@ -45,6 +45,14 @@ export default function CosimoKiosk() {
     setConsentDecided(true);
   };
 
+  // Host reset → return to the welcome/consent screen for the next visitor.
+  useEffect(() => {
+    if (cosimo.resetNonce > 0) {
+      setConsentDecided(false);
+      setDraft("");
+    }
+  }, [cosimo.resetNonce]);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = draft.trim();

@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
+  CabinControlId,
   CabinControlState,
   ClientToServerEvents,
+  ConnectedDevice,
   ConnectionStatus,
   FaceEmotion,
+  HostTelemetryPatch,
   Locale,
   Modality,
   MonoCabTelemetry,
@@ -40,6 +43,16 @@ export interface CosimoState {
   setPersona: (key: PersonaKey) => void;
   /** Record the visitor's GDPR consent decision for this session. */
   setConsent: (consent: boolean) => void;
+  /** Connected devices (operator console). */
+  devices: ConnectedDevice[];
+  /** Bumps when this device is reset by the host (re-show the welcome). */
+  resetNonce: number;
+  /** Host actions. */
+  overrideLight: (control: CabinControlId, on: boolean) => void;
+  patchTelemetry: (patch: HostTelemetryPatch) => void;
+  toggleOffline: (offline: boolean) => void;
+  recover: () => void;
+  resetSession: (deviceId: string) => void;
   /** Push-to-talk lifecycle (drives the listening Face). */
   pttStart: () => void;
   pttStop: () => void;
@@ -60,9 +73,12 @@ function makeId(prefix: string): string {
  * state: the Face emotion, conversation phase, streaming reply, telemetry, and
  * a `send` for the text fallback. The Face component renders `emotion`.
  */
-export function useCosimoSocket(realtimeUrl: string): CosimoState {
+export function useCosimoSocket(
+  realtimeUrl: string,
+  role: "kiosk" | "host" = "kiosk",
+): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
-  const deviceId = useMemo(() => makeId("ipad"), []);
+  const deviceId = useMemo(() => makeId(role === "host" ? "host" : "ipad"), [role]);
   const sessionRef = useRef<string>(makeId("s"));
 
   const [connected, setConnected] = useState(false);
@@ -75,6 +91,8 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
   const [cabin, setCabin] = useState<CabinControlState[]>([]);
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
   const [heard, setHeard] = useState("");
+  const [devices, setDevices] = useState<ConnectedDevice[]>([]);
+  const [resetNonce, setResetNonce] = useState(0);
 
   useEffect(() => {
     const socket: CosimoSocket = io(realtimeUrl, { transports: ["websocket"] });
@@ -82,9 +100,19 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
 
     socket.on("connect", () => {
       setConnected(true);
-      socket.emit("hello", { deviceId, role: "kiosk" });
+      socket.emit("hello", { deviceId, role });
     });
     socket.on("disconnect", () => setConnected(false));
+
+    socket.on("devices:update", ({ devices }) => setDevices(devices));
+    socket.on("session:reset", ({ deviceId: target }) => {
+      if (target !== deviceId && target !== "*") return;
+      sessionRef.current = makeId("s");
+      setReply("");
+      setHeard("");
+      setReplying(false);
+      setResetNonce((n) => n + 1);
+    });
 
     socket.on("face:emotion", ({ emotion }) => setEmotion(emotion));
     socket.on("pipeline:phase", ({ phase }) => setPhase(phase));
@@ -115,7 +143,7 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId]);
+  }, [realtimeUrl, deviceId, role]);
 
   const send = (text: string, lang: Locale, modality: Modality = "text") => {
     const socket = sockRef.current;
@@ -132,6 +160,16 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
   const setConsent = (consent: boolean) => {
     sockRef.current?.emit("consent:set", { sessionId: sessionRef.current, consent });
   };
+
+  const overrideLight = (control: CabinControlId, on: boolean) =>
+    sockRef.current?.emit("host:overrideLight", { control, on });
+  const patchTelemetry = (patch: HostTelemetryPatch) =>
+    sockRef.current?.emit("host:patchTelemetry", patch);
+  const toggleOffline = (offline: boolean) =>
+    sockRef.current?.emit("host:toggleOffline", { offline });
+  const recover = () => sockRef.current?.emit("host:recover", {});
+  const resetSession = (target: string) =>
+    sockRef.current?.emit("host:resetSession", { deviceId: target });
 
   const pttStart = () =>
     sockRef.current?.emit("ptt:start", { sessionId: sessionRef.current });
@@ -151,8 +189,9 @@ export function useCosimoSocket(realtimeUrl: string): CosimoState {
 
   return {
     connected, emotion, phase, reply, replying,
-    telemetry, status, cabin, persona, heard,
+    telemetry, status, cabin, persona, heard, devices, resetNonce,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance,
+    overrideLight, patchTelemetry, toggleOffline, recover, resetSession,
     sessionId: sessionRef.current,
   };
 }
