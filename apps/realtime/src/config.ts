@@ -25,7 +25,7 @@ export const config = {
     model: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
   },
   payload: {
-    internalUrl: process.env.PAYLOAD_INTERNAL_URL ?? "http://localhost:3000",
+    internalUrl: process.env.PAYLOAD_INTERNAL_URL ?? "http://localhost:3001",
     apiKey: process.env.PAYLOAD_API_KEY ?? "",
     /** Shared secret authorizing server-to-server writes to the CMS. */
     internalKey: process.env.PAYLOAD_INTERNAL_KEY ?? "",
@@ -41,5 +41,5 @@ export const config = {
     shellyBaseUrl: process.env.SHELLY_BASE_URL ?? "",
   },
   /** Allowed CORS origins for the PWA + host console (dev defaults). */
-  corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3000").split(","),
+  corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:3001").split(","),
 } as const;
