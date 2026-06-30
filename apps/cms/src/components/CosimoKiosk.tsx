@@ -10,6 +10,12 @@ import ConsentOverlay from "./ConsentOverlay";
 import { schemeById } from "../appearance/schemes";
 import { useCosimoSocket } from "./useCosimoSocket";
 
+/** Suggested phrases to help riders start (and recover a misunderstanding). */
+const SUGGESTIONS: Record<Locale, string[]> = {
+  de: ["Wie schnell fahren wir?", "Wann kommen wir an?", "Mach das Licht an"],
+  en: ["How fast are we going?", "When do we arrive?", "Turn on the light"],
+};
+
 /** Persona options for the switcher (full set lives in the CMS / host console). */
 const PERSONA_OPTIONS: { key: PersonaKey; de: string; en: string }[] = [
   { key: "default", de: "Standard", en: "Default" },
@@ -185,6 +191,20 @@ export default function CosimoKiosk() {
       </p>
 
       <CabinPanel cabin={cosimo.cabin} lang={lang} />
+
+      {/* Suggested phrases — help riders start and recover from misunderstandings. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+        {SUGGESTIONS[lang].map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => cosimo.send(s, lang)}
+            style={{ padding: "6px 14px", fontSize: 13, borderRadius: 999, border: "1px solid currentColor", background: "transparent", color: "inherit", opacity: 0.7, cursor: "pointer" }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
 
       {cosimo.heard && (
         <div style={{ fontSize: 13, opacity: 0.5, fontStyle: "italic" }}>
