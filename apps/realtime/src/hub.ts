@@ -78,6 +78,10 @@ export class Hub {
   private personaResolver: PersonaResolver | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
   private readonly consentBySession = new Map<string, boolean>();
+  // Offline-mode inputs: host can force it; the health monitor sets network.
+  private llmConfigured = false;
+  private networkOk = true;
+  private manualOffline = false;
 
   private state: HubState = {
     emotion: "sleeping",
@@ -181,9 +185,10 @@ export class Hub {
     socket.on("host:resetSession", ({ deviceId }) =>
       this.io.emit("session:reset", { deviceId }),
     );
-    socket.on("host:toggleOffline", ({ offline }) =>
-      this.setStatus({ offlineCanned: offline }),
-    );
+    socket.on("host:toggleOffline", ({ offline }) => {
+      this.manualOffline = offline;
+      this.recomputeStatus();
+    });
     socket.on("host:patchTelemetry", (patch) => this.patchTelemetry(patch));
     socket.on("host:recover", () => {
       this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
@@ -235,6 +240,33 @@ export class Hub {
   setStatus(patch: Partial<ConnectionStatus>): void {
     this.state.status = { ...this.state.status, ...patch };
     this.io.emit("status:update", this.state.status);
+  }
+
+  /** Record whether an LLM key is configured (drives the llm status + canned mode). */
+  setLlmConfigured(configured: boolean): void {
+    this.llmConfigured = configured;
+    this.recomputeStatus();
+  }
+
+  /** Health monitor reports network reachability. */
+  setNetwork(ok: boolean): void {
+    if (ok === this.networkOk) return;
+    this.networkOk = ok;
+    this.recomputeStatus();
+  }
+
+  /** True when CoSiMo should serve scripted canned replies instead of the LLM. */
+  isOfflineMode(): boolean {
+    return this.state.status.offlineCanned;
+  }
+
+  /** Derive llm/network/offlineCanned from the inputs and broadcast once. */
+  private recomputeStatus(): void {
+    this.setStatus({
+      network: this.networkOk,
+      llm: this.llmConfigured && this.networkOk,
+      offlineCanned: this.manualOffline || !this.networkOk,
+    });
   }
 
   /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
