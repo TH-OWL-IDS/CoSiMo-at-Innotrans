@@ -1,4 +1,14 @@
-import type { CollectionConfig } from "payload";
+import type { Access, CollectionConfig, PayloadRequest } from "payload";
+
+/** True when the request carries the shared server-to-server internal key. */
+function hasInternalKey(req: PayloadRequest): boolean {
+  const expected = process.env.PAYLOAD_INTERNAL_KEY;
+  if (!expected) return false;
+  return req.headers?.get("x-internal-key") === expected;
+}
+
+/** The realtime service (internal key) or any logged-in operator. */
+const internalOrUser: Access = ({ req }) => Boolean(req.user) || hasInternalKey(req);
 
 /**
  * Sessions — RUNTIME-generated conversation logs written live by the realtime
@@ -19,7 +29,11 @@ export const Sessions: CollectionConfig = {
     defaultColumns: ["sessionId", "persona", "deviceId", "consent", "startedAt"],
   },
   access: {
-    // Only admins may delete; everyone authenticated may read/export.
+    // Written by the realtime service (internal key); read/exported by operators.
+    create: ({ req }) => hasInternalKey(req),
+    update: ({ req }) => hasInternalKey(req),
+    read: internalOrUser,
+    // Only admins may delete (data hygiene).
     delete: ({ req }) => req.user?.role === "admin",
   },
   fields: [
