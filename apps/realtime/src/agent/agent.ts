@@ -24,6 +24,7 @@ import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { PayloadSink } from "./sink.js";
+import { cannedReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 
 export interface AgentTurnInput {
@@ -55,7 +56,7 @@ export class CosimoAgent {
     this.client = config.anthropic.apiKey
       ? new Anthropic({ apiKey: config.anthropic.apiKey })
       : null;
-    this.hub.setStatus({ llm: this.client !== null });
+    this.hub.setLlmConfigured(this.client !== null);
   }
 
   /**
@@ -75,15 +76,10 @@ export class CosimoAgent {
       at: new Date().toISOString(),
     });
 
-    // No API key → graceful offline reply (real canned mode arrives in Phase 8).
-    if (!this.client) {
-      const offline =
-        lang === "de"
-          ? "Ich bin gerade offline – die Verbindung fehlt. Bitte versuche es gleich noch einmal."
-          : "I'm offline right now — no connection. Please try again in a moment.";
-      this.emitFullReply(sessionId, offline);
-      await this.speak(sessionId, offline, lang, persona);
-      this.recordCosimoTurn(sessionId, lang, offline, undefined, "neutral", startedAt, modality, "offline_canned");
+    // Offline / demo mode (host-forced or network down) or no LLM key →
+    // serve a scripted, telemetry-grounded canned reply.
+    if (this.hub.isOfflineMode() || !this.client) {
+      await this.handleCannedTurn(sessionId, text, lang, persona, modality, startedAt);
       this.persist(sessionId);
       return;
     }
@@ -144,13 +140,13 @@ export class CosimoAgent {
       }
     } catch (err) {
       outcome = "error";
-      const msg =
-        lang === "de"
-          ? "Entschuldige, da ist etwas schiefgelaufen. Magst du es noch einmal versuchen?"
-          : "Sorry, something went wrong. Could you try that again?";
+      // Graceful recovery: fall back to a grounded canned reply rather than a
+      // dead end, so a transient cloud/network blip never breaks the demo.
       if (!assistantText) {
-        assistantText = msg;
-        this.emitFullReply(sessionId, msg);
+        const fallback = cannedReply(text, lang, this.telemetry.get());
+        assistantText = fallback.text;
+        chosenEmotion = fallback.emotion;
+        this.emitFullReply(sessionId, fallback.text);
       }
       // eslint-disable-next-line no-console
       console.error("[cosimo-agent] turn failed:", err);
@@ -164,6 +160,44 @@ export class CosimoAgent {
     await this.speak(sessionId, assistantText, lang, persona);
     this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
     this.persist(sessionId);
+  }
+
+  /**
+   * Serve a scripted, telemetry-grounded canned reply (offline/demo mode). Can
+   * still drive the cabin light, speaks via TTS, and records the turn.
+   */
+  private async handleCannedTurn(
+    sessionId: string,
+    text: string,
+    lang: Locale,
+    persona: PersonaKey,
+    modality: Modality,
+    startedAt: number,
+  ): Promise<void> {
+    const reply = cannedReply(text, lang, this.telemetry.get());
+
+    let action: TurnAction | undefined;
+    if (reply.cabin) {
+      try {
+        await this.hub.applyCabinControl(reply.cabin.control, { on: reply.cabin.on });
+        action = { tool: "set_cabin_control", control: reply.cabin.control, args: { on: reply.cabin.on } };
+      } catch {
+        // light unreachable — still answer
+      }
+    }
+
+    this.hub.emitPhase("speaking", sessionId);
+    this.hub.setEmotion("speaking");
+    this.hub.emitChatDelta(sessionId, reply.text, false);
+    this.hub.emitChatDelta(sessionId, "", true);
+    this.hub.emitPhase("idle", sessionId);
+    this.hub.setEmotion(reply.emotion);
+
+    await this.speak(sessionId, reply.text, lang, persona);
+    this.recordCosimoTurn(
+      sessionId, lang, reply.text, action, reply.emotion, startedAt, modality,
+      reply.matched ? "offline_canned" : "not_understood",
+    );
   }
 
   /** Upsert the (consented) session into the CMS — best-effort, fire-and-forget. */
