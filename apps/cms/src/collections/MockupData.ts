@@ -15,6 +15,13 @@ export const MockupData: CollectionConfig = {
     group: "Content",
     description: "MonoCab telemetry scenarios CoSiMo answers from.",
   },
+  access: {
+    // Non-sensitive demo config — the realtime service reads it anonymously.
+    read: () => true,
+    create: ({ req }) => Boolean(req.user),
+    update: ({ req }) => Boolean(req.user),
+    delete: ({ req }) => Boolean(req.user),
+  },
   fields: [
     { name: "name", type: "text", required: true },
     {
