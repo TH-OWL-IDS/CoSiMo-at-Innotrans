@@ -11,7 +11,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./.docker-data/postgres:/var/lib/postgresql/data
+      # Named volume (not a host bind-mount) — avoids macOS file-lock issues.
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cosimo}"]
       interval: 5s
@@ -55,3 +56,6 @@ services:
       SHELLY_BASE_URL: ${SHELLY_BASE_URL:-}
     ports:
       - "${REALTIME_PORT:-4000}:4000"
+
+volumes:
+  pgdata:
