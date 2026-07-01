@@ -27,6 +27,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Load secrets/keys from the gitignored .env.local (if present); the
+    # `environment:` overrides below win for the Docker-specific networking URLs.
+    env_file:
+      - path: .env.local
+        required: false
     environment:
       DATABASE_URI: ${DATABASE_URI:-postgres://cosimo:cosimo_dev@postgres:5432/cosimo}
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-dev-secret}
@@ -44,16 +49,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Keys (ANTHROPIC, ELEVENLABS, DEEPGRAM, LIGHT/SHELLY, HEALTH…) come from
+    # .env.local; the `environment:` overrides win for the container URLs.
+    env_file:
+      - path: .env.local
+        required: false
     environment:
       REALTIME_PORT: 4000
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
       PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:3001}
-      PAYLOAD_API_KEY: ${PAYLOAD_API_KEY:-}
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001}
-      LIGHT_DRIVER: ${LIGHT_DRIVER:-fake}
-      SHELLY_BASE_URL: ${SHELLY_BASE_URL:-}
     ports:
       - "${REALTIME_PORT:-4000}:4000"
 
