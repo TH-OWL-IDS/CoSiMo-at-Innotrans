@@ -32,10 +32,12 @@ export class ElevenLabsTts implements TtsProvider {
   readonly available = true;
   private readonly key: string;
   private readonly voiceId: string;
+  private readonly model: string;
 
-  constructor(key: string, voiceId: string) {
+  constructor(key: string, voiceId: string, model: string) {
     this.key = key;
     this.voiceId = voiceId;
+    this.model = model;
   }
 
   async synthesize(text: string, _lang: Locale): Promise<SynthResult | null> {
@@ -44,7 +46,7 @@ export class ElevenLabsTts implements TtsProvider {
     const res = await fetch(url, {
       method: "POST",
       headers: { "xi-api-key": this.key, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
+      body: JSON.stringify({ text, model_id: this.model }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) throw new Error(`elevenlabs ${res.status}`);
@@ -55,6 +57,10 @@ export class ElevenLabsTts implements TtsProvider {
 
 export function createTtsProvider(): TtsProvider {
   return config.speech.elevenLabsApiKey && config.speech.elevenLabsVoiceId
-    ? new ElevenLabsTts(config.speech.elevenLabsApiKey, config.speech.elevenLabsVoiceId)
+    ? new ElevenLabsTts(
+        config.speech.elevenLabsApiKey,
+        config.speech.elevenLabsVoiceId,
+        config.speech.elevenLabsModel,
+      )
     : new NoServerTts();
 }

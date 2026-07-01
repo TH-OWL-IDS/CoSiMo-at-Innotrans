@@ -35,6 +35,9 @@ export const config = {
     deepgramModel: process.env.DEEPGRAM_MODEL ?? "nova-2",
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
     elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID ?? "",
+    // Low-latency model by default; eleven_turbo_v2_5 trades a little speed for
+    // quality, eleven_multilingual_v2 is highest quality but slow.
+    elevenLabsModel: process.env.ELEVENLABS_MODEL ?? "eleven_flash_v2_5",
   },
   light: {
     driver: (process.env.LIGHT_DRIVER ?? "fake") as "fake" | "shelly",
