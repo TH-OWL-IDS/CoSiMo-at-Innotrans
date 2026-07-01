@@ -85,9 +85,13 @@ export default function CosimoKiosk() {
     spokenRef.current = text;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang === "de" ? "de-DE" : "en-US";
+    // Drive the Face's mouth from the actual browser speech, in sync.
+    u.onstart = () => cosimo.setSpeaking(true);
+    u.onend = () => cosimo.setSpeaking(false);
+    u.onerror = () => cosimo.setSpeaking(false);
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
-  }, [cosimo.replying, cosimo.reply, serverTts, speakAloud, lang]);
+  }, [cosimo.replying, cosimo.reply, serverTts, speakAloud, lang, cosimo.setSpeaking]);
 
   return (
     <main
@@ -162,7 +166,7 @@ export default function CosimoKiosk() {
       </div>
 
       <CosimoFaceAnimated
-        emotion={cosimo.emotion}
+        emotion={cosimo.faceEmotion}
         style={{ width: "min(60vw, 360px)", height: "auto", color: "var(--ink)" }}
       />
 

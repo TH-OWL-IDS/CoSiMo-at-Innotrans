@@ -111,8 +111,10 @@ export class CosimoAgent {
         stream.on("text", (delta) => {
           if (!startedSpeaking) {
             startedSpeaking = true;
+            // Phase label only. The "speaking" Face (moving mouth) is driven by
+            // actual audio playback on the client, so it stays in sync with the
+            // voice rather than with the (silent) text stream.
             this.hub.emitPhase("speaking", sessionId);
-            this.hub.setEmotion("speaking");
           }
           assistantText += delta;
           this.hub.emitChatDelta(sessionId, delta, false);
@@ -187,7 +189,6 @@ export class CosimoAgent {
     }
 
     this.hub.emitPhase("speaking", sessionId);
-    this.hub.setEmotion("speaking");
     this.hub.emitChatDelta(sessionId, reply.text, false);
     this.hub.emitChatDelta(sessionId, "", true);
     this.hub.emitPhase("idle", sessionId);

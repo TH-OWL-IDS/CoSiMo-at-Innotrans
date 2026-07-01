@@ -35,6 +35,13 @@ export interface CosimoState {
   cabin: CabinControlState[];
   /** The active persona (theme + presentation), or null before first sync. */
   persona: PersonaBroadcast | null;
+  /** Emotion to render on the Face — "speaking" while audio plays, else the
+   *  server's emotion. Keeps the moving mouth in sync with the actual voice. */
+  faceEmotion: FaceEmotion;
+  /** True while CoSiMo's voice is actually playing. */
+  speaking: boolean;
+  /** Signal that locally-generated speech (browser TTS) started/stopped. */
+  setSpeaking: (on: boolean) => void;
   /** Last thing CoSiMo heard via server STT (for display). */
   heard: string;
   /** Send a message to CoSiMo (text or browser-transcribed voice). */
@@ -93,6 +100,8 @@ export function useCosimoSocket(
   const [heard, setHeard] = useState("");
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
+  const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const socket: CosimoSocket = io(realtimeUrl, { transports: ["websocket"] });
@@ -123,10 +132,16 @@ export function useCosimoSocket(
     socket.on("voice:transcript", ({ text }) => setHeard(text));
     socket.on("tts:audio", ({ audioBase64, mime }) => {
       try {
+        // Stop any previous clip, then play — the Face's mouth follows the audio.
+        audioRef.current?.pause();
         const audio = new Audio(`data:${mime};base64,${audioBase64}`);
-        void audio.play();
+        audioRef.current = audio;
+        audio.onplay = () => setSpeaking(true);
+        audio.onended = () => setSpeaking(false);
+        audio.onerror = () => setSpeaking(false);
+        void audio.play().catch(() => setSpeaking(false));
       } catch {
-        /* autoplay may be blocked until first interaction */
+        setSpeaking(false);
       }
     });
 
@@ -187,9 +202,12 @@ export function useCosimoSocket(
     });
   };
 
+  const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
+
   return {
     connected, emotion, phase, reply, replying,
     telemetry, status, cabin, persona, heard, devices, resetNonce,
+    faceEmotion, speaking, setSpeaking,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance,
     overrideLight, patchTelemetry, toggleOffline, recover, resetSession,
     sessionId: sessionRef.current,
