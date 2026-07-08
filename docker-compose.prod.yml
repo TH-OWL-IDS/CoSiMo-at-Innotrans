@@ -1,0 +1,71 @@
+# Production overlay for the VPS. Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Caddy is the only exposed service: it terminates TLS (automatic Let's
+# Encrypt for $COSIMO_DOMAIN) and routes /socket.io/* to the realtime service
+# (wss) and everything else to the CMS (admin, /host, /api). The native kiosk
+# app on the iPads points at https://$COSIMO_DOMAIN.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      COSIMO_DOMAIN: ${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - cms
+      - realtime
+
+  # In prod only Caddy is public — drop the host port publishes.
+  postgres:
+    ports: !override []
+
+  cms:
+    ports: !override []
+    environment:
+      NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:-localhost}
+      NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_DOMAIN:-localhost}
+
+  realtime:
+    ports: !override []
+    environment:
+      # The kiosk WebView origin + the public site.
+      CORS_ORIGINS: https://${COSIMO_DOMAIN:-localhost},capacitor://localhost
+
+  # Nightly pg_dump into ./backups (sessions are the research dataset —
+  # copy this directory off the box regularly).
+  pg-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-cosimo}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-cosimo_dev}
+      PGDATABASE: ${POSTGRES_DB:-cosimo}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        while true; do
+          ts=$$(date +%Y-%m-%d_%H-%M)
+          pg_dump -Fc -f "/backups/cosimo_$$ts.dump" && echo "[pg-backup] wrote cosimo_$$ts.dump"
+          find /backups -name 'cosimo_*.dump' -mtime +$$BACKUP_KEEP_DAYS -delete
+          sleep 86400
+        done
+
+volumes:
+  caddy_data:
+  caddy_config:

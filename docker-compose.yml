@@ -58,7 +58,7 @@ services:
       REALTIME_PORT: 4000
       PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:3001}
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
-      CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001}
+      CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001},http://localhost:5173,capacitor://localhost
     ports:
       - "${REALTIME_PORT:-4000}:4000"
 

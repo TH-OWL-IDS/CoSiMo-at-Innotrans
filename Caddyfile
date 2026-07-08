@@ -1,0 +1,16 @@
+# CoSiMo VPS reverse proxy. TLS is automatic (Let's Encrypt) for the domain
+# in $COSIMO_DOMAIN. WebSocket upgrades are handled transparently.
+{$COSIMO_DOMAIN} {
+	# Realtime service: Socket.IO (wss) + health.
+	handle /socket.io/* {
+		reverse_proxy realtime:4000
+	}
+	handle /health {
+		reverse_proxy realtime:4000
+	}
+
+	# Everything else: Payload admin, /host console, /api.
+	handle {
+		reverse_proxy cms:3001
+	}
+}

@@ -27,3 +27,13 @@ npm-debug.log*
 # generated
 apps/cms/next-env.d.ts
 apps/cms/src/payload-types.ts
+
+# capacitor ios (apps/kiosk) — generated/synced artifacts
+apps/kiosk/ios/App/Pods/
+apps/kiosk/ios/App/App/public/
+apps/kiosk/ios/App/App/capacitor.config.json
+apps/kiosk/ios/DerivedData/
+xcuserdata/
+
+# vps backups (pg_dump)
+backups/
