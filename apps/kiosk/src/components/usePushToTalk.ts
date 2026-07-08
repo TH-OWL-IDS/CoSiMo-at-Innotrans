@@ -1,0 +1,134 @@
+import { useRef, useState } from "react";
+import type { Locale } from "@cosimo/shared";
+
+/**
+ * Push-to-talk capture, extracted from the old button so any surface (the
+ * Face circle, later a physical button relay) can drive it. Two modes:
+ *  - server STT available → record audio (MediaRecorder) and upload it;
+ *  - otherwise → browser Web Speech recognition (not available in WKWebView).
+ */
+export function usePushToTalk({
+  serverStt,
+  lang,
+  onStart,
+  onStop,
+  onUtterance,
+  onTranscript,
+}: {
+  serverStt: boolean;
+  lang: Locale;
+  onStart: () => void;
+  onStop: () => void;
+  onUtterance: (audioBase64: string, mime: string, lang: Locale) => void;
+  onTranscript: (text: string, lang: Locale) => void;
+}): { active: boolean; supported: boolean; start: () => void; stop: () => void } {
+  const [active, setActive] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  // Web Speech types aren't in lib.dom; keep it loose.
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+
+  const supported =
+    typeof window !== "undefined" &&
+    (serverStt
+      ? typeof navigator !== "undefined" && !!navigator.mediaDevices
+      : !!(
+          (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition ||
+          (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
+        ));
+
+  async function start() {
+    if (active || !supported) return;
+    setActive(true);
+    onStart();
+
+    if (serverStt) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const rec = new MediaRecorder(stream);
+        chunksRef.current = [];
+        rec.ondataavailable = (e) => {
+          if (e.data.size) chunksRef.current.push(e.data);
+        };
+        rec.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+          const b64 = await blobToBase64(blob);
+          if (b64) onUtterance(b64, blob.type, lang);
+        };
+        rec.start();
+        recorderRef.current = rec;
+      } catch {
+        setActive(false);
+        onStop();
+      }
+      return;
+    }
+
+    const SR =
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition ||
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition;
+    if (!SR) {
+      setActive(false);
+      onStop();
+      return;
+    }
+    const rec = new SR();
+    rec.lang = lang === "de" ? "de-DE" : "en-US";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e: SpeechResultLike) => {
+      const t = e.results?.[0]?.[0]?.transcript?.trim();
+      if (t) onTranscript(t, lang);
+    };
+    rec.onerror = () => {};
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+    } catch {
+      /* already started */
+    }
+  }
+
+  function stop() {
+    if (!active) return;
+    setActive(false);
+    onStop();
+    if (serverStt) {
+      try {
+        recorderRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return { active, supported, start, stop };
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(blob);
+  });
+}
+
+interface SpeechResultLike {
+  results?: Array<Array<{ transcript?: string }>>;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: (e: SpeechResultLike) => void;
+  onerror: () => void;
+  start: () => void;
+  stop: () => void;
+}
