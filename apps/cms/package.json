@@ -9,9 +9,11 @@
     "start": "next start -p 3001",
     "typecheck": "tsc --noEmit",
     "generate:types": "payload generate:types",
+    "seed": "tsx src/seed.ts",
     "payload": "payload"
   },
   "dependencies": {
+    "@cosimo/client": "workspace:*",
     "@cosimo/shared": "workspace:*",
     "@payloadcms/db-postgres": "^3.85.0",
     "@payloadcms/next": "^3.85.0",
@@ -19,13 +21,13 @@
     "next": "15.4.11",
     "payload": "^3.85.0",
     "react": "19.1.2",
-    "react-dom": "19.1.2",
-    "socket.io-client": "^4.8.1"
+    "react-dom": "19.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

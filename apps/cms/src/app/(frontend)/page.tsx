@@ -1,10 +1,10 @@
-import CosimoKiosk from "../../components/CosimoKiosk";
+import { redirect } from "next/navigation";
 
 /**
- * The iPad kiosk experience. Phase 1.5 wires CoSiMo's animated Face to the
- * realtime service and adds the text-fallback conversation. Voice (push-to-talk)
- * and the full accessible UX follow in Phases 4–5.
+ * The visitor kiosk is its own native app now (apps/kiosk); this server is
+ * the Payload admin (login → edit personas, mockup data, operator config).
+ * The operator console still lives at /host.
  */
 export default function Home() {
-  return <CosimoKiosk />;
+  redirect("/admin");
 }

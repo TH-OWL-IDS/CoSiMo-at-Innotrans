@@ -1,22 +1,31 @@
 "use client";
 
-import { CABIN_CONTROLS, type PersonaKey } from "@cosimo/shared";
-import { useCosimoSocket } from "./useCosimoSocket";
+import { CABIN_CONTROLS, type PersonaKey, type SeatSummary } from "@cosimo/shared";
+import { useCosimoSocket } from "@cosimo/client";
 
 /**
- * Live operator console — the control surface a host uses during the demo. It
- * connects to the realtime hub as a "host" device. Config (personas, telemetry
- * scenarios, recorded sessions) lives in the Payload admin; this page is the
- * *live* half: switch persona, override the light, force telemetry, recover a
- * stuck conversation, toggle demo mode, and reset a kiosk for the next visitor.
+ * Live operator console (/host). Two levels, mirroring the architecture:
  *
- * Hidden, unlinked route (/host). Add real auth before the fair.
+ *  GLOBALS — the journey everyone shares: services health, telemetry
+ *  (speed/destination/battery + force buttons), demo mode, recovery.
+ *
+ *  SEATS — each iPad is its own kiosk seat with its own session. Cards appear
+ *  only while a session is active (visitor engaged); idle seats show as
+ *  chips. Per seat: face/phase, persona (NFC or manual), reading lamp & co.,
+ *  the live conversation snippet, and reset for the next visitor.
+ *
+ * Hidden, unlinked route. Add real auth before the fair.
  */
 
 const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:4000";
 
 const PERSONAS: PersonaKey[] = ["default", "eyes-free", "wheelchair", "text-first"];
 const TOGGLE_CONTROLS = CABIN_CONTROLS.filter((c) => c.kind === "toggle");
+
+const EMOTION_ICON: Record<string, string> = {
+  neutral: "😐", happy: "😊", thinking: "🤔", listening: "👂",
+  speaking: "💬", sleeping: "😴", sad: "😞", surprised: "😲",
+};
 
 const card: React.CSSProperties = {
   border: "1px solid #2a2f3a",
@@ -44,11 +53,91 @@ function Dot({ ok }: { ok: boolean }) {
   );
 }
 
+function SeatCard({
+  seat,
+  onPersona,
+  onLight,
+  onReset,
+}: {
+  seat: SeatSummary;
+  onPersona: (key: PersonaKey) => void;
+  onLight: (control: (typeof TOGGLE_CONTROLS)[number]["id"], on: boolean) => void;
+  onReset: () => void;
+}) {
+  return (
+    <section style={{ ...card, borderColor: seat.phase !== "idle" ? "#1f6feb" : "#2a2f3a" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>
+          {EMOTION_ICON[seat.emotion] ?? "·"} <code style={{ fontSize: 12, opacity: 0.7 }}>{seat.deviceId}</code>
+        </span>
+        <span style={{ fontSize: 12, opacity: 0.7 }}>
+          {seat.phase !== "idle" ? `● ${seat.phase}` : "idle"}
+          {seat.consent ? " · ✓ consent" : " · no recording"}
+        </span>
+      </div>
+
+      {/* persona — set by NFC chip or manually here */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+        <span style={{ opacity: 0.6 }}>Persona</span>
+        <select
+          value={seat.persona}
+          onChange={(e) => onPersona(e.target.value as PersonaKey)}
+          style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
+        >
+          {PERSONAS.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+        <span style={{ opacity: 0.5, fontSize: 12 }}>{seat.personaLabel.de}</span>
+      </div>
+
+      {/* per-seat cabin (reading lamp etc.) */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {TOGGLE_CONTROLS.map((def) => {
+          const s = seat.controls.find((x) => x.id === def.id);
+          const on = Boolean(s?.on);
+          return (
+            <button
+              key={def.id}
+              style={{ ...btn, fontSize: 12, padding: "5px 10px", background: on ? "#238636" : btn.background }}
+              onClick={() => onLight(def.id, !on)}
+              title={def.real ? "real hardware" : "simulated"}
+            >
+              {def.label.de} {on ? "an" : "aus"}{s?.degraded ? " ⚠" : ""}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* live conversation snippet */}
+      <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 4, minHeight: 40 }}>
+        {seat.lastUser && (
+          <div style={{ opacity: 0.75 }}>
+            <span style={{ opacity: 0.55 }}>Gast: </span>{seat.lastUser}
+          </div>
+        )}
+        {seat.lastReply && (
+          <div style={{ opacity: 0.9 }}>
+            <span style={{ opacity: 0.55 }}>CoSiMo: </span>{seat.lastReply}
+          </div>
+        )}
+        {!seat.lastUser && !seat.lastReply && (
+          <span style={{ opacity: 0.4 }}>noch keine Unterhaltung</span>
+        )}
+      </div>
+
+      <button style={{ ...btn, alignSelf: "flex-start" }} onClick={onReset}>
+        Sitz zurücksetzen
+      </button>
+    </section>
+  );
+}
+
 export default function HostConsole() {
   const c = useCosimoSocket(REALTIME_URL, "host");
   const st = c.status;
-  const kiosks = c.devices.filter((d) => d.role === "kiosk");
-  const light = c.cabin.find((x) => x.id === "interior-light");
+  const activeSeats = c.seats.filter((s) => s.active);
+  const idleSeats = c.seats.filter((s) => !s.active);
 
   return (
     <main style={{ minHeight: "100vh", background: "#0d1117", color: "#e8eaed", padding: 24, fontFamily: "system-ui, sans-serif" }}>
@@ -59,8 +148,9 @@ export default function HostConsole() {
         </div>
       </header>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        {/* Services */}
+      {/* ── GLOBALS: the journey everyone shares ─────────────────── */}
+      <p style={{ ...h, marginBottom: 10 }}>Fahrt (global)</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginBottom: 28 }}>
         <section style={card}>
           <p style={h}>Services</p>
           {st ? (
@@ -68,89 +158,41 @@ export default function HostConsole() {
               <span><Dot ok={st.llm} />LLM</span>
               <span><Dot ok={st.serverStt} />STT</span>
               <span><Dot ok={st.serverTts} />TTS</span>
-              <span><Dot ok={st.light} />Light</span>
-              <span><Dot ok={st.network} />Network</span>
-              <span><Dot ok={!st.offlineCanned} />{st.offlineCanned ? "Demo mode" : "Live"}</span>
+              <span><Dot ok={st.light} />Licht</span>
+              <span><Dot ok={st.network} />Netz</span>
+              <span><Dot ok={!st.offlineCanned} />{st.offlineCanned ? "Demo-Modus" : "Live"}</span>
             </div>
           ) : (
             <span style={{ opacity: 0.5 }}>waiting…</span>
           )}
         </section>
 
-        {/* Devices */}
         <section style={card}>
-          <p style={h}>Kiosks ({kiosks.length})</p>
-          {kiosks.length === 0 && <span style={{ opacity: 0.5 }}>none connected</span>}
-          {kiosks.map((d) => (
-            <div key={d.deviceId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-              <code style={{ opacity: 0.8 }}>{d.deviceId}</code>
-              <button style={btn} onClick={() => c.resetSession(d.deviceId)}>Reset</button>
-            </div>
-          ))}
-        </section>
-
-        {/* Persona */}
-        <section style={card}>
-          <p style={h}>Active persona</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {PERSONAS.map((p) => {
-              const active = c.persona?.persona === p;
-              return (
-                <button
-                  key={p}
-                  style={{ ...btn, background: active ? "#1f6feb" : btn.background, borderColor: active ? "#1f6feb" : "#3a4150" }}
-                  onClick={() => c.setPersona(p)}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Cabin light overrides */}
-        <section style={card}>
-          <p style={h}>Cabin (override)</p>
-          {TOGGLE_CONTROLS.map((def) => {
-            const s = c.cabin.find((x) => x.id === def.id);
-            const on = Boolean(s?.on);
-            return (
-              <div key={def.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14 }}>
-                <span>
-                  {def.label.en}
-                  {def.real ? <span style={{ fontSize: 10, opacity: 0.6 }}> · real{s?.degraded ? " (offline)" : ""}</span> : null}
-                </span>
-                <button style={{ ...btn, background: on ? "#238636" : btn.background }} onClick={() => c.overrideLight(def.id, !on)}>
-                  {on ? "ON" : "OFF"}
-                </button>
-              </div>
-            );
-          })}
-          {light?.degraded && <span style={{ fontSize: 12, color: "#d29922" }}>⚠ interior light unreachable</span>}
-        </section>
-
-        {/* Telemetry */}
-        <section style={card}>
-          <p style={h}>Telemetry (force)</p>
+          <p style={h}>Telemetrie</p>
           {c.telemetry ? (
-            <div style={{ fontSize: 13, opacity: 0.8 }}>
-              {Math.round(c.telemetry.speedKmh)} km/h · {c.telemetry.doorsOpen ? "doors open" : "doors closed"} · {c.telemetry.batteryPct}%
+            <div style={{ fontSize: 13, opacity: 0.85, display: "flex", flexDirection: "column", gap: 3 }}>
+              <span>→ {c.telemetry.destination.de} · {Math.round(c.telemetry.speedKmh)} km/h</span>
+              <span>
+                Nächster Halt: {c.telemetry.nextStops[0] ? `${c.telemetry.nextStops[0].name.de} · ${c.telemetry.nextStops[0].etaMinutes} min` : "—"}
+              </span>
+              <span>
+                {c.telemetry.doorsOpen ? "Türen offen" : "Türen zu"} · Akku {Math.round(c.telemetry.batteryPct)} % · {c.telemetry.occupancy}/{c.telemetry.capacity} Plätze
+              </span>
             </div>
           ) : (
-            <span style={{ opacity: 0.5 }}>no telemetry</span>
+            <span style={{ opacity: 0.5 }}>keine Telemetrie</span>
           )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 0, doorsOpen: true })}>Halt + doors open</button>
-            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 28, doorsOpen: false })}>Resume (28 km/h)</button>
-            <button style={btn} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>Low battery</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 0, doorsOpen: true })}>Halt + Türen auf</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 28, doorsOpen: false })}>Weiterfahrt</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>Akku schwach</button>
           </div>
         </section>
 
-        {/* Recovery */}
         <section style={card}>
-          <p style={h}>Recovery</p>
+          <p style={h}>Betrieb</p>
           <button style={{ ...btn, background: "#30363d" }} onClick={() => c.recover()}>
-            Recover stuck conversation
+            Hängende Unterhaltung lösen
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
             <input
@@ -158,10 +200,57 @@ export default function HostConsole() {
               checked={Boolean(st?.offlineCanned)}
               onChange={(e) => c.toggleOffline(e.target.checked)}
             />
-            Demo / offline mode
+            Demo- / Offline-Modus
           </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <span style={{ opacity: 0.6 }}>Alle Sitze:</span>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) c.setPersona(e.target.value as PersonaKey);
+                e.target.value = "";
+              }}
+              style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
+            >
+              <option value="" disabled>Persona wählen…</option>
+              {PERSONAS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
         </section>
       </div>
+
+      {/* ── SEATS: one card per active session ───────────────────── */}
+      <p style={{ ...h, marginBottom: 10 }}>
+        Sitze ({activeSeats.length} aktiv{idleSeats.length ? ` · ${idleSeats.length} frei` : ""}
+        {c.seats.length === 0 ? " · keine iPads verbunden" : ""})
+      </p>
+      {activeSeats.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 16 }}>
+          {activeSeats.map((seat) => (
+            <SeatCard
+              key={seat.deviceId}
+              seat={seat}
+              onPersona={(p) => c.setPersona(p, seat.deviceId)}
+              onLight={(control, on) => c.overrideLight(seat.deviceId, control, on)}
+              onReset={() => c.resetSession(seat.deviceId)}
+            />
+          ))}
+        </div>
+      )}
+      {idleSeats.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {idleSeats.map((seat) => (
+            <span
+              key={seat.deviceId}
+              style={{ fontSize: 12, opacity: 0.55, border: "1px solid #2a2f3a", borderRadius: 999, padding: "5px 12px" }}
+            >
+              {EMOTION_ICON[seat.emotion] ?? "·"} <code>{seat.deviceId}</code> · wartet
+            </span>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

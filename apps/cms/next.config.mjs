@@ -14,7 +14,7 @@ try {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Shared workspace package is TS-only; let Next transpile it.
-  transpilePackages: ["@cosimo/shared"],
+  transpilePackages: ["@cosimo/shared", "@cosimo/client"],
   reactStrictMode: true,
   // @cosimo/shared uses ESM ".js" import specifiers that resolve to ".ts"
   // sources. tsx/tsc handle this; teach the Next bundler the same mapping.
