@@ -7,6 +7,7 @@
 
 import type { Locale } from "@cosimo/shared";
 import { config } from "../config.js";
+import type { OperatorConfigProvider } from "../agent/operatorConfig.js";
 
 export interface SttProvider {
   readonly available: boolean;
@@ -26,15 +27,17 @@ export class NoServerStt implements SttProvider {
 export class DeepgramStt implements SttProvider {
   readonly available = true;
   private readonly key: string;
-  private readonly model: string;
+  /** Base URL + model resolve per call so operator-config edits apply live. */
+  private readonly endpoint: () => { baseUrl: string; model: string };
 
-  constructor(key: string, model: string) {
+  constructor(key: string, endpoint: () => { baseUrl: string; model: string }) {
     this.key = key;
-    this.model = model;
+    this.endpoint = endpoint;
   }
 
   async transcribe(audio: Buffer, mime: string, lang: Locale): Promise<string> {
-    const url = `https://api.deepgram.com/v1/listen?model=${encodeURIComponent(this.model)}&language=${lang}&smart_format=true&punctuate=true`;
+    const { baseUrl, model } = this.endpoint();
+    const url = `${baseUrl.replace(/\/+$/, "")}/v1/listen?model=${encodeURIComponent(model)}&language=${lang}&smart_format=true&punctuate=true`;
     const res = await fetch(url, {
       method: "POST",
       headers: { Authorization: `Token ${this.key}`, "Content-Type": mime },
@@ -49,8 +52,8 @@ export class DeepgramStt implements SttProvider {
   }
 }
 
-export function createSttProvider(): SttProvider {
+export function createSttProvider(operatorConfig: OperatorConfigProvider): SttProvider {
   return config.speech.deepgramApiKey
-    ? new DeepgramStt(config.speech.deepgramApiKey, config.speech.deepgramModel)
+    ? new DeepgramStt(config.speech.deepgramApiKey, () => operatorConfig.get().stt)
     : new NoServerStt();
 }

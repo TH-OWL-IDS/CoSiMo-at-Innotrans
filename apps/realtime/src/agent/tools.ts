@@ -83,7 +83,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
 export async function executeTool(
   name: string,
   input: Record<string, unknown>,
-  ctx: { hub: Hub; telemetry: TelemetryProvider; lang: Locale },
+  ctx: { hub: Hub; telemetry: TelemetryProvider; lang: Locale; deviceId: string },
 ): Promise<ToolResult> {
   switch (name) {
     case "get_telemetry": {
@@ -100,7 +100,7 @@ export async function executeTool(
       const change: { on?: boolean; level?: number } = {};
       if (typeof input.on === "boolean") change.on = input.on;
       if (typeof input.level === "number") change.level = input.level;
-      const state = await ctx.hub.applyCabinControl(control, change);
+      const state = await ctx.hub.applyCabinControl(ctx.deviceId, control, change);
       return {
         text: `ok: ${control} is now ${JSON.stringify({ on: state.on, level: state.level })}`,
         action: { tool: name, control, args: change },

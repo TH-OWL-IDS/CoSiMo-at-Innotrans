@@ -43,7 +43,7 @@ interface PayloadMockupDoc {
   lineEn?: string;
   destinationDe?: string;
   destinationEn?: string;
-  nextStops?: Array<{ id: string; nameDe: string; nameEn: string; etaMinutes: number }>;
+  nextStops?: Array<{ stopId?: string; nameDe: string; nameEn: string; etaMinutes: number }>;
   notesDe?: string;
   notesEn?: string;
 }
@@ -55,7 +55,7 @@ function fromPayload(doc: PayloadMockupDoc): MonoCabTelemetry {
     line: { de: doc.lineDe ?? "", en: doc.lineEn ?? "" },
     destination: { de: doc.destinationDe ?? "", en: doc.destinationEn ?? "" },
     nextStops: (doc.nextStops ?? []).map((s) => ({
-      id: s.id,
+      id: s.stopId ?? "",
       name: { de: s.nameDe, en: s.nameEn },
       etaMinutes: s.etaMinutes,
     })),

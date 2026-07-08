@@ -7,7 +7,6 @@
  * reply streams → settle on Claude's chosen expressive emotion (or neutral).
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import {
   type ExpressiveEmotion,
   type Locale,
@@ -16,13 +15,13 @@ import {
   type Turn,
   type TurnAction,
 } from "@cosimo/shared";
-import { config } from "../config.js";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
+import type { LlmRouter } from "./llm.js";
 import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
-import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
+import { executeTool } from "./tools.js";
 import { PayloadSink } from "./sink.js";
 import { cannedReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
@@ -40,7 +39,7 @@ export interface AgentTurnInput {
 }
 
 export class CosimoAgent {
-  private readonly client: Anthropic | null;
+  private readonly llm: LlmRouter;
   private readonly hub: Hub;
   private readonly telemetry: TelemetryProvider;
   readonly personas: PersonaProvider;
@@ -48,15 +47,19 @@ export class CosimoAgent {
   private readonly sink = new PayloadSink();
   readonly recorder = new SessionRecorder();
 
-  constructor(hub: Hub, personas: PersonaProvider, tts: TtsProvider, telemetry: TelemetryProvider) {
+  constructor(
+    hub: Hub,
+    personas: PersonaProvider,
+    tts: TtsProvider,
+    telemetry: TelemetryProvider,
+    llm: LlmRouter,
+  ) {
     this.hub = hub;
     this.personas = personas;
     this.tts = tts;
     this.telemetry = telemetry;
-    this.client = config.anthropic.apiKey
-      ? new Anthropic({ apiKey: config.anthropic.apiKey })
-      : null;
-    this.hub.setLlmConfigured(this.client !== null);
+    this.llm = llm;
+    this.hub.setLlmConfigured(this.llm.maybeConfigured());
   }
 
   /**
@@ -76,19 +79,22 @@ export class CosimoAgent {
       at: new Date().toISOString(),
     });
 
-    // Offline / demo mode (host-forced or network down) or no LLM key →
-    // serve a scripted, telemetry-grounded canned reply.
-    if (this.hub.isOfflineMode() || !this.client) {
-      await this.handleCannedTurn(sessionId, text, lang, persona, modality, startedAt);
+    // Offline / demo mode (host-forced or network down) or no usable LLM →
+    // serve a scripted, telemetry-grounded canned reply. The router resolves
+    // the provider/endpoint from the operator-config global (TTL-cached).
+    const llm = await this.llm.current();
+    this.hub.setLlmConfigured(llm !== null);
+    if (this.hub.isOfflineMode() || !llm) {
+      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt);
       this.persist(sessionId);
       return;
     }
 
     this.hub.emitPhase("thinking", sessionId);
-    this.hub.setEmotion("thinking");
+    this.hub.setEmotion("thinking", sessionId);
 
-    const messages: Anthropic.MessageParam[] = [{ role: "user", content: text }];
     const system = buildSystemPrompt(this.personas.get(persona));
+    const turn = llm.startTurn(system, text);
 
     let assistantText = "";
     let startedSpeaking = false;
@@ -97,18 +103,9 @@ export class CosimoAgent {
     let outcome: Turn["outcome"] = "ok";
 
     try {
-      // Manual tool-use loop: iterate until Claude stops calling tools.
+      // Manual tool-use loop: iterate until the model stops calling tools.
       for (let guard = 0; guard < 6; guard++) {
-        const stream = this.client.messages.stream({
-          model: config.anthropic.model,
-          max_tokens: 1024,
-          thinking: { type: "adaptive" },
-          system,
-          tools: TOOL_DEFINITIONS,
-          messages,
-        });
-
-        stream.on("text", (delta) => {
+        const { toolCalls } = await turn.step((delta) => {
           if (!startedSpeaking) {
             startedSpeaking = true;
             // Phase label only. The "speaking" Face (moving mouth) is driven by
@@ -120,25 +117,22 @@ export class CosimoAgent {
           this.hub.emitChatDelta(sessionId, delta, false);
         });
 
-        const message = await stream.finalMessage();
-        messages.push({ role: "assistant", content: message.content });
+        if (toolCalls.length === 0) break;
 
-        if (message.stop_reason !== "tool_use") break;
-
-        // Execute every tool call, then feed all results back in one user turn.
-        const results: Anthropic.ToolResultBlockParam[] = [];
-        for (const block of message.content) {
-          if (block.type !== "tool_use") continue;
-          const res = await executeTool(
-            block.name,
-            (block.input ?? {}) as Record<string, unknown>,
-            { hub: this.hub, telemetry: this.telemetry, lang },
-          );
+        // Execute every tool call, then feed all results back in one batch.
+        const results: { id: string; text: string }[] = [];
+        for (const call of toolCalls) {
+          const res = await executeTool(call.name, call.input, {
+            hub: this.hub,
+            telemetry: this.telemetry,
+            lang,
+            deviceId,
+          });
           if (res.emotion) chosenEmotion = res.emotion;
           else if (res.action && res.action.tool !== "set_emotion") lastAction = res.action;
-          results.push({ type: "tool_result", tool_use_id: block.id, content: res.text });
+          results.push({ id: call.id, text: res.text });
         }
-        messages.push({ role: "user", content: results });
+        turn.addToolResults(results);
       }
     } catch (err) {
       outcome = "error";
@@ -157,7 +151,7 @@ export class CosimoAgent {
     // Close out the stream and settle the Face on the chosen expressive emotion.
     this.hub.emitChatDelta(sessionId, "", true);
     this.hub.emitPhase("idle", sessionId);
-    this.hub.setEmotion(chosenEmotion);
+    this.hub.setEmotion(chosenEmotion, sessionId);
 
     await this.speak(sessionId, assistantText, lang, persona);
     this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
@@ -170,6 +164,7 @@ export class CosimoAgent {
    */
   private async handleCannedTurn(
     sessionId: string,
+    deviceId: string,
     text: string,
     lang: Locale,
     persona: PersonaKey,
@@ -181,7 +176,7 @@ export class CosimoAgent {
     let action: TurnAction | undefined;
     if (reply.cabin) {
       try {
-        await this.hub.applyCabinControl(reply.cabin.control, { on: reply.cabin.on });
+        await this.hub.applyCabinControl(deviceId, reply.cabin.control, { on: reply.cabin.on });
         action = { tool: "set_cabin_control", control: reply.cabin.control, args: { on: reply.cabin.on } };
       } catch {
         // light unreachable — still answer
@@ -192,7 +187,7 @@ export class CosimoAgent {
     this.hub.emitChatDelta(sessionId, reply.text, false);
     this.hub.emitChatDelta(sessionId, "", true);
     this.hub.emitPhase("idle", sessionId);
-    this.hub.setEmotion(reply.emotion);
+    this.hub.setEmotion(reply.emotion, sessionId);
 
     await this.speak(sessionId, reply.text, lang, persona);
     this.recordCosimoTurn(
@@ -222,6 +217,22 @@ export class CosimoAgent {
       // eslint-disable-next-line no-console
       console.error("[cosimo-agent] tts failed:", err);
     }
+  }
+
+  /**
+   * Push a server-initiated announcement to one kiosk (e.g. the NFC
+   * "account registered" greeting): text, Face emotion, and speech.
+   */
+  async announce(
+    sessionId: string,
+    text: string,
+    lang: Locale,
+    persona: PersonaKey,
+    emotion: ExpressiveEmotion = "happy",
+  ): Promise<void> {
+    this.emitFullReply(sessionId, text);
+    this.hub.setEmotion(emotion, sessionId);
+    await this.speak(sessionId, text, lang, persona);
   }
 
   /** Emit a complete reply as a single delta + done (offline / error paths). */

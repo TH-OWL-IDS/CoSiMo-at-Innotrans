@@ -17,6 +17,8 @@ import type {
 import { config } from "./config.js";
 import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
+import { LlmRouter } from "./agent/llm.js";
+import { OperatorConfigProvider } from "./agent/operatorConfig.js";
 import { PersonaProvider } from "./agent/personas.js";
 import { TelemetryProvider } from "./agent/telemetry.js";
 import { createLightDriver } from "./cabin/driver.js";
@@ -33,16 +35,19 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 
 const personas = new PersonaProvider();
 const telemetry = new TelemetryProvider();
-const stt = createSttProvider();
-const tts = createTtsProvider();
+const operatorConfig = new OperatorConfigProvider();
+const stt = createSttProvider(operatorConfig);
+const tts = createTtsProvider(operatorConfig);
+const llm = new LlmRouter(operatorConfig);
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
-const agent = new CosimoAgent(hub, personas, tts, telemetry);
+const agent = new CosimoAgent(hub, personas, tts, telemetry, llm);
 
-// Load personas from the CMS (best-effort; built-in defaults otherwise),
-// then re-resolve the active persona so its theme reaches connected clients.
+// Load personas + operator config from the CMS (best-effort; env/built-in
+// defaults otherwise), then re-resolve the active persona for the clients.
+void operatorConfig.refresh();
 void personas.refresh().then(() => hub.setPersona("default"));
 
 // Keep an always-on telemetry display: refresh from the CMS and broadcast.
@@ -58,6 +63,27 @@ startHealthMonitor(hub);
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
+});
+
+// NFC scan → resolve the chip to a persona ("account") for that kiosk seat.
+hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
+  await personas.refresh();
+  const key = personas.byNfcId(tagId);
+  if (key) {
+    hub.setPersonaForDevice(deviceId, key);
+    const p = personas.get(key);
+    const text =
+      lang === "de"
+        ? `Hallo! Schön, dass du da bist. Ich habe dein Profil „${p.label.de}“ geladen und stelle mich auf dich ein.`
+        : `Hello! Great to see you. I've loaded your profile “${p.label.en}” and will adapt to you.`;
+    void agent.announce(sessionId, text, lang, key, "happy");
+  } else {
+    const text =
+      lang === "de"
+        ? "Hmm, diese Karte kenne ich leider nicht. Frag gern das Standpersonal!"
+        : "Hmm, I don't recognise this card. Please ask the booth staff!";
+    void agent.announce(sessionId, text, lang, "default", "surprised");
+  }
 });
 
 // Voice utterances → server STT → agent (voice modality).
@@ -91,7 +117,8 @@ app.get("/health", (_req, res) => {
     service: "cosimo-realtime",
     status: "ok",
     devices: hub.connectedDevices,
-    model: config.anthropic.model,
+    model: operatorConfig.get().llm.model,
+    llmProvider: operatorConfig.get().llm.provider,
     lightDriver: config.light.driver,
   });
 });

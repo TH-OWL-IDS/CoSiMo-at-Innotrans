@@ -91,6 +91,8 @@ interface PayloadPersonaDoc {
   themeId?: string;
   emotionBias?: Partial<Record<"happy" | "sad" | "surprised" | "neutral", number>>;
   presentation?: Partial<Persona["presentation"]>;
+  /** NFC chip ids that "log in" as this persona (array field in Payload). */
+  nfcIds?: { id?: string; tag?: string }[];
 }
 
 function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
@@ -108,8 +110,14 @@ function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
 
 export class PersonaProvider {
   private cache: Record<PersonaKey, Persona> = { ...DEFAULT_PERSONAS };
+  private nfcIndex = new Map<string, PersonaKey>();
   private lastFetch = 0;
   private readonly ttlMs = 15_000;
+
+  /** Resolve an NFC chip id to its persona ("account"), or null. */
+  byNfcId(tagId: string): PersonaKey | null {
+    return this.nfcIndex.get(tagId.trim()) ?? null;
+  }
 
   /** Resolve a persona (cached, defaults applied). Never throws. */
   get(key: PersonaKey): Persona {
@@ -133,10 +141,17 @@ export class PersonaProvider {
       if (!res.ok) return;
       const body = (await res.json()) as { docs?: PayloadPersonaDoc[] };
       const next: Record<PersonaKey, Persona> = { ...DEFAULT_PERSONAS };
+      const nfc = new Map<string, PersonaKey>();
       for (const doc of body.docs ?? []) {
-        if (doc.key && next[doc.key]) next[doc.key] = mergeDoc(next[doc.key], doc);
+        if (!doc.key || !next[doc.key]) continue;
+        next[doc.key] = mergeDoc(next[doc.key], doc);
+        for (const row of doc.nfcIds ?? []) {
+          const tag = (row.tag ?? row.id ?? "").trim();
+          if (tag) nfc.set(tag, doc.key);
+        }
       }
       this.cache = next;
+      this.nfcIndex = nfc;
     } catch {
       // Payload down — keep defaults / last-known.
     }

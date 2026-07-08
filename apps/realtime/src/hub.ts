@@ -1,8 +1,10 @@
 /**
- * The WebSocket hub — single source of truth for shared showcase state, kept in
- * sync across all four iPads. Phase 0 wires the connection lifecycle and the
- * broadcast plumbing; later phases plug the agent loop, light driver, telemetry
- * and persona engine into these same channels.
+ * The WebSocket hub. GLOBAL state — the journey (telemetry) and service
+ * status — is shared across all iPads. Everything belonging to a seat —
+ * persona, Face emotion, phases, replies, TTS, and the cabin controls
+ * (reading lamp etc. are per seat) — is PER DEVICE: each iPad is its own
+ * kiosk seat with its own session. Host consoles additionally receive a live
+ * per-seat summary stream (host:seats).
  */
 
 import type { Server, Socket } from "socket.io";
@@ -21,6 +23,7 @@ import {
   type PersonaBroadcast,
   type PersonaKey,
   type PipelinePhase,
+  type SeatSummary,
   type ServerToClientEvents,
 } from "@cosimo/shared";
 
@@ -33,6 +36,9 @@ const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
   themeId: "classic",
   presentation: { highContrast: false, largeText: false, speakAloud: true },
 };
+
+/** How much of the live conversation the host summary carries. */
+const SNIPPET_MAX = 240;
 
 /** A user turn the hub hands off to the agent. */
 export interface IncomingChat {
@@ -60,20 +66,51 @@ export interface IncomingVoice {
 
 export type VoiceHandler = (voice: IncomingVoice) => void;
 
+/** An NFC scan the hub hands off for persona ("account") resolution. */
+export interface IncomingNfc {
+  sessionId: string;
+  deviceId: string;
+  tagId: string;
+  lang: Locale;
+}
+
+export type NfcHandler = (nfc: IncomingNfc) => void;
+
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
-interface HubState {
-  emotion: FaceEmotion;
+interface DeviceEntry {
+  role: "kiosk" | "host";
+  socket: Sock;
   persona: PersonaBroadcast;
+  emotion: FaceEmotion;
+  phase: PipelinePhase;
+  /** This seat's cabin controls (per-seat reading lamp etc.). */
   controls: CabinControlState[];
-  status: ConnectionStatus;
+  /** A visitor session is in progress (consent decided or first input). */
+  active: boolean;
+  consent: boolean;
+  lastUser: string;
+  lastReply: string;
+  /** Accumulates streamed reply text until the turn is done. */
+  replyBuffer: string;
+}
+
+function freshControls(): CabinControlState[] {
+  return CABIN_CONTROLS.map((c) => ({
+    id: c.id,
+    on: c.kind === "toggle" ? false : undefined,
+    level: c.kind === "level" ? 0 : undefined,
+  }));
 }
 
 export class Hub {
   private readonly io: Server<ClientToServerEvents, ServerToClientEvents>;
-  private readonly devices = new Map<string, { role: "kiosk" | "host" }>();
+  private readonly devices = new Map<string, DeviceEntry>();
+  /** Which device a session lives on — routes conversation events. */
+  private readonly sessionDevice = new Map<string, string>();
   private chatHandler: ChatHandler | undefined;
   private voiceHandler: VoiceHandler | undefined;
+  private nfcHandler: NfcHandler | undefined;
   private lightDriver: LightDriver | undefined;
   private personaResolver: PersonaResolver | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
@@ -83,23 +120,14 @@ export class Hub {
   private networkOk = true;
   private manualOffline = false;
 
-  private state: HubState = {
-    emotion: "sleeping",
-    persona: DEFAULT_PERSONA_BROADCAST,
-    controls: CABIN_CONTROLS.map((c) => ({
-      id: c.id,
-      on: c.kind === "toggle" ? false : undefined,
-      level: c.kind === "level" ? 0 : undefined,
-    })),
-    status: {
-      llm: false,
-      speech: false,
-      light: false,
-      network: true,
-      offlineCanned: false,
-      serverStt: false,
-      serverTts: false,
-    },
+  private status: ConnectionStatus = {
+    llm: false,
+    speech: false,
+    light: false,
+    network: true,
+    offlineCanned: false,
+    serverStt: false,
+    serverTts: false,
   };
 
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
@@ -116,6 +144,11 @@ export class Hub {
     this.voiceHandler = handler;
   }
 
+  /** Register the handler for NFC scans (persona/"account" resolution). */
+  onNfc(handler: NfcHandler): void {
+    this.nfcHandler = handler;
+  }
+
   /** Attach the hardware light driver and reflect its kind in the status. */
   attachLightDriver(driver: LightDriver): void {
     this.lightDriver = driver;
@@ -125,43 +158,75 @@ export class Hub {
   /** Register how persona keys resolve to client-facing broadcasts. */
   setPersonaResolver(resolver: PersonaResolver): void {
     this.personaResolver = resolver;
-    // Re-resolve the current persona now that we can.
-    this.setPersona(this.state.persona.persona);
+    // Re-resolve every device's persona now that we can.
+    for (const [deviceId, entry] of this.devices) {
+      if (entry.role === "kiosk") this.setPersonaForDevice(deviceId, entry.persona.persona);
+    }
   }
 
   register(socket: Sock): void {
     socket.on("hello", ({ deviceId, role }) => {
-      this.devices.set(deviceId, { role });
+      const entry: DeviceEntry = {
+        role,
+        socket,
+        persona: this.resolvePersona("default"),
+        emotion: "sleeping",
+        phase: "idle",
+        controls: freshControls(),
+        active: false,
+        consent: false,
+        lastUser: "",
+        lastReply: "",
+        replyBuffer: "",
+      };
+      this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
       this.broadcastDevices();
       // Snapshot current state to the freshly-connected client.
-      socket.emit("face:emotion", { emotion: this.state.emotion, since: this.now() });
-      socket.emit("persona:active", this.state.persona);
-      socket.emit("cabin:state", { controls: this.state.controls });
-      socket.emit("status:update", this.state.status);
+      socket.emit("face:emotion", { emotion: entry.emotion, since: this.now() });
+      socket.emit("persona:active", entry.persona);
+      socket.emit("cabin:state", { controls: entry.controls });
+      socket.emit("status:update", this.status);
       if (this.lastTelemetry) socket.emit("telemetry:update", this.lastTelemetry);
+      this.pushSeats();
     });
 
-    // Visitor consent for recording (GDPR) — gates how the session is stored.
+    // Visitor consent for recording (GDPR) — starts the visible session.
     socket.on("consent:set", ({ sessionId, consent }) => {
+      const deviceId = this.trackSession(socket, sessionId);
       this.consentBySession.set(sessionId, consent);
+      const entry = this.devices.get(deviceId);
+      if (entry) {
+        entry.consent = consent;
+        entry.active = true;
+      }
+      this.pushSeats();
     });
 
     // Text or browser-transcribed message → hand to the agent.
     socket.on("chat:send", ({ sessionId, text, lang, modality }) => {
-      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (entry) {
+        entry.lastUser = text.slice(0, SNIPPET_MAX);
+        entry.active = true;
+      }
+      this.pushSeats();
       this.chatHandler?.({
         sessionId, deviceId, text, lang,
-        persona: this.state.persona.persona,
+        persona: this.personaOf(deviceId),
         modality: modality ?? "text",
         consent: this.consentBySession.get(sessionId) ?? false,
       });
     });
 
-    // Push-to-talk → reflect listening on the Face/phase while capturing.
+    // Push-to-talk → reflect listening on this device's Face/phase.
     socket.on("ptt:start", ({ sessionId }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (entry) entry.active = true;
       this.emitPhase("listening", sessionId);
-      this.setEmotion("listening");
+      this.setEmotion("listening", sessionId);
     });
     socket.on("ptt:stop", ({ sessionId }) => {
       this.emitPhase("idle", sessionId);
@@ -169,22 +234,52 @@ export class Hub {
 
     // Recorded utterance → server-side STT pipeline.
     socket.on("voice:utterance", ({ sessionId, audioBase64, mime, lang }) => {
-      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      const deviceId = this.trackSession(socket, sessionId);
       this.voiceHandler?.({
         sessionId, deviceId, audioBase64, mime, lang,
-        persona: this.state.persona.persona,
+        persona: this.personaOf(deviceId),
         consent: this.consentBySession.get(sessionId) ?? false,
       });
     });
 
-    // Host console actions.
-    socket.on("host:setPersona", ({ persona }) => this.setPersona(persona));
-    socket.on("host:overrideLight", ({ control, on }) => {
-      void this.applyCabinControl(control, { on });
+    // NFC scan at this kiosk → persona/"account" resolution.
+    socket.on("nfc:register", ({ sessionId, tagId, lang }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      this.nfcHandler?.({ sessionId, deviceId, tagId, lang });
     });
-    socket.on("host:resetSession", ({ deviceId }) =>
-      this.io.emit("session:reset", { deviceId }),
-    );
+
+    // Host console actions.
+    socket.on("host:setPersona", ({ persona, deviceId }) => {
+      if (deviceId) this.setPersonaForDevice(deviceId, persona);
+      else this.setPersona(persona);
+    });
+    socket.on("host:overrideLight", ({ deviceId, control, on }) => {
+      // Stale/foreign clients must never crash the hub — log and carry on.
+      this.applyCabinControl(deviceId, control, { on }).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error("[hub] host:overrideLight failed:", err);
+      });
+    });
+    socket.on("host:resetSession", ({ deviceId }) => {
+      this.io.emit("session:reset", { deviceId });
+      const targets =
+        deviceId === "*"
+          ? [...this.devices.keys()]
+          : [deviceId];
+      for (const id of targets) {
+        const entry = this.devices.get(id);
+        if (!entry || entry.role !== "kiosk") continue;
+        entry.active = false;
+        entry.consent = false;
+        entry.lastUser = "";
+        entry.lastReply = "";
+        entry.replyBuffer = "";
+        entry.phase = "idle";
+        // Next visitor starts from the default persona.
+        this.setPersonaForDevice(id, "default");
+      }
+      this.pushSeats();
+    });
     socket.on("host:toggleOffline", ({ offline }) => {
       this.manualOffline = offline;
       this.recomputeStatus();
@@ -200,7 +295,31 @@ export class Hub {
       const id = socket.data.deviceId as string | undefined;
       if (id) this.devices.delete(id);
       this.broadcastDevices();
+      this.pushSeats();
     });
+  }
+
+  /** Remember which device a session lives on (routes replies back to it). */
+  private trackSession(socket: Sock, sessionId: string): string {
+    const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+    this.sessionDevice.set(sessionId, deviceId);
+    return deviceId;
+  }
+
+  private personaOf(deviceId: string): PersonaKey {
+    return this.devices.get(deviceId)?.persona.persona ?? "default";
+  }
+
+  private resolvePersona(key: PersonaKey): PersonaBroadcast {
+    return this.personaResolver
+      ? this.personaResolver(key)
+      : { ...DEFAULT_PERSONA_BROADCAST, persona: key };
+  }
+
+  /** The device entry a session belongs to. */
+  private entryOf(sessionId: string): DeviceEntry | undefined {
+    const deviceId = this.sessionDevice.get(sessionId);
+    return deviceId ? this.devices.get(deviceId) : undefined;
   }
 
   private broadcastDevices(): void {
@@ -209,6 +328,29 @@ export class Hub {
       role: d.role,
     }));
     this.io.emit("devices:update", { devices });
+  }
+
+  /** Push per-seat summaries to every connected host console. */
+  private pushSeats(): void {
+    const seats: SeatSummary[] = [];
+    for (const [deviceId, e] of this.devices) {
+      if (e.role !== "kiosk") continue;
+      seats.push({
+        deviceId,
+        persona: e.persona.persona,
+        personaLabel: e.persona.label,
+        emotion: e.emotion,
+        phase: e.phase,
+        consent: e.consent,
+        active: e.active,
+        lastUser: e.lastUser,
+        lastReply: e.lastReply,
+        controls: e.controls,
+      });
+    }
+    for (const e of this.devices.values()) {
+      if (e.role === "host") e.socket.emit("host:seats", { seats });
+    }
   }
 
   /** Apply a host-forced telemetry override and rebroadcast. */
@@ -222,24 +364,93 @@ export class Hub {
     this.emitTelemetry({ ...this.lastTelemetry, ...patch });
   }
 
-  // ── Broadcast helpers (used by the agent loop / drivers in later phases) ──
+  // ── Per-seat conversation events ────────────────────────────────
 
-  setEmotion(emotion: FaceEmotion): void {
-    this.state.emotion = emotion;
-    this.io.emit("face:emotion", { emotion, since: this.now() });
+  /** Set the Face for a session's device; without a session, for every kiosk. */
+  setEmotion(emotion: FaceEmotion, sessionId?: string): void {
+    const entry = sessionId ? this.entryOf(sessionId) : undefined;
+    if (entry) {
+      entry.emotion = emotion;
+      entry.socket.emit("face:emotion", { emotion, since: this.now() });
+    } else {
+      for (const e of this.devices.values()) {
+        if (e.role !== "kiosk") continue;
+        e.emotion = emotion;
+        e.socket.emit("face:emotion", { emotion, since: this.now() });
+      }
+    }
+    this.pushSeats();
   }
 
-  /** Switch the active persona (resolved to its broadcast) and notify clients. */
+  /** Switch every kiosk's persona (host console "all seats" action). */
   setPersona(persona: PersonaKey): void {
-    this.state.persona = this.personaResolver
-      ? this.personaResolver(persona)
-      : { ...DEFAULT_PERSONA_BROADCAST, persona };
-    this.io.emit("persona:active", this.state.persona);
+    for (const [deviceId, entry] of this.devices) {
+      if (entry.role === "kiosk") this.setPersonaForDevice(deviceId, persona);
+    }
   }
+
+  /** Switch one kiosk's persona (NFC "account" registration / host). */
+  setPersonaForDevice(deviceId: string, persona: PersonaKey): void {
+    const entry = this.devices.get(deviceId);
+    if (!entry) return;
+    entry.persona = this.resolvePersona(persona);
+    entry.socket.emit("persona:active", entry.persona);
+    this.pushSeats();
+  }
+
+  /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
+  emitPhase(phase: PipelinePhase, sessionId: string): void {
+    const entry = this.entryOf(sessionId);
+    if (entry) {
+      entry.phase = phase;
+      entry.socket.emit("pipeline:phase", { phase, sessionId });
+    } else {
+      this.io.emit("pipeline:phase", { phase, sessionId });
+    }
+    this.pushSeats();
+  }
+
+  /** Stream a chunk of CoSiMo's reply text to the session's device. */
+  emitChatDelta(sessionId: string, text: string, done: boolean): void {
+    const entry = this.entryOf(sessionId);
+    if (!entry) {
+      this.io.emit("chat:delta", { sessionId, text, done });
+      return;
+    }
+    entry.socket.emit("chat:delta", { sessionId, text, done });
+    if (done) {
+      if (entry.replyBuffer) entry.lastReply = entry.replyBuffer.slice(0, SNIPPET_MAX);
+      entry.replyBuffer = "";
+      this.pushSeats();
+    } else {
+      entry.replyBuffer += text;
+    }
+  }
+
+  /** Echo what CoSiMo heard from a voice utterance (server STT). */
+  emitTranscript(sessionId: string, text: string, lang: Locale): void {
+    const entry = this.entryOf(sessionId);
+    if (entry) {
+      entry.lastUser = text.slice(0, SNIPPET_MAX);
+      entry.socket.emit("voice:transcript", { sessionId, text, lang });
+      this.pushSeats();
+    } else {
+      this.io.emit("voice:transcript", { sessionId, text, lang });
+    }
+  }
+
+  /** Send synthesized speech for the session's device to play (server TTS). */
+  emitTtsAudio(sessionId: string, audioBase64: string, mime: string): void {
+    (this.entryOf(sessionId)?.socket ?? this.io).emit("tts:audio", {
+      sessionId, audioBase64, mime,
+    });
+  }
+
+  // ── Global showcase state ─────────────────────────────────────────
 
   setStatus(patch: Partial<ConnectionStatus>): void {
-    this.state.status = { ...this.state.status, ...patch };
-    this.io.emit("status:update", this.state.status);
+    this.status = { ...this.status, ...patch };
+    this.io.emit("status:update", this.status);
   }
 
   /** Record whether an LLM key is configured (drives the llm status + canned mode). */
@@ -257,7 +468,7 @@ export class Hub {
 
   /** True when CoSiMo should serve scripted canned replies instead of the LLM. */
   isOfflineMode(): boolean {
-    return this.state.status.offlineCanned;
+    return this.status.offlineCanned;
   }
 
   /** Derive llm/network/offlineCanned from the inputs and broadcast once. */
@@ -269,44 +480,28 @@ export class Hub {
     });
   }
 
-  /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
-  emitPhase(phase: PipelinePhase, sessionId: string): void {
-    this.io.emit("pipeline:phase", { phase, sessionId });
-  }
-
-  /** Stream a chunk of CoSiMo's reply text to all clients (latency masking). */
-  emitChatDelta(sessionId: string, text: string, done: boolean): void {
-    this.io.emit("chat:delta", { sessionId, text, done });
-  }
-
   /** Broadcast a telemetry snapshot to the on-screen displays (and cache it). */
   emitTelemetry(telemetry: MonoCabTelemetry): void {
     this.lastTelemetry = telemetry;
     this.io.emit("telemetry:update", telemetry);
   }
 
-  /** Echo what CoSiMo heard from a voice utterance (server STT). */
-  emitTranscript(sessionId: string, text: string, lang: Locale): void {
-    this.io.emit("voice:transcript", { sessionId, text, lang });
-  }
-
-  /** Send synthesized speech for the clients to play (server TTS). */
-  emitTtsAudio(sessionId: string, audioBase64: string, mime: string): void {
-    this.io.emit("tts:audio", { sessionId, audioBase64, mime });
-  }
-
   /**
-   * Apply a cabin-control change and broadcast the new state to every iPad.
-   * The real `interior-light` is driven through the hardware LightDriver; the
-   * others are simulated in memory. If the real device is unreachable we mark
-   * the control `degraded`, keep showing last-known intent, and flag the light
-   * status — the demo never breaks on a hardware hiccup.
+   * Apply a cabin-control change for ONE SEAT and notify that seat + hosts.
+   * Cabin controls are per seat (reading lamp etc.). The `real` control is
+   * driven through the hardware LightDriver — currently a single relay, so
+   * physically it's one light regardless of seat; the per-seat state still
+   * tracks who asked for it. If the device is unreachable we mark the control
+   * `degraded` and keep showing last-known intent — the demo never breaks.
    */
   async applyCabinControl(
+    deviceId: string | undefined,
     control: CabinControlId,
     change: { on?: boolean; level?: number },
   ): Promise<CabinControlState> {
-    const entry = this.state.controls.find((c) => c.id === control);
+    const device = deviceId ? this.devices.get(deviceId) : undefined;
+    if (!device) throw new Error(`unknown device: ${String(deviceId)}`);
+    const entry = device.controls.find((c) => c.id === control);
     if (!entry) throw new Error(`unknown cabin control: ${control}`);
     const def = CABIN_CONTROLS.find((c) => c.id === control);
 
@@ -314,7 +509,7 @@ export class Hub {
       try {
         await this.lightDriver.setOn(change.on);
         entry.degraded = false;
-        if (!this.state.status.light) this.setStatus({ light: true });
+        if (!this.status.light) this.setStatus({ light: true });
       } catch (err) {
         entry.degraded = true;
         this.setStatus({ light: false });
@@ -325,7 +520,8 @@ export class Hub {
 
     if (change.on !== undefined) entry.on = change.on;
     if (change.level !== undefined) entry.level = change.level;
-    this.io.emit("cabin:state", { controls: this.state.controls });
+    device.socket.emit("cabin:state", { controls: device.controls });
+    this.pushSeats();
     return entry;
   }
 
