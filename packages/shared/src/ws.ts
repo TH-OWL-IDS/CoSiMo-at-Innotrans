@@ -22,6 +22,24 @@ export interface ConnectedDevice {
 /** High-level conversation phase, used to mask latency in the UI. */
 export type PipelinePhase = "idle" | "listening" | "thinking" | "speaking";
 
+/** Live summary of one kiosk seat, for the operator console. */
+export interface SeatSummary {
+  deviceId: string;
+  persona: PersonaKey;
+  personaLabel: Record<Locale, string>;
+  emotion: FaceEmotion;
+  phase: PipelinePhase;
+  /** Visitor consent decision (recording), if made this session. */
+  consent: boolean;
+  /** A visitor session is in progress at this seat. */
+  active: boolean;
+  /** Last visitor utterance / last CoSiMo reply (live view, truncated). */
+  lastUser: string;
+  lastReply: string;
+  /** This seat's cabin controls (reading lamp etc. are per seat). */
+  controls: CabinControlState[];
+}
+
 export interface ConnectionStatus {
   llm: boolean;
   speech: boolean;
@@ -59,6 +77,8 @@ export interface ServerToClientEvents {
   "session:reset": (payload: { deviceId: string }) => void;
   /** Currently connected devices (for the operator console). */
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
+  /** Per-seat live summaries (host consoles only). */
+  "host:seats": (payload: { seats: SeatSummary[] }) => void;
 }
 
 /** Events clients send to the server. */
@@ -84,10 +104,13 @@ export interface ClientToServerEvents {
   }) => void;
   /** Visitor consent decision for recording. */
   "consent:set": (payload: { sessionId: string; consent: boolean }) => void;
+  /** An NFC chip was scanned at this kiosk (chip id → persona "account"). */
+  "nfc:register": (payload: { sessionId: string; tagId: string; lang: Locale }) => void;
 
   // ── Host console actions ──
-  "host:setPersona": (payload: { persona: PersonaKey }) => void;
-  "host:overrideLight": (payload: { control: CabinControlId; on: boolean }) => void;
+  /** Without deviceId: all seats. With deviceId: that seat only. */
+  "host:setPersona": (payload: { persona: PersonaKey; deviceId?: string }) => void;
+  "host:overrideLight": (payload: { deviceId: string; control: CabinControlId; on: boolean }) => void;
   "host:resetSession": (payload: { deviceId: string }) => void;
   "host:toggleOffline": (payload: { offline: boolean }) => void;
   /** Force a live telemetry change (open doors, halt, …) for the demo. */
