@@ -21,6 +21,16 @@ export const Personas: CollectionConfig = {
   },
   fields: [
     {
+      name: "nfcIds",
+      type: "array",
+      label: "NFC chips",
+      admin: {
+        description:
+          "Chip-IDs, die dieses Profil als \"Account\" laden (NFC-Reader am Kiosk).",
+      },
+      fields: [{ name: "tag", type: "text", required: true, label: "Chip-ID" }],
+    },
+    {
       name: "key",
       type: "select",
       required: true,

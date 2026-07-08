@@ -77,7 +77,7 @@ export const MockupData: CollectionConfig = {
       type: "array",
       label: "Next stops (in order)",
       fields: [
-        { name: "id", type: "text", required: true },
+        { name: "stopId", type: "text", required: true, label: "Stop-ID" },
         {
           type: "row",
           fields: [
