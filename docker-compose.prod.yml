@@ -9,14 +9,14 @@
 # them — nothing is exposed to the public internet directly.
 #
 # Run:
-#   docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml \
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 #     --env-file .env.prod up -d --build
 #
 # Then add TWO public hostnames in the Cloudflare dashboard (Zero Trust ->
 # Networks -> Tunnels -> your tunnel -> Public Hostnames), same as your other
 # services:
-#   cosimo.homannjohannes.de     -> http://localhost:${COSIMO_CMS_PORT:-3050}
-#   ws-cosimo.homannjohannes.de  -> http://localhost:${COSIMO_RT_PORT:-4050}
+#   cosimo.homannjohannes.de     -> http://localhost:${COSIMO_CMS_PORT:-6220}
+#   ws-cosimo.homannjohannes.de  -> http://localhost:${COSIMO_RT_PORT:-6221}
 # Make sure the tunnel has WebSockets enabled (default on) for the ws- host.
 
 services:
@@ -30,14 +30,14 @@ services:
         NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
         NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN:?set COSIMO_WS_DOMAIN in .env.prod}
     ports: !override
-      - "127.0.0.1:${COSIMO_CMS_PORT:-3050}:3001"
+      - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:3001"
     environment:
       NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
       NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN}
 
   realtime:
     ports: !override
-      - "127.0.0.1:${COSIMO_RT_PORT:-4050}:4000"
+      - "127.0.0.1:${COSIMO_RT_PORT:-6221}:4000"
     environment:
       # Origins that open sockets to realtime: the native kiosk WebView and the
       # /host console page (served from the CMS hostname). ws- is the target,

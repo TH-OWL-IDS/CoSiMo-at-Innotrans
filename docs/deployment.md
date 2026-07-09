@@ -62,14 +62,14 @@ Then add the two public hostnames in the Cloudflare dashboard (Zero Trust →
 Networks → Tunnels → your tunnel → Public Hostnames), just like the other
 services on the box:
 
-- `cosimo.homannjohannes.de` → `http://localhost:3050`
-- `ws-cosimo.homannjohannes.de` → `http://localhost:4050`
+- `cosimo.homannjohannes.de` → `http://localhost:6220`
+- `ws-cosimo.homannjohannes.de` → `http://localhost:6221`
 
 Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 
 What the prod overlay changes:
 
-- cms + realtime bind to `127.0.0.1:3050` / `127.0.0.1:4050` (free ports on
+- cms + realtime bind to `127.0.0.1:6220` / `127.0.0.1:6221` (free ports on
   the box — 3001/4000 are taken by other apps). Postgres publishes nothing.
 - CORS on realtime = `https://cosimo.homannjohannes.de` (the `/host` page
   origin) + `capacitor://localhost` (the native app). The ws- host is the
