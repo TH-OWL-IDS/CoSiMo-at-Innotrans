@@ -33,7 +33,3 @@ export async function getServerUrl(): Promise<string | null> {
 export async function setServerUrl(url: string): Promise<void> {
   await Preferences.set({ key: KEY, value: url.trim().replace(/\/+$/, "") });
 }
-
-export async function clearServerUrl(): Promise<void> {
-  await Preferences.remove({ key: KEY });
-}

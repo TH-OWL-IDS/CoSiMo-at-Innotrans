@@ -163,5 +163,3 @@ export function cannedReply(
       : `I didn't quite catch that. You could ask, for example: ${tips}.`,
   };
 }
-
-export { SUGGESTIONS };

@@ -16,13 +16,6 @@ import type {
 } from "@cosimo/shared";
 import { config } from "../config.js";
 
-export const PERSONA_KEYS: PersonaKey[] = [
-  "default",
-  "eyes-free",
-  "wheelchair",
-  "text-first",
-];
-
 /** Built-in defaults — also the values to seed into Payload. */
 export const DEFAULT_PERSONAS: Record<PersonaKey, Persona> = {
   default: {
