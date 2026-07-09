@@ -1,43 +1,48 @@
-# Production overlay for the VPS. Run with:
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Production overlay for the VPS, which is fronted by a Cloudflare Tunnel
+# (cloudflared runs there with --network host, token/dashboard-managed).
 #
-# Caddy is the only exposed service: it terminates TLS (automatic Let's
-# Encrypt for $COSIMO_DOMAIN) and routes /socket.io/* to the realtime service
-# (wss) and everything else to the CMS (admin, /host, /api). The native kiosk
-# app on the iPads points at https://$COSIMO_DOMAIN.
+# Model: two public hostnames, exactly like every other app on the box —
+#   cosimo.homannjohannes.de     -> CMS      (admin + /host console)
+#   ws-cosimo.homannjohannes.de  -> realtime (the WebSocket)
+# Cloudflare terminates TLS at the edge. cms and realtime are published on
+# localhost only (bound to 127.0.0.1), where the host's cloudflared reaches
+# them — nothing is exposed to the public internet directly.
+#
+# Run:
+#   docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml \
+#     --env-file .env.prod up -d --build
+#
+# Then add TWO public hostnames in the Cloudflare dashboard (Zero Trust ->
+# Networks -> Tunnels -> your tunnel -> Public Hostnames), same as your other
+# services:
+#   cosimo.homannjohannes.de     -> http://localhost:${COSIMO_CMS_PORT:-3050}
+#   ws-cosimo.homannjohannes.de  -> http://localhost:${COSIMO_RT_PORT:-4050}
+# Make sure the tunnel has WebSockets enabled (default on) for the ws- host.
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      COSIMO_DOMAIN: ${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - cms
-      - realtime
-
-  # In prod only Caddy is public — drop the host port publishes.
   postgres:
     ports: !override []
 
   cms:
-    ports: !override []
+    build:
+      # NEXT_PUBLIC_* must be inlined at build time (see apps/cms/Dockerfile).
+      args:
+        NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
+        NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN:?set COSIMO_WS_DOMAIN in .env.prod}
+    ports: !override
+      - "127.0.0.1:${COSIMO_CMS_PORT:-3050}:3001"
     environment:
-      NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:-localhost}
-      NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_DOMAIN:-localhost}
+      NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
+      NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN}
 
   realtime:
-    ports: !override []
+    ports: !override
+      - "127.0.0.1:${COSIMO_RT_PORT:-4050}:4000"
     environment:
-      # The kiosk WebView origin + the public site.
-      CORS_ORIGINS: https://${COSIMO_DOMAIN:-localhost},capacitor://localhost
+      # Origins that open sockets to realtime: the native kiosk WebView and the
+      # /host console page (served from the CMS hostname). ws- is the target,
+      # not an origin, so it is not listed here.
+      CORS_ORIGINS: https://${COSIMO_DOMAIN},capacitor://localhost
 
   # Nightly pg_dump into ./backups (sessions are the research dataset —
   # copy this directory off the box regularly).
@@ -65,7 +70,3 @@ services:
           find /backups -name 'cosimo_*.dump' -mtime +$$BACKUP_KEEP_DAYS -delete
           sleep 86400
         done
-
-volumes:
-  caddy_data:
-  caddy_config:

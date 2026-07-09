@@ -2,18 +2,20 @@ import { Capacitor } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 
 /**
- * Where the CoSiMo server (realtime + CMS behind one domain) lives.
+ * Where the CoSiMo *realtime* service (the WebSocket) lives. The kiosk is
+ * socket-only — it never calls the CMS directly (persona, telemetry and the
+ * face all arrive over the socket), so this is the realtime endpoint, not the
+ * CMS. In production the CMS and realtime are separate Cloudflare hostnames
+ * (cosimo.… → CMS, ws-cosimo.… → realtime); the kiosk wants the ws- one.
  *
- * - Web/dev build: defaults to same-origin ("") — the Vite proxy (dev) or
- *   Caddy (prod) forwards /socket.io and /api.
- * - Native build: the URL is baked here as the default and can be overridden
- *   on-device via the hidden setup screen (3s long-press, top-left corner),
- *   persisted with Capacitor Preferences. No Xcode rebuild to repoint an iPad.
+ * - Web/dev build: defaults to same-origin ("") — the Vite proxy forwards
+ *   /socket.io to the local realtime service.
+ * - Native build: baked default below; overridable on-device via the hidden
+ *   setup screen (3s hold on the slit), persisted with Capacitor Preferences.
  */
 
-/** Baked-in production server — fresh installs auto-connect here. The hidden
- *  setup screen (3s long-press, bottom-left) can override per device. */
-export const DEFAULT_SERVER_URL = "https://cosimo.homannjohannes.de";
+/** Baked-in production realtime endpoint — fresh installs auto-connect here. */
+export const DEFAULT_SERVER_URL = "https://ws-cosimo.homannjohannes.de";
 
 const KEY = "cosimo.serverUrl";
 

@@ -36,9 +36,10 @@ No baked localhost, no env vars on device. Resolution order in
 `src/config/serverUrl.ts`:
 
 1. stored per-device override (Capacitor Preferences),
-2. the baked production default (`https://cosimo.homannjohannes.de`),
-3. web builds default to same-origin (the Vite dev proxy or Caddy routes
-   `/socket.io` and `/api`).
+2. the baked production default — the realtime host
+   (`https://ws-cosimo.homannjohannes.de`); the kiosk is socket-only,
+3. web builds default to same-origin (the Vite dev proxy forwards
+   `/socket.io` to the local realtime service).
 
 Fresh installs auto-connect; the operator screen can repoint a device (e.g.
 to a dev machine) without an Xcode rebuild. Socket.IO reconnects

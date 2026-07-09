@@ -68,16 +68,17 @@ fresh installs auto-connect.
 
 ## VPS deployment (prod)
 
-One domain, automatic TLS (Caddy → Let's Encrypt), `wss://` for the kiosk sockets,
-nightly `pg_dump` into `./backups`:
+The VPS sits behind a Cloudflare Tunnel that terminates TLS and maps two
+hostnames to the stack (the same pattern the box uses for its other apps):
+`cosimo.…` → CMS, `ws-cosimo.…` → realtime. Services bind to localhost only;
+nightly `pg_dump` into `./backups`.
 
 ```bash
-cp .env.example .env.prod  # set COSIMO_DOMAIN, real secrets/keys
+cp .env.example .env.prod  # set COSIMO_DOMAIN, COSIMO_WS_DOMAIN, real secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
-Caddy routes `/socket.io/*` + `/health` → realtime, everything else (admin, `/host`,
-`/api`) → cms. Only ports 80/443 are exposed.
+Full walkthrough (tunnel rules, first-run, gotchas): [docs/deployment.md](docs/deployment.md).
 
 ## Status
 

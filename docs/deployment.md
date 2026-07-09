@@ -38,26 +38,45 @@ Secrets (Anthropic/Deepgram/ElevenLabs keys) exist ONLY in env — never in
 the CMS, never in compose defaults. Endpoint *routing* (URLs/models) is
 CMS-editable at runtime via the operator-config global.
 
-## Production (VPS)
+## Production (VPS, behind Cloudflare Tunnel)
 
-One VPS runs the whole server side behind Caddy; the iPads connect over the
-internet to `https://cosimo.homannjohannes.de` (baked into the app).
+The VPS is already fronted by a Cloudflare Tunnel (`cloudflared` runs with
+`--network host`, token/dashboard-managed) that maps hostnames to localhost
+ports — the same pattern every other app on the box uses. CoSiMo takes **two
+hostnames**:
+
+- `cosimo.homannjohannes.de` → CMS (admin + `/host` console)
+- `ws-cosimo.homannjohannes.de` → realtime (the WebSocket the kiosks use)
+
+Cloudflare terminates TLS at the edge, so nothing on the box needs certs and
+nothing is published to the public internet — cms and realtime bind to
+`127.0.0.1` only, where the tunnel reaches them.
 
 ```bash
-cp .env.example .env.prod   # set COSIMO_DOMAIN + real secrets
+cp .env.example .env.prod   # set COSIMO_DOMAIN, COSIMO_WS_DOMAIN + real secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --env-file .env.prod up -d --build
 ```
 
+Then add the two public hostnames in the Cloudflare dashboard (Zero Trust →
+Networks → Tunnels → your tunnel → Public Hostnames), just like the other
+services on the box:
+
+- `cosimo.homannjohannes.de` → `http://localhost:3050`
+- `ws-cosimo.homannjohannes.de` → `http://localhost:4050`
+
+Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
+
 What the prod overlay changes:
 
-- **Caddy** is the only exposed service (80/443), with automatic
-  Let's Encrypt TLS for `$COSIMO_DOMAIN` — which also gives the kiosks
-  `wss://`. Routing: `/socket.io/*` and `/health` → realtime; everything
-  else (admin, `/host`, `/api`) → cms. See `Caddyfile`.
-- Internal ports are no longer published.
-- CORS: the prod origin plus `capacitor://localhost` (the native app's
-  WebView origin — required or the kiosks can't connect).
+- cms + realtime bind to `127.0.0.1:3050` / `127.0.0.1:4050` (free ports on
+  the box — 3001/4000 are taken by other apps). Postgres publishes nothing.
+- CORS on realtime = `https://cosimo.homannjohannes.de` (the `/host` page
+  origin) + `capacitor://localhost` (the native app). The ws- host is the
+  target, not an origin, so it is not listed.
+- **`NEXT_PUBLIC_*` are passed as build args** so the `/host` console's
+  browser code is compiled with the right realtime URL — they can't be set
+  at runtime (Next inlines them at build). The overlay wires this up.
 - **pg-backup** sidecar: nightly `pg_dump` into `./backups`, N-day
   retention. The sessions collection is the research output — copy this
   directory off the box regularly; it's the one non-negotiable.

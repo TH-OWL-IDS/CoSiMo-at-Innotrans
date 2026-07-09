@@ -52,6 +52,6 @@ server's emotion says what CoSiMo feels; playback timing says when the mouth
 moves. Server and client stay decoupled, and the lips match the voice even
 with variable TTS latency.
 
-Empty `serverUrl` means same-origin (dev proxy / Caddy). The hook
+Empty `serverUrl` means same-origin (the Vite dev proxy). The hook
 regenerates a session id when the host resets the seat (`session:reset` →
 `resetNonce` bump so the kiosk can re-show the consent screen).

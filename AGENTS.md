@@ -16,7 +16,7 @@ live in [docs/](docs/).
 | [docs/cms.md](docs/cms.md) | Payload collections/globals, seeding, schema-change workflow, host console |
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
-| [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS/Caddy production, deployment gotchas |
+| [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 
 ## Repo shape
 
@@ -81,7 +81,9 @@ client against :4000 works well — see the smoke pattern in git history).
 
 - Ports: cms 3001 (3000 is reserved by an unrelated project — leave it
   alone), realtime 4000, kiosk dev 5173.
-- Prod domain: `cosimo.homannjohannes.de` (baked into the kiosk app).
+- Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
+  `ws-cosimo.homannjohannes.de` → realtime. The kiosk is socket-only, so
+  it bakes the ws- host in `serverUrl.ts`.
 - iOS builds: `ios/` is committed; `xcode-select` on this machine points at
   CommandLineTools, so prefix Capacitor/xcodebuild with
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
