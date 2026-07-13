@@ -8,9 +8,10 @@ import { useEffect, useRef } from "react";
  *    so it carries real hold-to-talk semantics (auto-repeats are ignored).
  *  - "i" — the physical info button (single press).
  *  - NFC — the reader types a framed sequence, scanner-style:
- *    "[" + chip id + Enter (or "]"). While a frame is open every key is
- *    swallowed, so ids containing s/i can't trigger the buttons. A stalled
- *    frame resets after 600 ms.
+ *    "[" (or "#") + chip id + Enter (or "]"). While a frame is open every key
+ *    is swallowed, so ids containing s/i can't trigger the buttons. A stalled
+ *    frame resets after 2 s — generous enough to hand-type a scan in dev
+ *    ("#ANNA1⏎"), still instant against a real reader.
  *
  * Testable without hardware: focus the app and type on a real keyboard.
  */
@@ -43,7 +44,7 @@ export function useHidInput({
     };
     const bumpFrameTimeout = () => {
       if (frameTimer.current) clearTimeout(frameTimer.current);
-      frameTimer.current = setTimeout(resetFrame, 600);
+      frameTimer.current = setTimeout(resetFrame, 2000);
     };
 
     const down = (e: KeyboardEvent) => {
