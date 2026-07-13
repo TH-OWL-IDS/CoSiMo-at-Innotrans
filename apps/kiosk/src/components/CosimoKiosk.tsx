@@ -208,6 +208,11 @@ export default function CosimoKiosk({
         background: "#000",
         color: scheme.ink,
         overflow: "hidden",
+        // Kiosk surface: long-pressing must never select text or pop the
+        // OS copy/look-up callout (iPad long-press, desktop drag-select).
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
         ["--bg" as string]: scheme.bg,
         ["--ink" as string]: scheme.ink,
       }}
