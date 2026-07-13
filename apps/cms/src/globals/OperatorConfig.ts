@@ -22,6 +22,23 @@ export const OperatorConfig: GlobalConfig = {
   },
   fields: [
     {
+      name: "agent",
+      type: "group",
+      label: "Agent (the personality)",
+      fields: [
+        {
+          name: "systemPrompt",
+          type: "textarea",
+          label: "System prompt (core)",
+          admin: {
+            rows: 18,
+            description:
+              "CoSiMos Kern-Systemprompt (Identität, Sprache, Grounding, Kabine, Anpassung, Ausdruck). Leer = eingebauter Default. Der Fahrgast-Teil (Brief, Accommodations, Erinnerungen) wird automatisch angehängt — hier nur den statischen Kern pflegen. Wirkt ab dem nächsten Turn.",
+          },
+        },
+      ],
+    },
+    {
       name: "llm",
       type: "group",
       label: "LLM (the thinking)",

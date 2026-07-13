@@ -11,6 +11,8 @@ import { config } from "../config.js";
 export type LlmProviderKind = "anthropic" | "openai-compatible";
 
 export interface ResolvedOperatorConfig {
+  /** Core system prompt override; empty = the built-in default in prompt.ts. */
+  agent: { systemPrompt: string };
   llm: { provider: LlmProviderKind; baseUrl: string; model: string };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; voiceId: string; model: string };
@@ -18,6 +20,7 @@ export interface ResolvedOperatorConfig {
 
 function envDefaults(): ResolvedOperatorConfig {
   return {
+    agent: { systemPrompt: "" },
     llm: {
       provider: config.llm.provider,
       baseUrl: config.llm.baseUrl,
@@ -37,6 +40,7 @@ function envDefaults(): ResolvedOperatorConfig {
 
 /** Shape of the Payload global we care about (all fields optional). */
 interface PayloadOperatorConfigDoc {
+  agent?: { systemPrompt?: string | null };
   llm?: { provider?: string; baseUrl?: string | null; model?: string | null };
   stt?: { baseUrl?: string | null; model?: string | null };
   tts?: { baseUrl?: string | null; voiceId?: string | null; model?: string | null };
@@ -67,6 +71,7 @@ export class OperatorConfigProvider {
       const doc = (await res.json()) as PayloadOperatorConfigDoc;
       const base = envDefaults();
       this.cache = {
+        agent: { systemPrompt: str(doc.agent?.systemPrompt, base.agent.systemPrompt) },
         llm: {
           provider:
             doc.llm?.provider === "openai-compatible" || doc.llm?.provider === "anthropic"
