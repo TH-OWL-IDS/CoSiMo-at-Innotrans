@@ -25,7 +25,7 @@ import { TelemetrySimulation } from "./telemetry.js";
 import { executeTool } from "./tools.js";
 import { PayloadSink } from "./sink.js";
 import { ProfileSink } from "./profileSink.js";
-import { cannedReply } from "./canned.js";
+import { cannedReply, errorReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 
 export interface AgentTurnInput {
@@ -194,10 +194,14 @@ export class CosimoAgent {
     } catch (err) {
       if (!ctrl.signal.aborted) {
         outcome = "error";
-        // Graceful recovery: fall back to a grounded canned reply rather than a
-        // dead end, so a transient cloud/network blip never breaks the demo.
+        // Graceful recovery: fall back to a grounded canned reply rather than
+        // a dead end. If the canned matcher has a real answer (speed, light…)
+        // use it; otherwise be honest that something went wrong — the rider
+        // WAS understood, the brain was unreachable ("Das habe ich nicht
+        // verstanden" would be a lie here).
         if (!assistantText) {
-          const fallback = cannedReply(text, lang, this.telemetry.get());
+          const matched = cannedReply(text, lang, this.telemetry.get());
+          const fallback = matched.matched ? matched : errorReply(lang);
           assistantText = fallback.text;
           chosenEmotion = fallback.emotion;
           this.emitFullReply(sessionId, fallback.text, turnNo);

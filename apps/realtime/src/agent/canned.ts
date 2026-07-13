@@ -31,6 +31,22 @@ const SUGGESTIONS: Record<Locale, string[]> = {
 
 const has = (text: string, ...needles: string[]) => needles.some((n) => text.includes(n));
 
+/**
+ * Honest apology for when the LLM errored mid-turn (as opposed to the
+ * offline matcher's "didn't understand"): the rider WAS understood — the
+ * brain was unreachable. Points at the canned asks that still work.
+ */
+export function errorReply(lang: Locale): CannedResult {
+  const de = lang === "de";
+  return {
+    matched: false,
+    emotion: "sad",
+    text: de
+      ? "Entschuldige, da ist gerade etwas schiefgelaufen — ich kann im Moment nicht richtig nachdenken. Versuch es gleich nochmal, oder frag mich zur Fahrt, zum Beispiel: „Wie schnell fahren wir?“"
+      : "Sorry, something just went wrong — I can't quite think right now. Try again in a moment, or ask me about the ride, for example: “How fast are we going?”",
+  };
+}
+
 export function cannedReply(
   raw: string,
   lang: Locale,
