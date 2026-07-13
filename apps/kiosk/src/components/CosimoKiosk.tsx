@@ -83,8 +83,10 @@ function Transcript({
  * cutouts — a circle (CoSiMo's Face) and a bottom slit (telemetry) — so only
  * those regions render content; everything else stays black (invisible).
  *
- * Interaction, until the physical buttons arrive: hold the Face circle to
- * talk (push-to-talk). The 3s hold on the slit opens the operator setup.
+ * The screen is display-only: all interaction runs over the physical
+ * buttons/NFC (ESP32 as a BLE keyboard — hold "s" to talk, "i" for info; a
+ * normal keyboard works identically in dev). The one touch gesture is the
+ * operator's: a 3s hold on the slit opens the setup screen.
  */
 export default function CosimoKiosk({
   serverUrl,
@@ -138,6 +140,18 @@ export default function CosimoKiosk({
     onUtterance: cosimo.sendUtterance,
     onTranscript: (t, l) => cosimo.send(t, l, "voice"),
   });
+
+  // Voice input needs server STT (Deepgram) or Chrome's speech recognition.
+  // Say so loudly in dev instead of leaving the talk button silently dead.
+  const pttSupported = ptt.supported;
+  useEffect(() => {
+    if (consentDecided && !pttSupported) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[cosimo-kiosk] push-to-talk unavailable: no server STT (DEEPGRAM_API_KEY) and this browser has no SpeechRecognition (use Chrome for the dev fallback).",
+      );
+    }
+  }, [consentDecided, pttSupported]);
 
   // Physical buttons + NFC reader (ESP32 as a BLE keyboard).
   useHidInput({
@@ -217,12 +231,10 @@ export default function CosimoKiosk({
         ["--ink" as string]: scheme.ink,
       }}
     >
-      {/* ── circle cutout: the Face ─────────────────────────────── */}
+      {/* ── circle cutout: the Face ───────────────────────────────
+          Display-only: talking runs exclusively over the physical talk
+          button (HID "s"); touch does nothing here by design. */}
       <div
-        onPointerDown={consentDecided && ptt.supported ? ptt.start : undefined}
-        onPointerUp={ptt.stop}
-        onPointerLeave={ptt.stop}
-        onPointerCancel={ptt.stop}
         onContextMenu={(e) => e.preventDefault()}
         style={{
           position: "absolute",
