@@ -254,6 +254,7 @@ export default function CosimoKiosk({
           <CosimoFaceAnimated
             emotion={cosimo.faceEmotion}
             idle={!reduceMotion}
+            mouthDrive={cosimo.getMouthDrive}
             style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
           />
         </div>

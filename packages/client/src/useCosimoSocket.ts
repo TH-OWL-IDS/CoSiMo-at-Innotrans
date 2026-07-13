@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   CabinControlId,
@@ -45,6 +45,14 @@ export interface CosimoState {
   speaking: boolean;
   /** Signal that locally-generated speech (browser TTS) started/stopped. */
   setSpeaking: (on: boolean) => void;
+  /**
+   * Live mouth drive from the actually-playing TTS clip: `open` is the
+   * smoothed loudness envelope (0..1), `tilt` the spectral brightness (0..1,
+   * bright "iii" vs dark "ooo"). Null when nothing analysable is playing
+   * (e.g. browser-TTS fallback) — the face then uses its synthetic cadence.
+   * A getter, not state: the face samples it inside its own animation frame.
+   */
+  getMouthDrive: () => { open: number; tilt: number } | null;
   /** Last thing CoSiMo heard via server STT (for display). */
   heard: string;
   /** Send a message to CoSiMo (text or browser-transcribed voice). */
@@ -118,10 +126,46 @@ export function useCosimoSocket(
   /** Highest turn number seen — chunks/clips from lower (barged-in) turns are dropped. */
   const turnRef = useRef(0);
 
+  // Mouth drive: the playing TTS clip is routed through a Web Audio analyser
+  // so the face's mouth can follow the actual voice (loudness + brightness)
+  // instead of a synthetic cadence. Browser-TTS has no stream → no analyser.
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const timeBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const freqBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  /** True while the current clip is wired into the analyser. */
+  const analysingRef = useRef(false);
+  /** Attack/release-smoothed envelope, kept across getter calls. */
+  const envelopeRef = useRef(0);
+
+  /** Create/resume the AudioContext. Call from user-gesture paths — WKWebView
+   *  keeps a context suspended until a gesture unlocks it. */
+  const ensureAnalyser = (): AnalyserNode | null => {
+    if (typeof window === "undefined") return null;
+    const AC =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return null;
+    if (!audioCtxRef.current) {
+      const ctx = new AC();
+      const an = ctx.createAnalyser();
+      an.fftSize = 1024;
+      an.smoothingTimeConstant = 0.4;
+      an.connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      analyserRef.current = an;
+      timeBufRef.current = new Uint8Array(an.fftSize);
+      freqBufRef.current = new Uint8Array(an.frequencyBinCount);
+    }
+    if (audioCtxRef.current.state !== "running") void audioCtxRef.current.resume();
+    return analyserRef.current;
+  };
+
   /** Silence CoSiMo instantly (barge-in): stop server-TTS clip + browser speech. */
   const stopPlayback = () => {
     audioRef.current?.pause();
     audioRef.current = null;
+    analysingRef.current = false;
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     setSpeaking(false);
   };
@@ -172,11 +216,26 @@ export function useCosimoSocket(
       try {
         // Stop any previous clip, then play — the Face's mouth follows the audio.
         audioRef.current?.pause();
+        analysingRef.current = false;
         const audio = new Audio(`data:${mime};base64,${audioBase64}`);
         audioRef.current = audio;
+        // Route the clip through the analyser so the mouth can follow the
+        // actual voice. Only when the context is unlocked ("running") — a
+        // suspended context would swallow the sound entirely.
+        try {
+          const an = ensureAnalyser();
+          if (an && audioCtxRef.current?.state === "running") {
+            const src = audioCtxRef.current.createMediaElementSource(audio);
+            src.connect(an);
+            analysingRef.current = true;
+            envelopeRef.current = 0;
+          }
+        } catch {
+          // analyser unavailable — plain playback, synthetic mouth cadence
+        }
         audio.onplay = () => setSpeaking(true);
-        audio.onended = () => setSpeaking(false);
-        audio.onerror = () => setSpeaking(false);
+        audio.onended = () => { analysingRef.current = false; setSpeaking(false); };
+        audio.onerror = () => { analysingRef.current = false; setSpeaking(false); };
         void audio.play().catch(() => setSpeaking(false));
       } catch {
         setSpeaking(false);
@@ -226,8 +285,45 @@ export function useCosimoSocket(
   };
 
   const setConsent = (consent: boolean) => {
+    ensureAnalyser(); // user gesture — unlock the AudioContext for mouth sync
     sockRef.current?.emit("consent:set", { sessionId: sessionRef.current, consent });
   };
+
+  /** Sample the playing clip's envelope + brightness (see CosimoState docs). */
+  const getMouthDrive = useCallback((): { open: number; tilt: number } | null => {
+    const an = analyserRef.current;
+    const timeBuf = timeBufRef.current;
+    const freqBuf = freqBufRef.current;
+    if (!an || !timeBuf || !freqBuf || !analysingRef.current) return null;
+
+    // Loudness: RMS of the time-domain signal → gained, gamma'd envelope with
+    // fast attack / slower release so the mouth snaps open but eases shut.
+    an.getByteTimeDomainData(timeBuf);
+    let sum = 0;
+    for (let i = 0; i < timeBuf.length; i++) {
+      const v = (timeBuf[i]! - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / timeBuf.length);
+    const target = Math.min(1, Math.pow(Math.max(0, rms - 0.02) * 5, 0.8));
+    const prev = envelopeRef.current;
+    const level = prev + (target - prev) * (target > prev ? 0.55 : 0.18);
+    envelopeRef.current = level;
+
+    // Brightness: energy above ~1 kHz vs below → bright "iii" (wide mouth)
+    // against dark "ooo" (round mouth). Bin width ≈ sampleRate / fftSize.
+    an.getByteFrequencyData(freqBuf);
+    const binHz = (audioCtxRef.current?.sampleRate ?? 48_000) / an.fftSize;
+    const split = Math.max(2, Math.round(1000 / binHz));
+    const top = Math.min(freqBuf.length, Math.round(4000 / binHz));
+    let low = 0;
+    let high = 0;
+    for (let i = 1; i < split; i++) low += freqBuf[i]!;
+    for (let i = split; i < top; i++) high += freqBuf[i]!;
+    const tilt = low + high > 0 ? high / (low + high) : 0.5;
+
+    return { open: level, tilt };
+  }, []);
 
   const overrideLight = (deviceId: string, control: CabinControlId, on: boolean) =>
     sockRef.current?.emit("host:overrideLight", { deviceId, control, on });
@@ -243,6 +339,7 @@ export function useCosimoSocket(
     // Barge-in: the button press itself silences CoSiMo — instantly locally,
     // and the server aborts the seat's in-flight turn on ptt:start.
     stopPlayback();
+    ensureAnalyser(); // user gesture — keep the AudioContext unlocked
     sockRef.current?.emit("ptt:start", { sessionId: sessionRef.current });
   };
   const pttStop = () =>
@@ -269,7 +366,7 @@ export function useCosimoSocket(
   return {
     connected, emotion, phase, reply, replying, transcript,
     telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
-    faceEmotion, speaking, setSpeaking,
+    faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,
     overrideLight, patchTelemetry, toggleOffline, recover, resetSession,
     sessionId: sessionRef.current,

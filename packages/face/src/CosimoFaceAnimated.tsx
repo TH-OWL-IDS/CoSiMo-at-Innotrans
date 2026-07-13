@@ -341,7 +341,17 @@ export default function CosimoFaceAnimated({
   transitionMs,
   idle = true,
   gazeY,
-}: ScribbleEntityProps) {
+  mouthDrive,
+}: ScribbleEntityProps & {
+  /**
+   * Live mouth drive from the actually-playing voice: `open` = loudness
+   * envelope (0..1), `tilt` = spectral brightness (0..1). Sampled once per
+   * animation frame while `emotion === "speaking"`; when it returns null
+   * (no analysable audio, e.g. browser-TTS fallback) the built-in synthetic
+   * speech cadence takes over. A getter so no React state churns at 60 fps.
+   */
+  mouthDrive?: () => { open: number; tilt: number } | null;
+}) {
   const duration = transitionMs ?? (IN_TEST ? 0 : 350);
   const tweened = useTweenedParams(FACE_STATES[emotion], duration);
   const ambientOn = idle && !IN_TEST;
@@ -353,7 +363,20 @@ export default function CosimoFaceAnimated({
     : { p: tweened, blinkL: 1, blinkR: 1, bobY: 0, sway: 0, breathe: 1, yaw: 0 };
   // A scene can force the vertical gaze (e.g. glance down at buttons); that
   // wins over the idle wander.
-  const p = gazeY == null ? rig.p : { ...rig.p, gazeY };
+  const gazed = gazeY == null ? rig.p : { ...rig.p, gazeY };
+
+  // While speaking with real audio available, the mouth follows the VOICE:
+  // loudness opens it (emphasis pops, pauses close it), brightness widens it
+  // (bright "iii" vs round "ooo"). Overrides the synthetic cadence, which
+  // remains the fallback when no drive is available.
+  const drive = emotion === "speaking" && mouthDrive ? mouthDrive() : null;
+  const p = drive
+    ? {
+        ...gazed,
+        mouthOpen: clampS(0.05 + drive.open * 0.6, 0.04, 0.68),
+        mouthWidth: gazed.mouthWidth * (0.92 + drive.tilt * 0.18),
+      }
+    : gazed;
 
   const { x: cx, y: cy } = FACE_C;
   // Fake the head turn in 2.5D: slide the features toward the turn, compress
