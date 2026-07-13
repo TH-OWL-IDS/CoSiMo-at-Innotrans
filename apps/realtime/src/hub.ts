@@ -281,6 +281,9 @@ export class Hub {
       this.broadcastDevices();
       // Snapshot current state to the freshly-connected client.
       socket.emit("face:emotion", { emotion: entry.emotion, since: this.now() });
+      // Include the phase — a client reconnecting after a mid-turn drop must
+      // not keep showing a stale "thinking" forever.
+      socket.emit("pipeline:phase", { phase: entry.phase, sessionId: "" });
       socket.emit("persona:active", entry.persona);
       socket.emit("cabin:state", { controls: entry.controls });
       socket.emit("status:update", this.status);

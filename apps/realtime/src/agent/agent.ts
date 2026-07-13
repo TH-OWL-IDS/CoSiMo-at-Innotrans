@@ -124,7 +124,15 @@ export class CosimoAgent {
       this.personas.get(persona),
       this.operatorConfig.get().agent.systemPrompt,
     );
-    const turn = llm.startTurn(system, text, ctrl.signal);
+    // Watchdog: a hung LLM stream must never strand the seat in "thinking".
+    // The combined signal kills the HTTP stream either on barge-in (ctrl) or
+    // after 90s; only ctrl counts as "interrupted" — a watchdog abort lands in
+    // the catch below and degrades to the canned fallback + idle.
+    const turn = llm.startTurn(
+      system,
+      text,
+      AbortSignal.any([ctrl.signal, AbortSignal.timeout(90_000)]),
+    );
 
     let assistantText = "";
     let startedSpeaking = false;
