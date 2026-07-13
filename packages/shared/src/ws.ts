@@ -10,7 +10,7 @@
 import type { FaceEmotion } from "./emotion.js";
 import type { MonoCabTelemetry, HostTelemetryPatch, Locale } from "./telemetry.js";
 import type { CabinControlState, CabinControlId } from "./cabin.js";
-import type { PersonaBroadcast, PersonaKey } from "./persona.js";
+import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
 import type { Modality } from "./session.js";
 
 /** A device connected to the realtime hub (for the operator console). */
@@ -26,7 +26,11 @@ export type PipelinePhase = "idle" | "listening" | "thinking" | "speaking";
 export interface SeatSummary {
   deviceId: string;
   persona: PersonaKey;
-  personaLabel: Record<Locale, string>;
+  personaLabel: string;
+  /** The seat's live accommodations (may diverge from the profile this session). */
+  accommodations: Accommodations;
+  /** What CoSiMo has remembered about this rider (notes; empty for anon/presets). */
+  memories: string[];
   emotion: FaceEmotion;
   phase: PipelinePhase;
   /** Visitor consent decision (recording), if made this session. */
@@ -59,8 +63,13 @@ export interface ServerToClientEvents {
   "face:emotion": (payload: { emotion: FaceEmotion; since: string }) => void;
   /** Pipeline phase change (drives mechanical emotion + thinking UI). */
   "pipeline:phase": (payload: { phase: PipelinePhase; sessionId: string }) => void;
-  /** Streamed assistant text (token chunks) for latency masking. */
-  "chat:delta": (payload: { sessionId: string; text: string; done: boolean }) => void;
+  /**
+   * Streamed assistant text (token chunks) for latency masking. `turn` is the
+   * seat's monotonically increasing turn number — clients drop chunks from a
+   * turn lower than the highest they've seen (stale after a barge-in) and
+   * reset their reply view when a higher one starts. -1 = wildcard (recover).
+   */
+  "chat:delta": (payload: { sessionId: string; text: string; done: boolean; turn: number }) => void;
   /** Full cabin state broadcast (all controls). */
   "cabin:state": (payload: { controls: CabinControlState[] }) => void;
   /** Telemetry snapshot for the on-screen display. */
@@ -69,8 +78,9 @@ export interface ServerToClientEvents {
   "persona:active": (payload: PersonaBroadcast) => void;
   /** What CoSiMo heard from a voice utterance (server STT), echoed for display. */
   "voice:transcript": (payload: { sessionId: string; text: string; lang: Locale }) => void;
-  /** Synthesized speech to play (server TTS). When absent, clients speak locally. */
-  "tts:audio": (payload: { sessionId: string; audioBase64: string; mime: string }) => void;
+  /** Synthesized speech to play (server TTS). When absent, clients speak locally.
+   *  Carries the turn number — stale clips (barged-in turns) are dropped. */
+  "tts:audio": (payload: { sessionId: string; audioBase64: string; mime: string; turn: number }) => void;
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */
@@ -79,6 +89,9 @@ export interface ServerToClientEvents {
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
   /** Per-seat live summaries (host consoles only). */
   "host:seats": (payload: { seats: SeatSummary[] }) => void;
+  /** The set of authored personas (host consoles only) — drives the pickers.
+   *  Sent on host connect and whenever the persona set is refreshed from CMS. */
+  "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
 }
 
 /** Events clients send to the server. */

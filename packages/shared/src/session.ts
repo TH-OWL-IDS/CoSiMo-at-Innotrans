@@ -11,7 +11,13 @@ import type { Locale } from "./telemetry.js";
 
 export type Modality = "voice" | "text";
 export type TurnRole = "user" | "cosimo";
-export type TurnOutcome = "ok" | "not_understood" | "error" | "offline_canned";
+export type TurnOutcome =
+  | "ok"
+  | "not_understood"
+  | "error"
+  | "offline_canned"
+  /** The rider barged in (talk button / new input) and the turn was aborted. */
+  | "interrupted";
 
 export interface TurnAction {
   /** Which tool CoSiMo invoked, if any (e.g. "set_light"). */

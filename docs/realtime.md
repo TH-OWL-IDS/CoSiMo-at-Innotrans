@@ -53,6 +53,18 @@ see `packages/shared/src/emotion.ts`).
 `announce()` pushes a server-initiated utterance to one seat (text + face +
 TTS) — used for NFC greetings and unknown-card replies.
 
+**Barge-in (interruptible turns).** Pressing the talk button (or sending new
+input / tapping a card) while CoSiMo answers aborts that seat's in-flight
+turn: the kiosk silences playback instantly on button-down, `ptt:start` makes
+the agent abort the LLM stream mid-generation (`AbortController` per seat,
+wired into both adapters), and pending TTS is dropped. Every turn carries a
+per-seat monotonic `turn` number on `chat:delta`/`tts:audio`; hub and clients
+drop chunks from superseded turns, so racing stragglers can't garble the new
+reply (-1 = wildcard, used by host recover). A running *tool call* is never
+aborted (the cabin must not end up half-applied) — the loop stops before the
+next generation step instead. Interrupted turns record `outcome:
+"interrupted"` with the partial transcript.
+
 ## LLM adapters (`src/agent/llm.ts`)
 
 The loop speaks one neutral interface (`startTurn` → `step`/`addToolResults`).
@@ -84,15 +96,17 @@ is env-determined at boot and advertised to clients via `status:update`
 (`serverStt`/`serverTts`) — clients fall back to browser speech APIs where
 they exist.
 
-## Personas & NFC accounts (`src/agent/personas.ts`)
+## Profiles, adaptation & NFC accounts (`src/agent/personas.ts`)
 
-Personas shape the system prompt (support style, emotion bias) and the
-client presentation (theme, large text, speak-aloud). Built-in defaults keep
-the demo alive with no CMS; CMS docs merge over them on a short TTL. Each
-persona can list **NFC chip ids** — `byNfcId()` resolves a scanned chip to a
-persona, the hub switches *that seat only*, and the agent greets the visitor
-by profile. Unknown chips get a friendly refusal. This is the "register your
-own CoSiMo account" mechanic.
+A **profile** shapes the system prompt (verbatim *brief* + fenced *memories*)
+and the client presentation (*accommodations* — theme, text size, audio,
+captions…). CoSiMo can change accommodations and remember riders by voice
+(`set_presentation` / `apply_preset` / `remember` / `forget`), applied via the
+hub and written back best-effort through `ProfileSink`. Built-in preset defaults
+keep the demo alive with no CMS; CMS docs merge over them on a short TTL. Each
+user profile lists **NFC chip ids** — `byNfcId()` resolves a scanned chip, the
+hub switches *that seat only*, and the agent greets the rider by profile;
+unknown chips get a friendly refusal. **Full model: [personas.md](personas.md).**
 
 ## Resilience
 

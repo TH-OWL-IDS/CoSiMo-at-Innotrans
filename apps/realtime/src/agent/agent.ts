@@ -18,11 +18,13 @@ import {
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
 import type { LlmRouter } from "./llm.js";
+import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
 import { TelemetryProvider } from "./telemetry.js";
 import { executeTool } from "./tools.js";
 import { PayloadSink } from "./sink.js";
+import { ProfileSink } from "./profileSink.js";
 import { cannedReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 
@@ -40,12 +42,16 @@ export interface AgentTurnInput {
 
 export class CosimoAgent {
   private readonly llm: LlmRouter;
+  private readonly operatorConfig: OperatorConfigProvider;
   private readonly hub: Hub;
   private readonly telemetry: TelemetryProvider;
   readonly personas: PersonaProvider;
   private readonly tts: TtsProvider;
   private readonly sink = new PayloadSink();
+  private readonly profiles = new ProfileSink();
   readonly recorder = new SessionRecorder();
+  /** In-flight turn per seat — aborted on barge-in / a newer input. */
+  private readonly activeTurns = new Map<string, AbortController>();
 
   constructor(
     hub: Hub,
@@ -53,22 +59,41 @@ export class CosimoAgent {
     tts: TtsProvider,
     telemetry: TelemetryProvider,
     llm: LlmRouter,
+    operatorConfig: OperatorConfigProvider,
   ) {
     this.hub = hub;
     this.personas = personas;
     this.tts = tts;
     this.telemetry = telemetry;
     this.llm = llm;
+    this.operatorConfig = operatorConfig;
     this.hub.setLlmConfigured(this.llm.maybeConfigured());
   }
 
   /**
+   * Barge-in: abort the seat's in-flight turn (rider pressed the talk button
+   * or sent new input). The aborted turn closes its own stream quietly — no
+   * canned fallback, no face/phase stomping — and records as "interrupted".
+   */
+  interrupt(deviceId: string): void {
+    const ctrl = this.activeTurns.get(deviceId);
+    if (ctrl && !ctrl.signal.aborted) ctrl.abort();
+  }
+
+  /**
    * Handle one user turn end-to-end. Records the user turn, runs the agent
-   * loop, streams the reply, records the CoSiMo turn.
+   * loop, streams the reply, records the CoSiMo turn. A newer input for the
+   * same seat aborts this turn mid-stream (see interrupt()).
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
     const { sessionId, deviceId, text, lang, persona, modality, consent } = input;
     const startedAt = Date.now();
+
+    // A new input supersedes whatever this seat was still generating.
+    this.interrupt(deviceId);
+    const ctrl = new AbortController();
+    this.activeTurns.set(deviceId, ctrl);
+    const turnNo = this.hub.beginTurn(sessionId);
 
     this.recorder.start(sessionId, deviceId, persona, consent);
     this.recorder.addTurn(sessionId, {
@@ -85,7 +110,7 @@ export class CosimoAgent {
     const llm = await this.llm.current();
     this.hub.setLlmConfigured(llm !== null);
     if (this.hub.isOfflineMode() || !llm) {
-      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt);
+      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt, turnNo);
       this.persist(sessionId);
       return;
     }
@@ -93,8 +118,13 @@ export class CosimoAgent {
     this.hub.emitPhase("thinking", sessionId);
     this.hub.setEmotion("thinking", sessionId);
 
-    const system = buildSystemPrompt(this.personas.get(persona));
-    const turn = llm.startTurn(system, text);
+    // Core prompt is CMS-editable (operator-config, refreshed by llm.current()
+    // just above); the rider section is always appended in code.
+    const system = buildSystemPrompt(
+      this.personas.get(persona),
+      this.operatorConfig.get().agent.systemPrompt,
+    );
+    const turn = llm.startTurn(system, text, ctrl.signal);
 
     let assistantText = "";
     let startedSpeaking = false;
@@ -106,6 +136,7 @@ export class CosimoAgent {
       // Manual tool-use loop: iterate until the model stops calling tools.
       for (let guard = 0; guard < 6; guard++) {
         const { toolCalls } = await turn.step((delta) => {
+          if (ctrl.signal.aborted) return; // barged-in — swallow late chunks
           if (!startedSpeaking) {
             startedSpeaking = true;
             // Phase label only. The "speaking" Face (moving mouth) is driven by
@@ -114,46 +145,68 @@ export class CosimoAgent {
             this.hub.emitPhase("speaking", sessionId);
           }
           assistantText += delta;
-          this.hub.emitChatDelta(sessionId, delta, false);
+          this.hub.emitChatDelta(sessionId, delta, false, turnNo);
         });
 
-        if (toolCalls.length === 0) break;
+        if (toolCalls.length === 0 || ctrl.signal.aborted) break;
 
         // Execute every tool call, then feed all results back in one batch.
+        // A barge-in does NOT abort a running tool (never leave the cabin in a
+        // half-applied state); we stop before the next generation step instead.
         const results: { id: string; text: string }[] = [];
         for (const call of toolCalls) {
           const res = await executeTool(call.name, call.input, {
             hub: this.hub,
             telemetry: this.telemetry,
+            personas: this.personas,
+            profiles: this.profiles,
             lang,
             deviceId,
+            persona,
+            consent,
           });
           if (res.emotion) chosenEmotion = res.emotion;
           else if (res.action && res.action.tool !== "set_emotion") lastAction = res.action;
           results.push({ id: call.id, text: res.text });
         }
+        if (ctrl.signal.aborted) break;
         turn.addToolResults(results);
       }
     } catch (err) {
-      outcome = "error";
-      // Graceful recovery: fall back to a grounded canned reply rather than a
-      // dead end, so a transient cloud/network blip never breaks the demo.
-      if (!assistantText) {
-        const fallback = cannedReply(text, lang, this.telemetry.get());
-        assistantText = fallback.text;
-        chosenEmotion = fallback.emotion;
-        this.emitFullReply(sessionId, fallback.text);
+      if (!ctrl.signal.aborted) {
+        outcome = "error";
+        // Graceful recovery: fall back to a grounded canned reply rather than a
+        // dead end, so a transient cloud/network blip never breaks the demo.
+        if (!assistantText) {
+          const fallback = cannedReply(text, lang, this.telemetry.get());
+          assistantText = fallback.text;
+          chosenEmotion = fallback.emotion;
+          this.emitFullReply(sessionId, fallback.text, turnNo);
+        }
+        // eslint-disable-next-line no-console
+        console.error("[cosimo-agent] turn failed:", err);
       }
-      // eslint-disable-next-line no-console
-      console.error("[cosimo-agent] turn failed:", err);
     }
 
+    if (ctrl.signal.aborted) {
+      // Barge-in: close this turn's stream quietly. No canned fallback, no
+      // phase/face changes — the interrupter (listening) or the next turn owns
+      // the seat now. Record what was said so far as an interrupted turn.
+      outcome = "interrupted";
+      this.hub.emitChatDelta(sessionId, "", true, turnNo);
+      this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
+      this.persist(sessionId);
+      return;
+    }
     // Close out the stream and settle the Face on the chosen expressive emotion.
-    this.hub.emitChatDelta(sessionId, "", true);
+    this.hub.emitChatDelta(sessionId, "", true, turnNo);
     this.hub.emitPhase("idle", sessionId);
     this.hub.setEmotion(chosenEmotion, sessionId);
 
-    await this.speak(sessionId, assistantText, lang, persona);
+    // Keep the controller registered through TTS so a barge-in during
+    // synthesis still cancels the audio; clean up only if we're still current.
+    await this.speak(sessionId, assistantText, lang, persona, turnNo, ctrl.signal);
+    if (this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
     this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
     this.persist(sessionId);
   }
@@ -170,6 +223,7 @@ export class CosimoAgent {
     persona: PersonaKey,
     modality: Modality,
     startedAt: number,
+    turnNo: number,
   ): Promise<void> {
     const reply = cannedReply(text, lang, this.telemetry.get());
 
@@ -184,12 +238,12 @@ export class CosimoAgent {
     }
 
     this.hub.emitPhase("speaking", sessionId);
-    this.hub.emitChatDelta(sessionId, reply.text, false);
-    this.hub.emitChatDelta(sessionId, "", true);
+    this.hub.emitChatDelta(sessionId, reply.text, false, turnNo);
+    this.hub.emitChatDelta(sessionId, "", true, turnNo);
     this.hub.emitPhase("idle", sessionId);
     this.hub.setEmotion(reply.emotion, sessionId);
 
-    await this.speak(sessionId, reply.text, lang, persona);
+    await this.speak(sessionId, reply.text, lang, persona, turnNo);
     this.recordCosimoTurn(
       sessionId, lang, reply.text, action, reply.emotion, startedAt, modality,
       reply.matched ? "offline_canned" : "not_understood",
@@ -207,12 +261,21 @@ export class CosimoAgent {
    * When no server TTS is configured the client speaks locally (Web Speech), so
    * this is a no-op. Never throws — speech is best-effort.
    */
-  private async speak(sessionId: string, text: string, lang: Locale, persona: PersonaKey): Promise<void> {
+  private async speak(
+    sessionId: string,
+    text: string,
+    lang: Locale,
+    persona: PersonaKey,
+    turnNo: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
     if (!this.tts.available || !text.trim()) return;
-    if (!this.personas.get(persona).presentation.speakAloud) return;
+    if (!this.personas.get(persona).accommodations.audioOutput) return;
     try {
       const audio = await this.tts.synthesize(text, lang);
-      if (audio) this.hub.emitTtsAudio(sessionId, audio.audioBase64, audio.mime);
+      // Barge-in during synthesis → never ship the stale clip.
+      if (signal?.aborted) return;
+      if (audio) this.hub.emitTtsAudio(sessionId, audio.audioBase64, audio.mime, turnNo);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[cosimo-agent] tts failed:", err);
@@ -230,16 +293,18 @@ export class CosimoAgent {
     persona: PersonaKey,
     emotion: ExpressiveEmotion = "happy",
   ): Promise<void> {
-    this.emitFullReply(sessionId, text);
+    // An announcement is a turn of its own — it supersedes whatever streams.
+    const turnNo = this.hub.beginTurn(sessionId);
+    this.emitFullReply(sessionId, text, turnNo);
     this.hub.setEmotion(emotion, sessionId);
-    await this.speak(sessionId, text, lang, persona);
+    await this.speak(sessionId, text, lang, persona, turnNo);
   }
 
   /** Emit a complete reply as a single delta + done (offline / error paths). */
-  private emitFullReply(sessionId: string, text: string): void {
+  private emitFullReply(sessionId: string, text: string, turnNo: number): void {
     this.hub.emitPhase("speaking", sessionId);
-    this.hub.emitChatDelta(sessionId, text, false);
-    this.hub.emitChatDelta(sessionId, "", true);
+    this.hub.emitChatDelta(sessionId, text, false, turnNo);
+    this.hub.emitChatDelta(sessionId, "", true, turnNo);
     this.hub.emitPhase("idle", sessionId);
   }
 

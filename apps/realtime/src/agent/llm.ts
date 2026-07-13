@@ -27,7 +27,8 @@ export interface LlmTurn {
 
 export interface LlmProvider {
   readonly model: string;
-  startTurn(system: string, userText: string): LlmTurn;
+  /** `signal` aborts the streamed generation mid-turn (rider barge-in). */
+  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn;
 }
 
 /* ---------- Anthropic ---------- */
@@ -39,19 +40,24 @@ class AnthropicTurn implements LlmTurn {
     private readonly model: string,
     private readonly system: string,
     userText: string,
+    private readonly signal?: AbortSignal,
   ) {
     this.messages = [{ role: "user", content: userText }];
   }
 
   async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[] }> {
-    const stream = this.client.messages.stream({
-      model: this.model,
-      max_tokens: 1024,
-      thinking: { type: "adaptive" },
-      system: this.system,
-      tools: TOOL_DEFINITIONS,
-      messages: this.messages,
-    });
+    const stream = this.client.messages.stream(
+      {
+        model: this.model,
+        max_tokens: 1024,
+        thinking: { type: "adaptive" },
+        system: this.system,
+        tools: TOOL_DEFINITIONS,
+        messages: this.messages,
+      },
+      // Barge-in: aborting kills the HTTP stream mid-generation.
+      this.signal ? { signal: this.signal } : undefined,
+    );
     stream.on("text", onText);
     const message = await stream.finalMessage();
     this.messages.push({ role: "assistant", content: message.content });
@@ -91,8 +97,8 @@ class AnthropicProvider implements LlmProvider {
       ...(baseUrl ? { baseURL: baseUrl } : {}),
     });
   }
-  startTurn(system: string, userText: string): LlmTurn {
-    return new AnthropicTurn(this.client, this.model, system, userText);
+  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn {
+    return new AnthropicTurn(this.client, this.model, system, userText, signal);
   }
 }
 
@@ -127,6 +133,7 @@ class OpenAiCompatTurn implements LlmTurn {
     private readonly model: string,
     system: string,
     userText: string,
+    private readonly signal?: AbortSignal,
   ) {
     this.messages = [
       { role: "system", content: system },
@@ -148,7 +155,10 @@ class OpenAiCompatTurn implements LlmTurn {
         messages: this.messages,
         tools: OPENAI_TOOLS,
       }),
-      signal: AbortSignal.timeout(60_000),
+      // Timeout + barge-in: either aborts the fetch/stream.
+      signal: this.signal
+        ? AbortSignal.any([AbortSignal.timeout(60_000), this.signal])
+        : AbortSignal.timeout(60_000),
     });
     if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);
 
@@ -239,8 +249,8 @@ class OpenAiCompatProvider implements LlmProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
   ) {}
-  startTurn(system: string, userText: string): LlmTurn {
-    return new OpenAiCompatTurn(this.baseUrl, this.apiKey, this.model, system, userText);
+  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn {
+    return new OpenAiCompatTurn(this.baseUrl, this.apiKey, this.model, system, userText, signal);
   }
 }
 

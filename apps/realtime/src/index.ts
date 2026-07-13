@@ -42,13 +42,19 @@ const llm = new LlmRouter(operatorConfig);
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
+hub.setPersonaLister(() => personas.list());
+hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));
 hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
-const agent = new CosimoAgent(hub, personas, tts, telemetry, llm);
+const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig);
 
 // Load personas + operator config from the CMS (best-effort; env/built-in
-// defaults otherwise), then re-resolve the active persona for the clients.
+// defaults otherwise), then re-resolve the active persona for the clients and
+// push the authored persona set to any connected host consoles.
 void operatorConfig.refresh();
-void personas.refresh().then(() => hub.setPersona("default"));
+void personas.refresh().then(() => {
+  hub.setPersona("default");
+  hub.broadcastPersonas();
+});
 
 // Keep an always-on telemetry display: refresh from the CMS and broadcast.
 async function broadcastTelemetry(): Promise<void> {
@@ -65,18 +71,30 @@ hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
 });
 
+// Barge-in: talk button pressed while a turn streams → abort that seat's turn
+// (the kiosk silences its audio locally at the same moment).
+hub.onInterrupt(({ deviceId }) => {
+  agent.interrupt(deviceId);
+});
+
 // NFC scan → resolve the chip to a persona ("account") for that kiosk seat.
 hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
+  // A card tap supersedes whatever CoSiMo was still saying at this seat.
+  agent.interrupt(deviceId);
   await personas.refresh();
+  hub.broadcastPersonas();
   const key = personas.byNfcId(tagId);
   if (key) {
     hub.setPersonaForDevice(deviceId, key);
     const p = personas.get(key);
+    // Greet in the rider's own preferred language — the card tells us who they
+    // are, so the kiosk's UI toggle no longer has to guess.
+    const riderLang = p.accommodations.language;
     const text =
-      lang === "de"
-        ? `Hallo! Schön, dass du da bist. Ich habe dein Profil „${p.label.de}“ geladen und stelle mich auf dich ein.`
-        : `Hello! Great to see you. I've loaded your profile “${p.label.en}” and will adapt to you.`;
-    void agent.announce(sessionId, text, lang, key, "happy");
+      riderLang === "de"
+        ? `Hallo! Schön, dass du da bist. Ich habe dein Profil „${p.label}“ geladen und stelle mich auf dich ein.`
+        : `Hello! Great to see you. I've loaded your profile “${p.label}” and will adapt to you.`;
+    void agent.announce(sessionId, text, riderLang, key, "happy");
   } else {
     const text =
       lang === "de"

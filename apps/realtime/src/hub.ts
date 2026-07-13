@@ -11,6 +11,7 @@ import type { Server, Socket } from "socket.io";
 import type { LightDriver } from "./cabin/driver.js";
 import {
   CABIN_CONTROLS,
+  type Accommodations,
   type CabinControlId,
   type CabinControlState,
   type ClientToServerEvents,
@@ -30,11 +31,26 @@ import {
 /** Resolves a persona key to its client-facing broadcast slice. */
 export type PersonaResolver = (key: PersonaKey) => PersonaBroadcast;
 
+/** Lists every authored persona (for the host console pickers). */
+export type PersonaLister = () => PersonaBroadcast[];
+
+/** Resolves a profile key to its remembered notes (for the host console). */
+export type MemoriesResolver = (key: PersonaKey) => string[];
+
 const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
   persona: "default",
-  label: { de: "Standard", en: "Default" },
-  themeId: "classic",
-  presentation: { highContrast: false, largeText: false, speakAloud: true },
+  label: "Standard",
+  accommodations: {
+    language: "de",
+    theme: "classic",
+    textSize: "m",
+    contrast: "normal",
+    audioOutput: true,
+    speechRate: 1,
+    showText: false,
+    reduceMotion: false,
+    input: "both",
+  },
 };
 
 /** How much of the live conversation the host summary carries. */
@@ -76,6 +92,9 @@ export interface IncomingNfc {
 
 export type NfcHandler = (nfc: IncomingNfc) => void;
 
+/** Rider barge-in (talk button pressed while a turn runs) — abort that seat. */
+export type InterruptHandler = (payload: { deviceId: string; sessionId: string }) => void;
+
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 interface DeviceEntry {
@@ -93,6 +112,8 @@ interface DeviceEntry {
   lastReply: string;
   /** Accumulates streamed reply text until the turn is done. */
   replyBuffer: string;
+  /** Monotonically increasing turn number — stale turns are dropped client-side. */
+  turn: number;
 }
 
 function freshControls(): CabinControlState[] {
@@ -111,8 +132,11 @@ export class Hub {
   private chatHandler: ChatHandler | undefined;
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
+  private interruptHandler: InterruptHandler | undefined;
   private lightDriver: LightDriver | undefined;
   private personaResolver: PersonaResolver | undefined;
+  private personaLister: PersonaLister | undefined;
+  private memoriesResolver: MemoriesResolver | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
   private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
@@ -149,6 +173,11 @@ export class Hub {
     this.nfcHandler = handler;
   }
 
+  /** Register the handler for rider barge-in (talk button during a turn). */
+  onInterrupt(handler: InterruptHandler): void {
+    this.interruptHandler = handler;
+  }
+
   /** Attach the hardware light driver and reflect its kind in the status. */
   attachLightDriver(driver: LightDriver): void {
     this.lightDriver = driver;
@@ -161,6 +190,31 @@ export class Hub {
     // Re-resolve every device's persona now that we can.
     for (const [deviceId, entry] of this.devices) {
       if (entry.role === "kiosk") this.setPersonaForDevice(deviceId, entry.persona.persona);
+    }
+  }
+
+  /** Register how the authored persona set is listed, and push it to hosts. */
+  setPersonaLister(lister: PersonaLister): void {
+    this.personaLister = lister;
+    this.broadcastPersonas();
+  }
+
+  /** Register how a profile's remembered notes are resolved (host console). */
+  setMemoriesResolver(resolver: MemoriesResolver): void {
+    this.memoriesResolver = resolver;
+  }
+
+  /** Re-push the per-seat summaries (e.g. after CoSiMo remembers/forgets). */
+  refreshSeats(): void {
+    this.pushSeats();
+  }
+
+  /** Push the current authored persona set to every connected host console. */
+  broadcastPersonas(): void {
+    if (!this.personaLister) return;
+    const personas = this.personaLister();
+    for (const e of this.devices.values()) {
+      if (e.role === "host") e.socket.emit("host:personas", { personas });
     }
   }
 
@@ -178,6 +232,7 @@ export class Hub {
         lastUser: "",
         lastReply: "",
         replyBuffer: "",
+        turn: 0,
       };
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
@@ -188,6 +243,10 @@ export class Hub {
       socket.emit("cabin:state", { controls: entry.controls });
       socket.emit("status:update", this.status);
       if (this.lastTelemetry) socket.emit("telemetry:update", this.lastTelemetry);
+      // Host consoles need the authored persona set to populate their pickers.
+      if (role === "host" && this.personaLister) {
+        socket.emit("host:personas", { personas: this.personaLister() });
+      }
       this.pushSeats();
     });
 
@@ -220,11 +279,13 @@ export class Hub {
       });
     });
 
-    // Push-to-talk → reflect listening on this device's Face/phase.
+    // Push-to-talk → barge-in: abort any running turn for this seat, then
+    // reflect listening on this device's Face/phase.
     socket.on("ptt:start", ({ sessionId }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
       if (entry) entry.active = true;
+      this.interruptHandler?.({ deviceId, sessionId });
       this.emitPhase("listening", sessionId);
       this.setEmotion("listening", sessionId);
     });
@@ -287,7 +348,7 @@ export class Hub {
     socket.on("host:patchTelemetry", (patch) => this.patchTelemetry(patch));
     socket.on("host:recover", () => {
       this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
-      this.io.emit("chat:delta", { sessionId: "*", text: "", done: true });
+      this.io.emit("chat:delta", { sessionId: "*", text: "", done: true, turn: -1 });
       this.setEmotion("neutral");
     });
 
@@ -339,6 +400,8 @@ export class Hub {
         deviceId,
         persona: e.persona.persona,
         personaLabel: e.persona.label,
+        accommodations: e.persona.accommodations,
+        memories: this.memoriesResolver?.(e.persona.persona) ?? [],
         emotion: e.emotion,
         phase: e.phase,
         consent: e.consent,
@@ -398,6 +461,43 @@ export class Hub {
     this.pushSeats();
   }
 
+  /** The active profile key for a seat (for the agent's profile tools). */
+  seatPersonaKey(deviceId: string): PersonaKey {
+    return this.personaOf(deviceId);
+  }
+
+  /**
+   * Begin a new turn on a seat: bumps the seat's monotonic turn number. All
+   * events of the turn carry it; clients drop chunks from superseded turns
+   * (barge-in) and reset their reply view when a higher number appears.
+   * Unknown seat → -1 (wildcard: clients accept it unconditionally).
+   */
+  beginTurn(sessionId: string): number {
+    const entry = this.entryOf(sessionId);
+    if (!entry) return -1;
+    entry.turn += 1;
+    return entry.turn;
+  }
+
+  /**
+   * Merge an accommodation change into a seat (agent `set_presentation`) and
+   * re-broadcast the active profile so the client re-renders. Returns the
+   * resulting accommodations. Session-scoped — durable write-back (card-bound
+   * riders only) is the caller's job.
+   */
+  patchSeatAccommodations(
+    deviceId: string,
+    patch: Partial<Accommodations>,
+  ): Accommodations | undefined {
+    const entry = this.devices.get(deviceId);
+    if (!entry) return undefined;
+    const accommodations = { ...entry.persona.accommodations, ...patch };
+    entry.persona = { ...entry.persona, accommodations };
+    entry.socket.emit("persona:active", entry.persona);
+    this.pushSeats();
+    return accommodations;
+  }
+
   /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
   emitPhase(phase: PipelinePhase, sessionId: string): void {
     const entry = this.entryOf(sessionId);
@@ -411,13 +511,15 @@ export class Hub {
   }
 
   /** Stream a chunk of CoSiMo's reply text to the session's device. */
-  emitChatDelta(sessionId: string, text: string, done: boolean): void {
+  emitChatDelta(sessionId: string, text: string, done: boolean, turn: number): void {
     const entry = this.entryOf(sessionId);
     if (!entry) {
-      this.io.emit("chat:delta", { sessionId, text, done });
+      this.io.emit("chat:delta", { sessionId, text, done, turn });
       return;
     }
-    entry.socket.emit("chat:delta", { sessionId, text, done });
+    // Drop chunks from a superseded turn — a barged-in stream may still race in.
+    if (turn !== -1 && turn < entry.turn) return;
+    entry.socket.emit("chat:delta", { sessionId, text, done, turn });
     if (done) {
       if (entry.replyBuffer) entry.lastReply = entry.replyBuffer.slice(0, SNIPPET_MAX);
       entry.replyBuffer = "";
@@ -439,11 +541,12 @@ export class Hub {
     }
   }
 
-  /** Send synthesized speech for the session's device to play (server TTS). */
-  emitTtsAudio(sessionId: string, audioBase64: string, mime: string): void {
-    (this.entryOf(sessionId)?.socket ?? this.io).emit("tts:audio", {
-      sessionId, audioBase64, mime,
-    });
+  /** Send synthesized speech for the session's device to play (server TTS).
+   *  Stale clips (from a barged-in turn) are dropped, not sent. */
+  emitTtsAudio(sessionId: string, audioBase64: string, mime: string, turn: number): void {
+    const entry = this.entryOf(sessionId);
+    if (entry && turn !== -1 && turn < entry.turn) return;
+    (entry?.socket ?? this.io).emit("tts:audio", { sessionId, audioBase64, mime, turn });
   }
 
   // ── Global showcase state ─────────────────────────────────────────
