@@ -1,7 +1,7 @@
 /**
  * Seed the CMS with the hand-authored demo content: the `default` clean-plate
- * profile, a handful of mockup riders (with NFC cards), and MonoCab telemetry
- * scenarios. Idempotent — profiles that already exist are left untouched.
+ * profile, a handful of mockup riders (with NFC cards), and the simulation
+ * route. Idempotent — existing profiles/route are left untouched.
  *
  * Run from apps/cms:
  *   DATABASE_URI=postgres://cosimo:cosimo_dev@localhost:5432/cosimo npx tsx src/seed.ts
@@ -140,72 +140,22 @@ const users: ProfileSeed[] = [
   },
 ];
 
-const scenarios = [
-  {
-    name: "Fahrt Lemgo → Rinteln (Standard)",
-    active: true,
-    speedKmh: 28,
-    batteryPct: 82,
-    occupancy: 1,
-    capacity: 4,
-    doorsOpen: false,
-    locationDe: "zwischen Lemgo und Dörentrup",
-    locationEn: "between Lemgo and Dörentrup",
-    lineDe: "Extertalbahn",
-    lineEn: "Extertal line",
-    destinationDe: "Rinteln",
-    destinationEn: "Rinteln",
-    nextStops: [
-      { stopId: "doerentrup", nameDe: "Dörentrup", nameEn: "Dörentrup", etaMinutes: 4 },
-      { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", etaMinutes: 11 },
-      { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", etaMinutes: 23 },
-    ],
-    notesDe: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
-    notesEn: "Step-free boarding, wheelchair space available.",
-  },
-  {
-    name: "Halt in Dörentrup (Türen offen)",
-    active: false,
-    speedKmh: 0,
-    batteryPct: 80,
-    occupancy: 2,
-    capacity: 4,
-    doorsOpen: true,
-    locationDe: "Bahnhof Dörentrup",
-    locationEn: "Dörentrup station",
-    lineDe: "Extertalbahn",
-    lineEn: "Extertal line",
-    destinationDe: "Rinteln",
-    destinationEn: "Rinteln",
-    nextStops: [
-      { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", etaMinutes: 7 },
-      { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", etaMinutes: 19 },
-    ],
-    notesDe: "Halt mit Niveaueinstieg; Abfahrt in Kürze.",
-    notesEn: "Level boarding at this stop; departing shortly.",
-  },
-  {
-    name: "Zügige Fahrt, fast voll (InnoTrans-Demo)",
-    active: false,
-    speedKmh: 54,
-    batteryPct: 64,
-    occupancy: 3,
-    capacity: 4,
-    doorsOpen: false,
-    locationDe: "kurz vor Barntrup",
-    locationEn: "approaching Barntrup",
-    lineDe: "Extertalbahn",
-    lineEn: "Extertal line",
-    destinationDe: "Rinteln",
-    destinationEn: "Rinteln",
-    nextStops: [
-      { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", etaMinutes: 2 },
-      { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", etaMinutes: 14 },
-    ],
-    notesDe: "Noch ein freier Platz; Rollstuhlplatz belegt.",
-    notesEn: "One seat left; wheelchair space occupied.",
-  },
-];
+// The route the journey simulation drives (mirrors the realtime service's
+// built-in DEFAULT_ROUTE, so CMS edits start from the same baseline).
+const route = {
+  lineDe: "Extertalbahn",
+  lineEn: "Extertal line",
+  cruiseSpeedKmh: 55,
+  capacity: 4,
+  notesDe: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
+  notesEn: "Step-free boarding, wheelchair space available.",
+  stops: [
+    { stopId: "lemgo", nameDe: "Lemgo", nameEn: "Lemgo", travelSecondsFromPrev: 0, dwellSeconds: 90 },
+    { stopId: "doerentrup", nameDe: "Dörentrup", nameEn: "Dörentrup", travelSecondsFromPrev: 240, dwellSeconds: 45 },
+    { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", travelSecondsFromPrev: 420, dwellSeconds: 45 },
+    { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", travelSecondsFromPrev: 720, dwellSeconds: 90 },
+  ],
+};
 
 async function seed(): Promise<void> {
   const payload = await getPayload({ config });
@@ -223,25 +173,12 @@ async function seed(): Promise<void> {
     console.log(`[seed] profile created: ${p.key}`);
   }
 
-  for (const s of scenarios) {
-    const existing = await payload.count({
-      collection: "mockup-data",
-      where: { name: { equals: s.name } },
-    });
-    if (existing.totalDocs > 0) {
-      console.log(`[seed] scenario exists: ${s.name}`);
-      continue;
-    }
-    try {
-      await payload.create({ collection: "mockup-data", data: s });
-      console.log(`[seed] scenario created: ${s.name}`);
-    } catch (err) {
-      const e = err as { cause?: { errors?: unknown }; data?: { errors?: unknown } };
-      console.error(
-        `[seed] scenario failed: ${s.name}`,
-        JSON.stringify(e.cause?.errors ?? e.data?.errors ?? String(err), null, 2),
-      );
-    }
+  const existingRoute = await payload.findGlobal({ slug: "route-config" });
+  if (existingRoute?.stops?.length) {
+    console.log("[seed] route exists: keeping the authored route");
+  } else {
+    await payload.updateGlobal({ slug: "route-config", data: route });
+    console.log(`[seed] route created: ${route.lineDe} (${route.stops.length} stops)`);
   }
 
   process.exit(0);

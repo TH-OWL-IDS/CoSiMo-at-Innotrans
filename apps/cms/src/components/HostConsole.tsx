@@ -226,10 +226,14 @@ export default function HostConsole() {
         </section>
 
         <section style={card}>
-          <p style={h}>Telemetrie</p>
+          <p style={h}>Fahrt (Simulation)</p>
           {c.telemetry ? (
             <div style={{ fontSize: 13, opacity: 0.85, display: "flex", flexDirection: "column", gap: 3 }}>
-              <span>→ {c.telemetry.destination.de} · {Math.round(c.telemetry.speedKmh)} km/h</span>
+              <span>
+                → {c.telemetry.destination.de} · {Math.round(c.telemetry.speedKmh)} km/h
+                {c.telemetry.simPaused ? " · ⏸ pausiert" : ""}
+              </span>
+              <span>{c.telemetry.location.de}</span>
               <span>
                 Nächster Halt: {c.telemetry.nextStops[0] ? `${c.telemetry.nextStops[0].name.de} · ${c.telemetry.nextStops[0].etaMinutes} min` : "—"}
               </span>
@@ -240,9 +244,14 @@ export default function HostConsole() {
           ) : (
             <span style={{ opacity: 0.5 }}>keine Telemetrie</span>
           )}
+          {/* the journey drives itself (route in /admin); hosts can hold it */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 0, doorsOpen: true })}>Halt + Türen auf</button>
-            <button style={btn} onClick={() => c.patchTelemetry({ speedKmh: 28, doorsOpen: false })}>Weiterfahrt</button>
+            <button
+              style={btn}
+              onClick={() => c.patchTelemetry({ paused: !c.telemetry?.simPaused })}
+            >
+              {c.telemetry?.simPaused ? "▶ Weiterfahren" : "⏸ Fahrt anhalten"}
+            </button>
             <button style={btn} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>Akku schwach</button>
           </div>
         </section>
