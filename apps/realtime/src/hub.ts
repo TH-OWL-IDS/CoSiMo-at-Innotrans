@@ -489,8 +489,11 @@ export class Hub {
    * per-seat timer settles the face back to neutral after a few seconds.
    * Any newer emotion cancels the pending decay.
    */
-  setEmotion(emotion: FaceEmotion, sessionId?: string): void {
+  setEmotion(emotion: FaceEmotion, sessionId?: string, turn?: number): void {
     const known = sessionId ? this.entryOf(sessionId) : undefined;
+    // A superseded (barged-in) turn may still race in — drop its stale emotion
+    // like emitChatDelta drops its text. Callers without a turn stay unguarded.
+    if (known && turn !== undefined && turn !== -1 && turn < known.turn) return;
     const targets: [string, DeviceEntry][] = known
       ? [[this.sessionDevice.get(sessionId!)!, known]]
       : [...this.devices].filter(([, e]) => e.role === "kiosk");
@@ -565,8 +568,12 @@ export class Hub {
   }
 
   /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
-  emitPhase(phase: PipelinePhase, sessionId: string): void {
+  emitPhase(phase: PipelinePhase, sessionId: string, turn?: number): void {
     const entry = this.entryOf(sessionId);
+    // Same staleness rule as emitChatDelta: a phase from a superseded turn
+    // must never stomp the seat (e.g. a zombie "thinking" after the live
+    // turn already settled to idle).
+    if (entry && turn !== undefined && turn !== -1 && turn < entry.turn) return;
     if (entry) {
       entry.phase = phase;
       entry.socket.emit("pipeline:phase", { phase, sessionId });

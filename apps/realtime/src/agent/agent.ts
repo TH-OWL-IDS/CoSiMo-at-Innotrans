@@ -109,14 +109,23 @@ export class CosimoAgent {
     // the provider/endpoint from the operator-config global (TTL-cached).
     const llm = await this.llm.current();
     this.hub.setLlmConfigured(llm !== null);
+    // A newer input may have barged in while we awaited the (possibly
+    // CMS-refreshing) config above. That turn owns the seat now — close this
+    // one quietly before it emits any phase/emotion.
+    if (ctrl.signal.aborted) {
+      this.hub.emitChatDelta(sessionId, "", true, turnNo);
+      this.recordCosimoTurn(sessionId, lang, "", undefined, "neutral", startedAt, modality, "interrupted");
+      this.persist(sessionId);
+      return;
+    }
     if (this.hub.isOfflineMode() || !llm) {
-      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt, turnNo);
+      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt, turnNo, ctrl.signal);
       this.persist(sessionId);
       return;
     }
 
-    this.hub.emitPhase("thinking", sessionId);
-    this.hub.setEmotion("thinking", sessionId);
+    this.hub.emitPhase("thinking", sessionId, turnNo);
+    this.hub.setEmotion("thinking", sessionId, turnNo);
 
     // Core prompt is CMS-editable (operator-config, refreshed by llm.current()
     // just above); the rider section is always appended in code.
@@ -139,6 +148,8 @@ export class CosimoAgent {
     let chosenEmotion: ExpressiveEmotion = "neutral";
     let lastAction: TurnAction | undefined;
     let outcome: Turn["outcome"] = "ok";
+    /** True when the fallback already emitted done + idle (emitFullReply). */
+    let streamClosed = false;
 
     try {
       // Manual tool-use loop: iterate until the model stops calling tools.
@@ -150,7 +161,7 @@ export class CosimoAgent {
             // Phase label only. The "speaking" Face (moving mouth) is driven by
             // actual audio playback on the client, so it stays in sync with the
             // voice rather than with the (silent) text stream.
-            this.hub.emitPhase("speaking", sessionId);
+            this.hub.emitPhase("speaking", sessionId, turnNo);
           }
           assistantText += delta;
           this.hub.emitChatDelta(sessionId, delta, false, turnNo);
@@ -190,6 +201,7 @@ export class CosimoAgent {
           assistantText = fallback.text;
           chosenEmotion = fallback.emotion;
           this.emitFullReply(sessionId, fallback.text, turnNo);
+          streamClosed = true; // emitFullReply already sent done + idle
         }
         // eslint-disable-next-line no-console
         console.error("[cosimo-agent] turn failed:", err);
@@ -206,10 +218,13 @@ export class CosimoAgent {
       this.persist(sessionId);
       return;
     }
-    // Close out the stream and settle the Face on the chosen expressive emotion.
-    this.hub.emitChatDelta(sessionId, "", true, turnNo);
-    this.hub.emitPhase("idle", sessionId);
-    this.hub.setEmotion(chosenEmotion, sessionId);
+    // Close out the stream and settle the Face on the chosen expressive
+    // emotion — unless the error fallback already closed it (emitFullReply).
+    if (!streamClosed) {
+      this.hub.emitChatDelta(sessionId, "", true, turnNo);
+      this.hub.emitPhase("idle", sessionId, turnNo);
+    }
+    this.hub.setEmotion(chosenEmotion, sessionId, turnNo);
 
     // Keep the controller registered through TTS so a barge-in during
     // synthesis still cancels the audio; clean up only if we're still current.
@@ -232,6 +247,7 @@ export class CosimoAgent {
     modality: Modality,
     startedAt: number,
     turnNo: number,
+    signal?: AbortSignal,
   ): Promise<void> {
     const reply = cannedReply(text, lang, this.telemetry.get());
 
@@ -245,13 +261,13 @@ export class CosimoAgent {
       }
     }
 
-    this.hub.emitPhase("speaking", sessionId);
+    this.hub.emitPhase("speaking", sessionId, turnNo);
     this.hub.emitChatDelta(sessionId, reply.text, false, turnNo);
     this.hub.emitChatDelta(sessionId, "", true, turnNo);
-    this.hub.emitPhase("idle", sessionId);
-    this.hub.setEmotion(reply.emotion, sessionId);
+    this.hub.emitPhase("idle", sessionId, turnNo);
+    this.hub.setEmotion(reply.emotion, sessionId, turnNo);
 
-    await this.speak(sessionId, reply.text, lang, persona, turnNo);
+    await this.speak(sessionId, reply.text, lang, persona, turnNo, signal);
     this.recordCosimoTurn(
       sessionId, lang, reply.text, action, reply.emotion, startedAt, modality,
       reply.matched ? "offline_canned" : "not_understood",
@@ -304,16 +320,16 @@ export class CosimoAgent {
     // An announcement is a turn of its own — it supersedes whatever streams.
     const turnNo = this.hub.beginTurn(sessionId);
     this.emitFullReply(sessionId, text, turnNo);
-    this.hub.setEmotion(emotion, sessionId);
+    this.hub.setEmotion(emotion, sessionId, turnNo);
     await this.speak(sessionId, text, lang, persona, turnNo);
   }
 
   /** Emit a complete reply as a single delta + done (offline / error paths). */
   private emitFullReply(sessionId: string, text: string, turnNo: number): void {
-    this.hub.emitPhase("speaking", sessionId);
+    this.hub.emitPhase("speaking", sessionId, turnNo);
     this.hub.emitChatDelta(sessionId, text, false, turnNo);
     this.hub.emitChatDelta(sessionId, "", true, turnNo);
-    this.hub.emitPhase("idle", sessionId);
+    this.hub.emitPhase("idle", sessionId, turnNo);
   }
 
   private recordCosimoTurn(
