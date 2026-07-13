@@ -20,7 +20,6 @@ function Transcript({
   ink,
   textScale,
   bold,
-  lang,
 }: {
   items: { role: "user" | "cosimo"; text: string }[];
   reply: string;
@@ -28,7 +27,6 @@ function Transcript({
   ink: string;
   textScale: number;
   bold: boolean;
-  lang: Locale;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -59,11 +57,7 @@ function Transcript({
         scrollbarWidth: "none",
       }}
     >
-      {items.length === 0 && !reply && (
-        <div style={{ margin: "auto", opacity: 0.4, textAlign: "center" }}>
-          {lang === "de" ? "Halten & sprechen" : "Hold & talk"}
-        </div>
-      )}
+      {/* no idle hint — talking happens via the physical button */}
       {items.map((m, i) => (
         <div
           key={i}
@@ -197,8 +191,9 @@ export default function CosimoKiosk({
 
   const circleSize = `min(${layout.circleD}vw, 96vh)`;
   const guide = layout.guides ? "2px dashed rgba(255,80,80,0.9)" : "none";
+  // No idle hint — talking happens via the physical button, not the screen.
   const phaseHint: Record<PipelinePhase, Record<Locale, string>> = {
-    idle: { de: "Halten & sprechen", en: "Hold & talk" },
+    idle: { de: "", en: "" },
     listening: { de: "Hört zu …", en: "Listening …" },
     thinking: { de: "Denkt nach …", en: "Thinking …" },
     speaking: { de: "", en: "" },
@@ -270,7 +265,6 @@ export default function CosimoKiosk({
             ink={scheme.ink}
             textScale={textScale}
             bold={highContrast}
-            lang={lang}
           />
         ) : (
           <div
