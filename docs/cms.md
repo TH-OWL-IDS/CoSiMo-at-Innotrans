@@ -20,10 +20,12 @@ native kiosk app.
   Public read; writes admin-only **plus the realtime service via the internal
   key** (accommodation + memory write-back). Full model:
   [personas.md](personas.md).
-- **mockup-data** — MonoCab telemetry scenarios (speed, battery, occupancy,
-  bilingual locations/stops with ETAs, notes). Exactly one should have
-  `active: true` — that's the live demo scenario; switching scenarios
-  mid-fair is just re-ticking the checkbox. Public read.
+- **route-config (global)** — the line the journey simulation drives: stops
+  in order (bilingual names, seconds of travel from the previous stop,
+  dwell seconds), cruise speed, capacity, notes. The realtime service
+  simulates the MonoCab riding it end-to-end and back, forever; telemetry
+  (speed, location, ETAs, doors) is derived, not authored. Editing the
+  route restarts the journey at the first stop. Public read.
   Gotcha: array-row fields must never be named `id` (collides with
   Payload's internal row PK — this is why stops use `stopId`).
 - **sessions** — the research dataset. Written by the realtime service
@@ -38,9 +40,9 @@ native kiosk app.
 
 ## Seeding
 
-`pnpm seed` (in `apps/cms`) fills personas + telemetry scenarios,
-per-document idempotent (safe to re-run, safe on the VPS). Local run needs
-the DB reachable:
+`pnpm seed` (in `apps/cms`) fills the profiles (clean plate + mockup
+riders) and the simulation route, per-document idempotent (safe to re-run,
+safe on the VPS). Local run needs the DB reachable:
 
 ```bash
 DATABASE_URI=postgres://cosimo:cosimo_dev@localhost:5432/cosimo pnpm seed
@@ -68,8 +70,9 @@ The webpack `extensionAlias` mapping exists because shared packages use ESM
 ## Host console (`/host`)
 
 A client page connecting to the realtime hub as `role: "host"`. Layout
-mirrors the state model: a **global section** (services health, journey
-telemetry + force buttons, demo mode, recovery, all-seats persona) and
+mirrors the state model: a **global section** (services health, the live
+journey with pause/resume + battery override, demo mode, recovery,
+all-seats persona) and
 **seat cards** shown only for seats with an active session (live face
 emotion + phase, per-seat persona dropdown, per-seat light toggles, live
 conversation snippet, reset). Idle connected seats appear as small chips.

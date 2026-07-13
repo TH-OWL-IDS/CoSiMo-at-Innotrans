@@ -28,10 +28,10 @@ iPad (×4)                      VPS / dev machine                cloud
   state, resilience. If it's about a *conversation happening right now*, it
   lives here.
 - **[apps/cms](cms.md)** — Payload CMS on Postgres. Owns everything
-  *authored or persisted*: personas, telemetry scenarios, endpoint routing,
-  and the recorded sessions (the research dataset). Never in the live path —
-  the realtime service reads it on short TTLs and falls back to built-in
-  defaults when it's unreachable.
+  *authored or persisted*: rider profiles, the simulation route, endpoint
+  routing, and the recorded sessions (the research dataset). Never in the
+  live path — the realtime service reads it on short TTLs and falls back to
+  built-in defaults when it's unreachable.
 
 Two shared packages keep the sides honest:
 
@@ -80,8 +80,9 @@ per *active* seat (see [realtime.md](realtime.md#host-console-support)).
   service executes them. API keys never leave the server environment.
 - **The kiosk never interprets content.** NFC chip IDs, button presses,
   audio — all reported raw to the server, which owns the meaning.
-- **Everything degrades gracefully.** CMS down → built-in personas/telemetry.
-  LLM/network down → scripted canned replies grounded in telemetry. Light
-  hardware down → state marked degraded, demo continues.
+- **Everything degrades gracefully.** CMS down → built-in profile/route
+  defaults (the journey simulation keeps driving). LLM/network down →
+  scripted canned replies grounded in telemetry. Light hardware down →
+  state marked degraded, demo continues.
 - **A misbehaving client must never crash the hub.** Socket handlers catch;
   a stale browser tab once took the whole service down before this rule.

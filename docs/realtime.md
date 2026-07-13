@@ -31,7 +31,8 @@ of every kiosk seat (persona, emotion, phase, consent, active flag, last
 utterance/reply, cabin state), pushed on every relevant change. Host
 actions: per-seat or all-seat persona, per-seat light override, per-seat
 session reset (clears the seat back to default persona + consent screen),
-telemetry forcing, offline-mode toggle, stuck-conversation recovery.
+journey pause/resume + battery override, offline-mode toggle,
+stuck-conversation recovery.
 
 A seat is **active** from the visitor's consent decision (or first input)
 until reset/disconnect — the host UI only shows cards for active seats.
@@ -87,8 +88,20 @@ Two layers, deliberately separate:
 - **Operator config (`src/agent/operatorConfig.ts`)** — a TTL-cached read of
   the CMS `operator-config` global: LLM provider/baseURL/model, STT/TTS
   base URLs, voice. An admin edit takes effect on the next turn, no
-  redeploy. Same provider pattern as personas and telemetry: refresh
-  best-effort, merge over env defaults, never throw.
+  redeploy. Same provider pattern as personas: refresh best-effort, merge
+  over env defaults, never throw.
+
+## Journey simulation (`src/agent/telemetry.ts`)
+
+Telemetry is *simulated*, not authored: a state machine drives the route
+from the CMS `route-config` global end-to-end and back (ping-pong, forever)
+— cruise with accel/decel ramps between stops, dwell with open doors,
+turnaround + battery top-up at the terminals. Speed, location, ETAs, doors,
+battery and occupancy are derived from the simulation clock; the hub
+broadcasts a snapshot every second (`telemetry:update`, global). Editing
+the route in the admin restarts the journey; the built-in Extertalbahn
+route keeps it alive with no CMS. Host overrides (pause/resume, battery,
+occupancy) are applied INTO the simulation, so they persist.
 
 STT (Deepgram) and TTS (ElevenLabs) constructors take *endpoint getters*,
 so operator-config changes apply per call. Their availability (key present)
