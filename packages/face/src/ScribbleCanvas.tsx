@@ -6,16 +6,15 @@ interface ScribbleCanvasProps {
   className?: string;
   style?: React.CSSProperties;
   strokeWidth?: number;
-  /** Render the artwork; called twice (main pass and faint overdraw pass). */
+  /** Render the artwork. `mainPass` is always true (kept for API compat). */
   children: (mainPass: boolean) => React.ReactNode;
 }
 
 /**
  * Shared canvas for the scribble face: the padded viewBox (the artwork canvas
  * is 260×200; padding absorbs big poses, the brow strokes above the eyes and
- * filter displacement), ballpoint stroke defaults, the turbulence filter that
- * wobbles clean geometry into pen strokes, and the slightly offset second
- * pass that imitates casual pen overdraw.
+ * filter displacement), ballpoint stroke defaults, and the turbulence filter
+ * that wobbles clean geometry into pen strokes.
  */
 export default function ScribbleCanvas({
   className,
@@ -55,17 +54,12 @@ export default function ScribbleCanvas({
           />
         </filter>
       </defs>
-      <g filter={`url(#${filterId})`}>
-        <g>{children(true)}</g>
-        {/* overdraw pass — a faint, slightly offset retrace of every stroke */}
-        <g
-          transform="translate(1.6 -1) rotate(-0.7 130 110)"
-          opacity={0.25}
-          strokeWidth={strokeWidth * 0.6}
-        >
-          {children(false)}
-        </g>
-      </g>
+      {/* Single pass: the turbulence wobble alone carries the hand-drawn
+          look. A second offset "overdraw" pass used to retrace the strokes,
+          but WKWebView renders the displacement filter weakly enough that it
+          read as a hard double image on the iPads — removed everywhere for a
+          consistent, clean line. */}
+      <g filter={`url(#${filterId})`}>{children(true)}</g>
     </svg>
   );
 }

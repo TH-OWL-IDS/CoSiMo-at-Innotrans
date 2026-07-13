@@ -5,8 +5,10 @@
 CoSiMo's hand-drawn scribble face, ported from the CoSiMo-mockup project
 (the richer version — the earlier in-CMS port was a reduced copy and is
 gone). SVG strokes traced from the original ballpoint artwork, wobbled into
-pen-like lines by a turbulence filter plus a faint offset "overdraw" second
-pass (`ScribbleCanvas`).
+pen-like lines by a turbulence filter (`ScribbleCanvas`). Single stroke
+pass — an offset "overdraw" retrace used to add sketchiness, but WKWebView
+renders the displacement filter weakly and it read as a hard double image
+on the iPads, so it's gone everywhere.
 
 ### How animation works
 

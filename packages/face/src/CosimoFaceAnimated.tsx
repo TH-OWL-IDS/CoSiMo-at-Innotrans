@@ -18,7 +18,7 @@ import ScribbleCanvas from "./ScribbleCanvas";
  * dense filled pupil, the nose a short soft stroke, the mouth a single lazy
  * asymmetric curve. Morphing tweens the numeric FaceParams and rebuilds the
  * geometry each frame (see face/shared.ts); the scribble look comes from
- * ScribbleCanvas (turbulence wobble + pen overdraw).
+ * ScribbleCanvas (turbulence wobble).
  *
  * Each part (eyes, pupils, nose, mouth) is drawn in its own group and can be
  * modulated independently. Idle life is a layer of oscillators + saccades on
