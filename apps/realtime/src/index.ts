@@ -76,6 +76,18 @@ hub.onTelemetryPatch((patch) => {
 // Watch connectivity → auto-switch to offline canned mode when the cloud drops.
 startHealthMonitor(hub);
 
+// Memory telemetry: one line per minute. A previous session died with a 4 GB
+// heap OOM — if it ever grows again, this makes the climb (and its slope)
+// visible in the log instead of ending in an unexplained crash.
+setInterval(() => {
+  const m = process.memoryUsage();
+  const mb = (n: number) => Math.round(n / 1024 / 1024);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[mem] rss ${mb(m.rss)}MB heap ${mb(m.heapUsed)}/${mb(m.heapTotal)}MB ext ${mb(m.external)}MB | devices ${hub.connectedDevices}`,
+  );
+}, 60_000).unref();
+
 // Route incoming user turns through the agent loop.
 hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
