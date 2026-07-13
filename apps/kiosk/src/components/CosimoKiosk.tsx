@@ -9,6 +9,82 @@ import { usePushToTalk } from "./usePushToTalk";
 import { useHidInput } from "./useHidInput";
 
 /**
+ * Running conversation, shown inside the circle for text-first (deaf) riders:
+ * a small face sits above, this fills the rest and auto-scrolls to the latest.
+ * No replay button — re-requests stay conversational ("say that again").
+ */
+function Transcript({
+  items,
+  reply,
+  replying,
+  ink,
+  textScale,
+  bold,
+  lang,
+}: {
+  items: { role: "user" | "cosimo"; text: string }[];
+  reply: string;
+  replying: boolean;
+  ink: string;
+  textScale: number;
+  bold: boolean;
+  lang: Locale;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [items.length, reply]);
+
+  return (
+    <div
+      ref={boxRef}
+      role="log"
+      aria-live="polite"
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "36%",
+        transform: "translateX(-50%)",
+        width: "78%",
+        height: "56%",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: `${6 * textScale}px`,
+        fontSize: `${13 * textScale}px`,
+        lineHeight: 1.35,
+        fontWeight: bold ? 700 : 400,
+        color: ink,
+        scrollbarWidth: "none",
+      }}
+    >
+      {items.length === 0 && !reply && (
+        <div style={{ margin: "auto", opacity: 0.4, textAlign: "center" }}>
+          {lang === "de" ? "Halten & sprechen" : "Hold & talk"}
+        </div>
+      )}
+      {items.map((m, i) => (
+        <div
+          key={i}
+          style={{
+            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+            textAlign: m.role === "user" ? "right" : "left",
+            maxWidth: "88%",
+            opacity: m.role === "user" ? 0.6 : 1,
+          }}
+        >
+          {m.text}
+        </div>
+      ))}
+      {replying && reply && (
+        <div style={{ alignSelf: "flex-start", maxWidth: "88%" }}>{reply} ▍</div>
+      )}
+    </div>
+  );
+}
+
+/**
  * The panel kiosk view. The iPad sits behind a physical panel with two
  * cutouts — a circle (CoSiMo's Face) and a bottom slit (telemetry) — so only
  * those regions render content; everything else stays black (invisible).
@@ -39,10 +115,24 @@ export default function CosimoKiosk({
     if (cosimo.resetNonce > 0) setConsentDecided(false);
   }, [cosimo.resetNonce]);
 
-  // Persona drives the theme + accessible presentation, live.
-  const scheme = schemeById(cosimo.persona?.themeId ?? "classic");
-  const largeText = cosimo.persona?.presentation.largeText ?? false;
-  const speakAloud = cosimo.persona?.presentation.speakAloud ?? true;
+  // The active profile's preferred language becomes the seat's UI language
+  // (e.g. an NFC scan loads an English-speaking rider). The visitor can still
+  // toggle manually afterwards.
+  const profileLang = cosimo.persona?.accommodations.language;
+  useEffect(() => {
+    if (profileLang) setLang(profileLang);
+  }, [profileLang]);
+
+  // Profile accommodations drive the theme + accessible presentation, live —
+  // all voice-mutable via CoSiMo (set_presentation).
+  const acc = cosimo.persona?.accommodations;
+  const scheme = schemeById(acc?.theme ?? "classic");
+  const textScale = { s: 0.85, m: 1, l: 1.25, xl: 1.55 }[acc?.textSize ?? "m"];
+  const highContrast = acc?.contrast === "high";
+  const showText = acc?.showText ?? false;
+  const speakAloud = acc?.audioOutput ?? true;
+  const speechRate = acc?.speechRate ?? 1;
+  const reduceMotion = acc?.reduceMotion ?? false;
   const serverStt = cosimo.status?.serverStt ?? false;
   const serverTts = cosimo.status?.serverTts ?? false;
 
@@ -75,17 +165,25 @@ export default function CosimoKiosk({
   useEffect(() => {
     if (serverTts || !speakAloud || cosimo.replying) return;
     const text = cosimo.reply.trim();
+    // Barge-in: while the rider holds the talk button, never (re)start
+    // speaking — and mark the partial reply as spoken so it stays silent
+    // in the release→new-turn gap too.
+    if (ptt.active) {
+      spokenRef.current = text;
+      return;
+    }
     if (!text || text === spokenRef.current) return;
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     spokenRef.current = text;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang === "de" ? "de-DE" : "en-US";
+    u.rate = speechRate;
     u.onstart = () => cosimo.setSpeaking(true);
     u.onend = () => cosimo.setSpeaking(false);
     u.onerror = () => cosimo.setSpeaking(false);
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
-  }, [cosimo.replying, cosimo.reply, serverTts, speakAloud, lang, cosimo.setSpeaking]);
+  }, [cosimo.replying, cosimo.reply, ptt.active, serverTts, speakAloud, speechRate, lang, cosimo.setSpeaking]);
 
   // Operator gesture: 3s hold on the slit opens the setup screen.
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -141,50 +239,59 @@ export default function CosimoKiosk({
           transition: "background 300ms",
         }}
       >
-        {/* the Face — centred, slightly above the middle */}
+        {/* the Face — centred by default; shrinks to the top when the rider
+            reads a running transcript (showText). reduceMotion stills its idle life. */}
         <div
           style={{
             position: "absolute",
             left: "50%",
-            top: "44%",
+            top: showText ? "18%" : "44%",
             transform: "translate(-50%, -50%)",
-            width: "88%",
+            width: showText ? "44%" : "88%",
+            transition: "top 300ms, width 300ms",
           }}
         >
           <CosimoFaceAnimated
             emotion={cosimo.faceEmotion}
+            idle={!reduceMotion}
             style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
           />
         </div>
 
-        {/* streaming reply / hint, inside the lower part of the circle */}
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "9%",
-            transform: "translateX(-50%)",
-            width: "62%",
-            textAlign: "center",
-            fontSize: largeText ? "clamp(14px, 3.4vw, 22px)" : "clamp(12px, 2.8vw, 18px)",
-            lineHeight: 1.35,
-            maxHeight: "5.6em",
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 4,
-            WebkitBoxOrient: "vertical",
-            opacity: cosimo.reply ? 0.9 : 0.4,
-          }}
-        >
-          {cosimo.reply
-            ? `${cosimo.reply}${cosimo.replying ? " ▍" : ""}`
-            : consentDecided
-              ? phaseHint[cosimo.phase][lang]
-              : ""}
-        </div>
+        {/* Reply text is progressive disclosure: face-and-voice-first by
+            default (only a short phase hint); a running transcript when the
+            rider needs to read (showText, e.g. a deaf rider). */}
+        {showText ? (
+          <Transcript
+            items={cosimo.transcript}
+            reply={cosimo.reply}
+            replying={cosimo.replying}
+            ink={scheme.ink}
+            textScale={textScale}
+            bold={highContrast}
+            lang={lang}
+          />
+        ) : (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: "9%",
+              transform: "translateX(-50%)",
+              width: "62%",
+              textAlign: "center",
+              fontSize: `clamp(12px, ${2.8 * textScale}vw, ${18 * textScale}px)`,
+              lineHeight: 1.35,
+              fontWeight: highContrast ? 700 : 400,
+              opacity: 0.55,
+            }}
+          >
+            {consentDecided ? phaseHint[cosimo.phase][lang] : ""}
+          </div>
+        )}
 
         {/* listening ring while push-to-talk is held */}
         {ptt.active && (

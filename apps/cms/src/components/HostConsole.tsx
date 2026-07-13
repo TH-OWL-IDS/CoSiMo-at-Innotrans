@@ -1,6 +1,12 @@
 "use client";
 
-import { CABIN_CONTROLS, type PersonaKey, type SeatSummary } from "@cosimo/shared";
+import {
+  CABIN_CONTROLS,
+  type Accommodations,
+  type PersonaBroadcast,
+  type PersonaKey,
+  type SeatSummary,
+} from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
 
 /**
@@ -19,8 +25,23 @@ import { useCosimoSocket } from "@cosimo/client";
 
 const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:4000";
 
-const PERSONAS: PersonaKey[] = ["default", "eyes-free", "wheelchair", "text-first"];
 const TOGGLE_CONTROLS = CABIN_CONTROLS.filter((c) => c.kind === "toggle");
+
+/**
+ * Persona options for a picker, built from the live (CMS-authored) set the
+ * realtime service broadcasts. `ensureKey` guarantees the currently-selected
+ * key is always an option even if it has since been removed from the set.
+ */
+function personaOptions(
+  personas: PersonaBroadcast[],
+  ensureKey?: PersonaKey,
+): { key: PersonaKey; label: string }[] {
+  const opts = personas.map((p) => ({ key: p.persona, label: p.label || p.persona }));
+  if (ensureKey && !opts.some((o) => o.key === ensureKey)) {
+    opts.unshift({ key: ensureKey, label: ensureKey });
+  }
+  return opts;
+}
 
 const EMOTION_ICON: Record<string, string> = {
   neutral: "😐", happy: "😊", thinking: "🤔", listening: "👂",
@@ -47,6 +68,19 @@ const btn: React.CSSProperties = {
 };
 const h: React.CSSProperties = { fontSize: 12, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55, margin: 0 };
 
+/** Compact chips describing the accommodations a seat is presenting with. */
+function accommodationChips(a: Accommodations): string[] {
+  return [
+    a.theme,
+    `Text ${a.textSize.toUpperCase()}`,
+    a.contrast === "high" ? "Kontrast" : null,
+    a.audioOutput ? "Audio" : "🔇",
+    a.showText ? "Text sichtbar" : null,
+    a.reduceMotion ? "ruhig" : null,
+    `Eingabe: ${a.input}`,
+  ].filter((c): c is string => Boolean(c));
+}
+
 function Dot({ ok }: { ok: boolean }) {
   return (
     <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: ok ? "#3fb950" : "#6e7681", marginRight: 6 }} />
@@ -55,11 +89,13 @@ function Dot({ ok }: { ok: boolean }) {
 
 function SeatCard({
   seat,
+  personas,
   onPersona,
   onLight,
   onReset,
 }: {
   seat: SeatSummary;
+  personas: PersonaBroadcast[];
   onPersona: (key: PersonaKey) => void;
   onLight: (control: (typeof TOGGLE_CONTROLS)[number]["id"], on: boolean) => void;
   onReset: () => void;
@@ -81,15 +117,37 @@ function SeatCard({
         <span style={{ opacity: 0.6 }}>Persona</span>
         <select
           value={seat.persona}
-          onChange={(e) => onPersona(e.target.value as PersonaKey)}
+          onChange={(e) => onPersona(e.target.value)}
           style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
         >
-          {PERSONAS.map((p) => (
-            <option key={p} value={p}>{p}</option>
+          {personaOptions(personas, seat.persona).map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
           ))}
         </select>
-        <span style={{ opacity: 0.5, fontSize: 12 }}>{seat.personaLabel.de}</span>
+        <span style={{ opacity: 0.5, fontSize: 12 }}>{seat.personaLabel}</span>
       </div>
+
+      {/* accommodations CoSiMo is presenting with (live, voice-mutable) */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {accommodationChips(seat.accommodations).map((c) => (
+          <span
+            key={c}
+            style={{ fontSize: 11, opacity: 0.7, border: "1px solid #2a2f3a", borderRadius: 999, padding: "2px 8px" }}
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+
+      {/* what CoSiMo has remembered about this rider */}
+      {seat.memories.length > 0 && (
+        <div style={{ fontSize: 12, opacity: 0.8, display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ opacity: 0.55 }}>Erinnert:</span>
+          {seat.memories.map((m, i) => (
+            <span key={i}>· {m}</span>
+          ))}
+        </div>
+      )}
 
       {/* per-seat cabin (reading lamp etc.) */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -207,14 +265,14 @@ export default function HostConsole() {
             <select
               defaultValue=""
               onChange={(e) => {
-                if (e.target.value) c.setPersona(e.target.value as PersonaKey);
+                if (e.target.value) c.setPersona(e.target.value);
                 e.target.value = "";
               }}
               style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
             >
               <option value="" disabled>Persona wählen…</option>
-              {PERSONAS.map((p) => (
-                <option key={p} value={p}>{p}</option>
+              {personaOptions(c.personas).map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
               ))}
             </select>
           </div>
@@ -232,6 +290,7 @@ export default function HostConsole() {
             <SeatCard
               key={seat.deviceId}
               seat={seat}
+              personas={c.personas}
               onPersona={(p) => c.setPersona(p, seat.deviceId)}
               onLight={(control, on) => c.overrideLight(seat.deviceId, control, on)}
               onReset={() => c.resetSession(seat.deviceId)}
