@@ -10,94 +10,84 @@
  */
 
 import type {
+  Accommodations,
   Persona,
   PersonaBroadcast,
   PersonaKey,
+  PersonaMemory,
 } from "@cosimo/shared";
 import { config } from "../config.js";
 
-/** Built-in defaults — also the values to seed into Payload. */
-export const DEFAULT_PERSONAS: Record<PersonaKey, Persona> = {
-  default: {
-    key: "default",
-    label: { de: "Standard", en: "Default" },
-    summary: { de: "Allgemeine Begleitung.", en: "General assistance." },
-    supportStyle: "Speak naturally and warmly. Keep answers short and clear.",
-    emotionBias: { happy: 0.3, neutral: 0.2 },
-    preferredModality: "both",
-    themeId: "classic",
-    presentation: { highContrast: false, largeText: false, speakAloud: true },
-  },
-  "eyes-free": {
-    key: "eyes-free",
-    label: { de: "Ohne Sicht", en: "Eyes-free" },
-    summary: {
-      de: "Für blinde oder sehbeeinträchtigte Fahrgäste.",
-      en: "For blind or low-vision riders.",
-    },
-    supportStyle:
-      "The rider may not be looking at the screen. Be fully understandable by ear alone: lead with the answer, avoid references to on-screen elements ('as you can see'), spell out anything a screen would show, and confirm every action aloud.",
-    emotionBias: { neutral: 0.4, happy: 0.2 },
-    preferredModality: "voice",
-    themeId: "night",
-    presentation: { highContrast: true, largeText: true, speakAloud: true },
-  },
-  wheelchair: {
-    key: "wheelchair",
-    label: { de: "Rollstuhl", en: "Wheelchair" },
-    summary: {
-      de: "Fokus auf barrierefreien Zugang.",
-      en: "Focus on step-free access.",
-    },
-    supportStyle:
-      "Pay attention to step-free access, the wheelchair space, door width and boarding help. Proactively mention accessibility details when relevant to the rider's question.",
-    emotionBias: { happy: 0.3, neutral: 0.2 },
-    preferredModality: "both",
-    themeId: "ocean",
-    presentation: { highContrast: false, largeText: true, speakAloud: true },
-  },
-  "text-first": {
-    key: "text-first",
-    label: { de: "Text", en: "Text-first" },
-    summary: {
-      de: "Für gehörlose oder text-bevorzugende Fahrgäste.",
-      en: "For deaf or text-preferring riders.",
-    },
-    supportStyle:
-      "The rider prefers reading. Write in clear, well-structured text. Do not rely on tone of voice; make confirmations explicit in writing.",
-    emotionBias: { neutral: 0.3, happy: 0.2 },
-    preferredModality: "text",
-    themeId: "slate",
-    presentation: { highContrast: false, largeText: true, speakAloud: false },
-  },
+/** Sensible accommodation defaults; presets override only what differs. */
+function accommodations(over: Partial<Accommodations> = {}): Accommodations {
+  return {
+    language: "de",
+    theme: "classic",
+    textSize: "m",
+    contrast: "normal",
+    audioOutput: true,
+    speechRate: 1,
+    showText: false,
+    reduceMotion: false,
+    input: "both",
+    ...over,
+  };
+}
+
+/**
+ * The `default` clean-plate profile — always resolvable. It is the neutral base
+ * new users are copied from, the profile a walk-up (no card) seat runs, and the
+ * fallback `get()` returns for an unknown key. Standalone definite constant so
+ * it is never `undefined` under `noUncheckedIndexedAccess`, and never mutated by
+ * a session (see `isPersistable`).
+ */
+export const BASE_PERSONA: Persona = {
+  key: "default",
+  label: "Standard",
+  summary: "Allgemeine Begleitung.",
+  brief: "Speak naturally and warmly. Keep answers short and clear.",
+  accommodations: accommodations(),
+  memories: [],
+};
+
+/**
+ * Built-in offline fallback — just the `default` clean plate. Real riders live
+ * only in the CMS; with the CMS unreachable, every seat is `default`. A CMS
+ * profile with any new key merges over `BASE_PERSONA`.
+ */
+export const DEFAULT_PERSONAS: Record<string, Persona> = {
+  default: BASE_PERSONA,
 };
 
 /** Shape of a Payload `personas` doc we care about. */
 interface PayloadPersonaDoc {
   key?: PersonaKey;
-  labelDe?: string;
-  labelEn?: string;
-  summaryDe?: string;
-  summaryEn?: string;
-  supportStyle?: string;
-  preferredModality?: Persona["preferredModality"];
-  themeId?: string;
-  emotionBias?: Partial<Record<"happy" | "sad" | "surprised" | "neutral", number>>;
-  presentation?: Partial<Persona["presentation"]>;
-  /** NFC chip ids that "log in" as this persona (array field in Payload). */
-  nfcIds?: { id?: string; tag?: string }[];
+  name?: string;
+  label?: string;
+  summary?: string;
+  brief?: string;
+  accommodations?: Partial<Accommodations>;
+  /** Notes CoSiMo remembered (array field in Payload). */
+  memories?: { note?: string; at?: string }[];
+  /** NFC chip ids that "log in" as this profile (array field in Payload). The
+   *  `tag` is the chip id; the row's own `id` PK is never used as a chip. */
+  nfcIds?: { tag?: string }[];
 }
 
 function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
   return {
     ...base,
-    label: { de: doc.labelDe ?? base.label.de, en: doc.labelEn ?? base.label.en },
-    summary: { de: doc.summaryDe ?? base.summary.de, en: doc.summaryEn ?? base.summary.en },
-    supportStyle: doc.supportStyle ?? base.supportStyle,
-    preferredModality: doc.preferredModality ?? base.preferredModality,
-    themeId: doc.themeId ?? base.themeId,
-    emotionBias: doc.emotionBias ?? base.emotionBias,
-    presentation: { ...base.presentation, ...(doc.presentation ?? {}) },
+    name: doc.name ?? base.name,
+    // A rider's label is their name; fall back name → label → base.
+    label: doc.label ?? doc.name ?? base.label,
+    summary: doc.summary ?? base.summary,
+    brief: doc.brief ?? base.brief,
+    accommodations: { ...base.accommodations, ...(doc.accommodations ?? {}) },
+    memories: doc.memories
+      ? doc.memories
+          .map((m) => ({ note: (m.note ?? "").trim(), at: m.at ?? "" }))
+          .filter((m) => m.note)
+      : base.memories,
   };
 }
 
@@ -114,16 +104,80 @@ export class PersonaProvider {
 
   /** Resolve a persona (cached, defaults applied). Never throws. */
   get(key: PersonaKey): Persona {
-    return this.cache[key] ?? DEFAULT_PERSONAS.default;
+    return this.cache[key] ?? BASE_PERSONA;
   }
 
   /** The client-facing slice for broadcasting. */
   toBroadcast(key: PersonaKey): PersonaBroadcast {
     const p = this.get(key);
-    return { persona: p.key, label: p.label, themeId: p.themeId, presentation: p.presentation };
+    return { persona: p.key, label: p.label, accommodations: p.accommodations };
   }
 
-  /** Refresh personas from Payload, merging over the built-in defaults. */
+  /** Every authored persona as a client-facing slice, `default` first — for the
+   *  host console persona pickers. */
+  list(): PersonaBroadcast[] {
+    return Object.keys(this.cache)
+      .sort((a, b) => (a === "default" ? -1 : b === "default" ? 1 : a.localeCompare(b)))
+      .map((key) => this.toBroadcast(key));
+  }
+
+  /** Whether a profile with this key currently exists. */
+  has(key: PersonaKey): boolean {
+    return this.cache[key] !== undefined;
+  }
+
+  /** Whether changes to this profile should be persisted / remembered. The
+   *  shared `default` clean plate is never written back (it's the template and
+   *  the anonymous walk-up profile); every other, card-bound profile is. */
+  isPersistable(key: PersonaKey): boolean {
+    return this.has(key) && key !== "default";
+  }
+
+  /** Current memories for a profile (to persist after a change). */
+  memoriesOf(key: PersonaKey): PersonaMemory[] {
+    return this.cache[key]?.memories ?? [];
+  }
+
+  /**
+   * Optimistically reflect an accommodation change in the cache so the next
+   * turn's prompt/re-resolve sees it. Durable state is persisted separately via
+   * ProfileSink; a later refresh reconciles from the CMS.
+   */
+  setAccommodationsLocal(key: PersonaKey, accommodations: Accommodations): void {
+    const p = this.cache[key];
+    if (p) p.accommodations = accommodations;
+  }
+
+  /** Append a memory locally and return it; null if the profile is unknown or
+   *  the note is empty. Persist separately. */
+  rememberLocal(key: PersonaKey, note: string): PersonaMemory | null {
+    const p = this.cache[key];
+    const clean = note.trim();
+    if (!p || !clean) return null;
+    const memory: PersonaMemory = { note: clean, at: new Date().toISOString() };
+    p.memories = [...p.memories, memory];
+    return memory;
+  }
+
+  /** Remove memories matching `match` (case-insensitive substring), or all when
+   *  match is omitted / "all". Returns the removed count. */
+  forgetLocal(key: PersonaKey, match?: string): number {
+    const p = this.cache[key];
+    if (!p) return 0;
+    const before = p.memories.length;
+    const m = match?.trim().toLowerCase();
+    if (!m || m === "all") p.memories = [];
+    else p.memories = p.memories.filter((x) => !x.note.toLowerCase().includes(m));
+    return before - p.memories.length;
+  }
+
+  /**
+   * Refresh personas from Payload. When the CMS answers with at least one
+   * persona it is authoritative for the whole set: each doc merges over the
+   * built-in with the same key, or over `BASE_PERSONA` for a brand-new key. A
+   * `default` is always guaranteed. When the CMS is unreachable or returns
+   * nothing, the last-known set (built-in defaults at boot) is kept.
+   */
   async refresh(): Promise<void> {
     const now = Date.now();
     if (now - this.lastFetch < this.ttlMs) return;
@@ -133,38 +187,25 @@ export class PersonaProvider {
       const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
       if (!res.ok) return;
       const body = (await res.json()) as { docs?: PayloadPersonaDoc[] };
-      const next: Record<PersonaKey, Persona> = { ...DEFAULT_PERSONAS };
+      const docs = body.docs ?? [];
+      if (docs.length === 0) return; // keep last-known / built-ins
+      const next: Record<string, Persona> = {};
       const nfc = new Map<string, PersonaKey>();
-      for (const doc of body.docs ?? []) {
-        if (!doc.key || !next[doc.key]) continue;
-        next[doc.key] = mergeDoc(next[doc.key], doc);
+      for (const doc of docs) {
+        const key = doc.key?.trim();
+        if (!key) continue;
+        const base = DEFAULT_PERSONAS[key] ?? BASE_PERSONA;
+        next[key] = { ...mergeDoc(base, doc), key };
         for (const row of doc.nfcIds ?? []) {
-          const tag = (row.tag ?? row.id ?? "").trim();
-          if (tag) nfc.set(tag, doc.key);
+          const tag = (row.tag ?? "").trim();
+          if (tag) nfc.set(tag, key);
         }
       }
+      if (!next.default) next.default = BASE_PERSONA;
       this.cache = next;
       this.nfcIndex = nfc;
     } catch {
       // Payload down — keep defaults / last-known.
     }
-  }
-}
-
-/** Turn an emotion bias into a one-line prompt instruction. */
-export function emotionBiasSentence(p: Persona): string {
-  const bias = p.emotionBias;
-  const top = (Object.entries(bias) as [string, number][])
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])[0]?.[0];
-  switch (top) {
-    case "happy":
-      return "Lean towards warm, friendly expressions when it fits.";
-    case "neutral":
-      return "Keep a calm, steady expression; avoid big emotional swings.";
-    case "sad":
-      return "A gentle, sympathetic expression suits this rider.";
-    default:
-      return "Express emotion naturally and sparingly.";
   }
 }

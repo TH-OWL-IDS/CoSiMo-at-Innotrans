@@ -11,12 +11,13 @@ native kiosk app.
 
 ## Collections & globals
 
-- **personas** — visitor support profiles: bilingual labels, the
-  `supportStyle` text injected into the agent's system prompt, preferred
-  modality, theme id, emotion bias, presentation flags (high contrast,
-  large text, speak aloud), and **NFC chip ids** — the list of chips that
-  load this persona as an "account" at a kiosk seat. Public read (the
-  realtime service fetches anonymously), writes admin-only.
+- **personas** — rider profiles (presets + users): identity (`kind`, `key`,
+  `name`, **NFC chip ids**), an operator **brief** (verbatim prompt),
+  structured **accommodations** (theme, text size, contrast, audio, captions,
+  speech rate, reduce-motion, input), and CoSiMo-written **memories**. Presets
+  are copied to make users (a `basePreset` hook). Public read; writes admin-only
+  **plus the realtime service via the internal key** (accommodation + memory
+  write-back). Full model: [personas.md](personas.md).
 - **mockup-data** — MonoCab telemetry scenarios (speed, battery, occupancy,
   bilingual locations/stops with ETAs, notes). Exactly one should have
   `active: true` — that's the live demo scenario; switching scenarios

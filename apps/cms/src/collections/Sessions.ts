@@ -40,10 +40,11 @@ export const Sessions: CollectionConfig = {
     { name: "sessionId", type: "text", required: true, unique: true, admin: { readOnly: true } },
     { name: "deviceId", type: "text", admin: { readOnly: true } },
     {
+      // Free text (not a select): personas are data-driven, so a session may
+      // reference any authored persona slug. Written by the realtime service.
       name: "persona",
-      type: "select",
+      type: "text",
       admin: { readOnly: true },
-      options: ["default", "eyes-free", "wheelchair", "text-first"],
     },
     { name: "consent", type: "checkbox", admin: { readOnly: true } },
     {
@@ -65,7 +66,7 @@ export const Sessions: CollectionConfig = {
         { name: "detectedIntent", type: "text" },
         { name: "faceEmotion", type: "text" },
         { name: "latencyMs", type: "number" },
-        { name: "outcome", type: "select", options: ["ok", "not_understood", "error", "offline_canned"] },
+        { name: "outcome", type: "select", options: ["ok", "not_understood", "error", "offline_canned", "interrupted"] },
         { name: "action", type: "json" },
         { name: "at", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
       ],

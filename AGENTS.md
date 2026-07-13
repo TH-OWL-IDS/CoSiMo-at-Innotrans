@@ -13,6 +13,7 @@ live in [docs/](docs/).
 | [docs/architecture.md](docs/architecture.md) | The three deployables, the global-vs-per-seat state model, a voice turn end-to-end, design invariants |
 | [docs/kiosk.md](docs/kiosk.md) | The native iPad app: panel-cutout UI, calibration, server config, HID input, iOS build |
 | [docs/realtime.md](docs/realtime.md) | Hub routing, agent loop, LLM adapters, speech, personas/NFC, resilience |
+| [docs/personas.md](docs/personas.md) | Profiles: accommodations vs. brief vs. memories, presets→users, the adapt/remember tools, GDPR stance |
 | [docs/cms.md](docs/cms.md) | Payload collections/globals, seeding, schema-change workflow, host console |
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |

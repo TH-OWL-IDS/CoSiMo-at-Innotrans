@@ -1,8 +1,7 @@
 /**
- * Seed the CMS with the hand-authored demo content: the four personas
- * (mirroring the realtime service's built-in defaults, so CMS edits start
- * from the same baseline) and MonoCab telemetry scenarios. Idempotent —
- * collections that already have documents are left untouched.
+ * Seed the CMS with the hand-authored demo content: the `default` clean-plate
+ * profile, a handful of mockup riders (with NFC cards), and MonoCab telemetry
+ * scenarios. Idempotent — profiles that already exist are left untouched.
  *
  * Run from apps/cms:
  *   DATABASE_URI=postgres://cosimo:cosimo_dev@localhost:5432/cosimo npx tsx src/seed.ts
@@ -12,59 +11,134 @@
 import { getPayload } from "payload";
 import config from "./payload.config.js";
 
-const personas = [
+/** Shape of a seeded profile (the default clean plate + mockup riders). */
+type ProfileSeed = {
+  key: string;
+  name?: string;
+  label: string;
+  summary: string;
+  brief: string;
+  accommodations: {
+    language: "de" | "en";
+    theme: string;
+    textSize: "s" | "m" | "l" | "xl";
+    contrast: "normal" | "high";
+    input: "voice" | "text" | "both";
+    audioOutput: boolean;
+    speechRate: number;
+    showText: boolean;
+    reduceMotion: boolean;
+  };
+  nfcIds?: { tag: string }[];
+  memories?: { note: string; at: string }[];
+};
+
+// The `default` clean plate: neutral accommodations. It is the profile a
+// walk-up (no card) seat runs and the template new riders are copied from.
+const personas: ProfileSeed[] = [
   {
     key: "default",
-    labelDe: "Standard",
-    labelEn: "Default",
-    summaryDe: "Allgemeine Begleitung.",
-    summaryEn: "General assistance.",
-    supportStyle: "Speak naturally and warmly. Keep answers short and clear.",
-    preferredModality: "both",
-    themeId: "classic",
-    emotionBias: { happy: 0.3, neutral: 0.2 },
-    presentation: { highContrast: false, largeText: false, speakAloud: true },
+    label: "Standard",
+    summary: "Allgemeine Begleitung.",
+    brief: "Speak naturally and warmly. Keep answers short and clear.",
+    accommodations: {
+      language: "de", theme: "classic", textSize: "m", contrast: "normal", input: "both",
+      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
+    },
+  },
+];
+
+/**
+ * Mockup **riders** — real people with NFC cards, each given a name, a nuanced
+ * brief and a pre-seeded memory so "CoSiMo remembers
+ * you" demos on the first scan. The chip ids are short and typeable so a scan
+ * can be simulated from a keyboard (type `[`, the id, then Enter). Together they
+ * exercise every lever: audio-first, step-free proactivity, the text-first
+ * layout flip, large/high-contrast, and calm/slow reduce-motion.
+ */
+const users: ProfileSeed[] = [
+  {
+    key: "anna",
+    name: "Anna Berg",
+    label: "Anna Berg",
+    summary: "Blind, Alltagsfahrerin.",
+    brief:
+      "Anna is blind and a confident daily rider on this line — skip basic orientation and lead straight with the answer.",
+    accommodations: {
+      language: "de", theme: "night", textSize: "xl", contrast: "high", input: "voice",
+      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
+    },
+    nfcIds: [{ tag: "ANNA1" }],
+    memories: [
+      { note: "Prefers very short answers.", at: "2026-07-01T09:00:00.000Z" },
+      { note: "Rides this line daily to work.", at: "2026-07-01T09:00:00.000Z" },
+    ],
   },
   {
-    key: "eyes-free",
-    labelDe: "Ohne Sicht",
-    labelEn: "Eyes-free",
-    summaryDe: "Für blinde oder sehbeeinträchtigte Fahrgäste.",
-    summaryEn: "For blind or low-vision riders.",
-    supportStyle:
-      "The rider may not be looking at the screen. Be fully understandable by ear alone: lead with the answer, avoid references to on-screen elements ('as you can see'), spell out anything a screen would show, and confirm every action aloud.",
-    preferredModality: "voice",
-    themeId: "night",
-    emotionBias: { neutral: 0.4, happy: 0.2 },
-    presentation: { highContrast: true, largeText: true, speakAloud: true },
+    key: "bruno",
+    name: "Bruno Klein",
+    label: "Bruno Klein",
+    summary: "Rollstuhlnutzer.",
+    brief:
+      "Bruno uses a wheelchair; be proactive about step-free access, the wheelchair space and boarding help.",
+    accommodations: {
+      language: "de", theme: "ocean", textSize: "l", contrast: "normal", input: "both",
+      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
+    },
+    nfcIds: [{ tag: "BRUNO1" }],
+    memories: [
+      { note: "Boards at the front where the ramp is.", at: "2026-07-01T09:00:00.000Z" },
+    ],
   },
   {
-    key: "wheelchair",
-    labelDe: "Rollstuhl",
-    labelEn: "Wheelchair",
-    summaryDe: "Fokus auf barrierefreien Zugang.",
-    summaryEn: "Focus on step-free access.",
-    supportStyle:
-      "Pay attention to step-free access, the wheelchair space, door width and boarding help. Proactively mention accessibility details when relevant to the rider's question.",
-    preferredModality: "both",
-    themeId: "ocean",
-    emotionBias: { happy: 0.3, neutral: 0.2 },
-    presentation: { highContrast: false, largeText: true, speakAloud: true },
+    key: "clara",
+    name: "Clara Voss",
+    label: "Clara Voss",
+    summary: "Gehörlos, liest mit.",
+    brief:
+      "Clara is deaf and reads your replies; write clearly and confirm actions in writing. Do not rely on tone of voice.",
+    accommodations: {
+      language: "de", theme: "slate", textSize: "l", contrast: "normal", input: "text",
+      audioOutput: false, speechRate: 1, showText: true, reduceMotion: false,
+    },
+    nfcIds: [{ tag: "CLARA1" }],
+    memories: [
+      { note: "Reads a little lip movement but prefers text.", at: "2026-07-01T09:00:00.000Z" },
+    ],
   },
   {
-    key: "text-first",
-    labelDe: "Text",
-    labelEn: "Text-first",
-    summaryDe: "Für gehörlose oder text-bevorzugende Fahrgäste.",
-    summaryEn: "For deaf or text-preferring riders.",
-    supportStyle:
-      "The rider prefers reading. Write in clear, well-structured text. Do not rely on tone of voice; make confirmations explicit in writing.",
-    preferredModality: "text",
-    themeId: "slate",
-    emotionBias: { neutral: 0.3, happy: 0.2 },
-    presentation: { highContrast: false, largeText: true, speakAloud: false },
+    key: "david",
+    name: "David Ono",
+    label: "David Ono",
+    summary: "Sehbeeinträchtigt, sieht noch.",
+    brief:
+      "David has low vision — larger, high-contrast text helps a lot, and he can also hear you.",
+    accommodations: {
+      language: "en", theme: "classic", textSize: "xl", contrast: "high", input: "both",
+      audioOutput: true, speechRate: 1, showText: true, reduceMotion: false,
+    },
+    nfcIds: [{ tag: "DAVID1" }],
+    memories: [
+      { note: "Likes the larger text; no need to ask.", at: "2026-07-01T09:00:00.000Z" },
+    ],
   },
-] as const;
+  {
+    key: "emil",
+    name: "Emil Roth",
+    label: "Emil Roth",
+    summary: "Älterer Fahrgast, ruhiges Tempo.",
+    brief:
+      "Emil is an older rider who appreciates a calm, unhurried pace and plain, simple language.",
+    accommodations: {
+      language: "de", theme: "sun", textSize: "l", contrast: "normal", input: "both",
+      audioOutput: true, speechRate: 0.85, showText: false, reduceMotion: true,
+    },
+    nfcIds: [{ tag: "EMIL1" }],
+    memories: [
+      { note: "Appreciates an unhurried pace.", at: "2026-07-01T09:00:00.000Z" },
+    ],
+  },
+];
 
 const scenarios = [
   {
@@ -136,17 +210,17 @@ const scenarios = [
 async function seed(): Promise<void> {
   const payload = await getPayload({ config });
 
-  for (const p of personas) {
+  for (const p of [...personas, ...users]) {
     const existing = await payload.count({
       collection: "personas",
       where: { key: { equals: p.key } },
     });
     if (existing.totalDocs > 0) {
-      console.log(`[seed] persona exists: ${p.key}`);
+      console.log(`[seed] profile exists: ${p.key}`);
       continue;
     }
     await payload.create({ collection: "personas", data: p });
-    console.log(`[seed] persona created: ${p.key}`);
+    console.log(`[seed] profile created: ${p.key}`);
   }
 
   for (const s of scenarios) {
