@@ -11,13 +11,15 @@ native kiosk app.
 
 ## Collections & globals
 
-- **personas** — rider profiles (presets + users): identity (`kind`, `key`,
-  `name`, **NFC chip ids**), an operator **brief** (verbatim prompt),
-  structured **accommodations** (theme, text size, contrast, audio, captions,
-  speech rate, reduce-motion, input), and CoSiMo-written **memories**. Presets
-  are copied to make users (a `basePreset` hook). Public read; writes admin-only
-  **plus the realtime service via the internal key** (accommodation + memory
-  write-back). Full model: [personas.md](personas.md).
+- **personas** — rider profiles: identity (`key`, `label`, `name`, **NFC chip
+  ids**), an operator **brief** (verbatim prompt), structured
+  **accommodations** (preferred language, theme, text size, contrast, audio,
+  speech rate, show-text, reduce-motion, input), and CoSiMo-written
+  **memories**. No presets — `default` is the clean plate new riders are
+  copied from (a `copyFrom` hook snapshots accommodations + brief on create).
+  Public read; writes admin-only **plus the realtime service via the internal
+  key** (accommodation + memory write-back). Full model:
+  [personas.md](personas.md).
 - **mockup-data** — MonoCab telemetry scenarios (speed, battery, occupancy,
   bilingual locations/stops with ETAs, notes). Exactly one should have
   `active: true` — that's the live demo scenario; switching scenarios
@@ -27,7 +29,9 @@ native kiosk app.
 - **sessions** — the research dataset. Written by the realtime service
   (turn transcripts, tool actions, emotions, latency, consent, modality),
   read-only in the admin. Consent gates *recording*, not conversing.
-- **operator-config (global)** — endpoint routing edited live: LLM provider
+- **operator-config (global)** — live-editable operations: the agent's **core
+  system prompt** (`agent.systemPrompt`; empty = built-in default — the rider
+  section is always appended in code) and endpoint routing: LLM provider
   (`anthropic` | `openai-compatible`) + base URL + model, STT/TTS base URLs
   and voice. URLs and model names only — **API keys never live in the CMS**
   (they'd be readable in the admin and land in every DB backup).

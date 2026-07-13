@@ -10,11 +10,15 @@ the realtime service; the app renders CoSiMo and forwards input.
 The iPad sits behind a physical panel with exactly two cutouts. Everything
 outside them renders pitch black (invisible, no light bleed):
 
-- **The circle** — CoSiMo's world. The animated face, the streamed reply
-  text (lower part), the consent dialog (fits entirely inside the circle),
-  a "connecting…" note when the socket is down. The circle is also the
+- **The circle** — CoSiMo's world. Face-and-voice-first: the animated face
+  plus a short phase hint; reply *text* is progressive disclosure — only
+  when the profile's `showText` accommodation is on does the layout flip to
+  a small face above a **running transcript** (deaf / text-first riders).
+  Also hosts the consent dialog and a "connecting…" note. The circle is the
   touch surface: **hold it to talk** (push-to-talk) until the physical
-  buttons exist.
+  buttons exist — and pressing while CoSiMo speaks silences it instantly
+  (barge-in). Text scale, contrast, speech rate, reduce-motion and the UI
+  language all follow the active profile's accommodations, live.
 - **The slit** — the telemetry strip: clock · passengers · next stop |
   speed, in bold monospace, styled after the MonoCab mockup.
 

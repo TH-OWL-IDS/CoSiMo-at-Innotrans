@@ -99,13 +99,14 @@ they exist.
 ## Profiles, adaptation & NFC accounts (`src/agent/personas.ts`)
 
 A **profile** shapes the system prompt (verbatim *brief* + fenced *memories*)
-and the client presentation (*accommodations* — theme, text size, audio,
-captions…). CoSiMo can change accommodations and remember riders by voice
-(`set_presentation` / `apply_preset` / `remember` / `forget`), applied via the
-hub and written back best-effort through `ProfileSink`. Built-in preset defaults
-keep the demo alive with no CMS; CMS docs merge over them on a short TTL. Each
-user profile lists **NFC chip ids** — `byNfcId()` resolves a scanned chip, the
-hub switches *that seat only*, and the agent greets the rider by profile;
+and the client presentation (*accommodations* — language, theme, text size,
+audio, show-text…). CoSiMo changes accommodations and remembers riders by
+voice (`set_presentation` / `remember` / `forget` — fine-grained, no preset
+bundles), applied via the hub and written back best-effort through
+`ProfileSink`. The built-in `default` clean plate keeps the demo alive with no
+CMS; CMS docs are authoritative on a short TTL. Each rider profile lists
+**NFC chip ids** — `byNfcId()` resolves a scanned chip, the hub switches *that
+seat only*, and the agent greets the rider in their own preferred language;
 unknown chips get a friendly refusal. **Full model: [personas.md](personas.md).**
 
 ## Resilience

@@ -13,7 +13,7 @@ live in [docs/](docs/).
 | [docs/architecture.md](docs/architecture.md) | The three deployables, the global-vs-per-seat state model, a voice turn end-to-end, design invariants |
 | [docs/kiosk.md](docs/kiosk.md) | The native iPad app: panel-cutout UI, calibration, server config, HID input, iOS build |
 | [docs/realtime.md](docs/realtime.md) | Hub routing, agent loop, LLM adapters, speech, personas/NFC, resilience |
-| [docs/personas.md](docs/personas.md) | Profiles: accommodations vs. brief vs. memories, presets→users, the adapt/remember tools, GDPR stance |
+| [docs/personas.md](docs/personas.md) | Rider profiles: accommodations vs. brief vs. memories, the clean-plate default, the adapt/remember tools, GDPR stance |
 | [docs/cms.md](docs/cms.md) | Payload collections/globals, seeding, schema-change workflow, host console |
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
@@ -75,8 +75,19 @@ client against :4000 works well — see the smoke pattern in git history).
 8. **iPads are portrait, behind panels.** UI belongs inside the circle and
    slit cutouts; screen corners/edges are physically unreachable. Operator
    access = 3s hold on the slit.
-9. Comments/docs explain *why*; German for visitor-facing strings
-   (default locale `de`, everything bilingual de/en via `Record<Locale,…>`).
+9. **Profiles are data; prose carries the nuance.** A structured profile
+   field exists only if deterministic code acts on it (accommodations);
+   everything else lives in the operator brief / CoSiMo's memories. Never
+   machine-write the brief; persist accommodations, never diagnoses
+   (GDPR). See [docs/personas.md](docs/personas.md).
+10. **Turns are interruptible.** `chat:delta`/`tts:audio` carry a per-seat
+    turn number; new input aborts the seat's in-flight turn. Anything that
+    streams to a seat must ride a turn number so stale chunks can be
+    dropped — and a running tool call is never aborted mid-flight.
+11. Comments/docs explain *why*; German for visitor-facing strings.
+    **Shared, non-personal content is bilingual de/en** via
+    `Record<Locale,…>` (telemetry, cabin labels, consent); **personal
+    profiles have *a* preferred language** instead (accommodations).
 
 ## Environment facts
 
