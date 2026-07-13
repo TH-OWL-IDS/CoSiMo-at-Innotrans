@@ -9,6 +9,7 @@
  */
 
 import { getPayload } from "payload";
+import { DEFAULT_CORE_PROMPT } from "@cosimo/shared";
 import config from "./payload.config.js";
 
 /** Shape of a seeded profile (the default clean plate + mockup riders). */
@@ -179,6 +180,20 @@ async function seed(): Promise<void> {
   } else {
     await payload.updateGlobal({ slug: "route-config", data: route });
     console.log(`[seed] route created: ${route.lineDe} (${route.stops.length} stops)`);
+  }
+
+  // Pre-fill the agent's core system prompt so the admin shows the actual
+  // prompt in use (instead of an empty field silently falling back to the
+  // built-in). Only when empty — an operator-edited prompt is never touched.
+  const opConfig = await payload.findGlobal({ slug: "operator-config" });
+  if (opConfig?.agent?.systemPrompt?.trim()) {
+    console.log("[seed] core prompt exists: keeping the operator's text");
+  } else {
+    await payload.updateGlobal({
+      slug: "operator-config",
+      data: { agent: { systemPrompt: DEFAULT_CORE_PROMPT } },
+    });
+    console.log("[seed] core prompt seeded into operator-config");
   }
 
   process.exit(0);
