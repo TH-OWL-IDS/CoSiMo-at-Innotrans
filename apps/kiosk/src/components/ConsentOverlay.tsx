@@ -38,8 +38,8 @@ export default function ConsentOverlay({
         zIndex: 50,
       }}
     >
-      <h1 style={{ fontSize: "clamp(18px, 5.5vw, 34px)", margin: 0 }}>CoSiMo</h1>
-      <p style={{ fontSize: "clamp(12px, 3.4vw, 19px)", lineHeight: 1.45, margin: 0 }}>
+      <h1 style={{ fontSize: "clamp(18px, 5.5cqw, 34px)", margin: 0 }}>CoSiMo</h1>
+      <p style={{ fontSize: "clamp(12px, 3.4cqw, 19px)", lineHeight: 1.45, margin: 0 }}>
         {t(
           "CoSiMo begleitet dich auf dieser Fahrt. Für unsere Forschung speichern wir den Gesprächsverlauf als Text – niemals als Audioaufnahme. Bist du einverstanden?",
           "CoSiMo will accompany you on this ride. For our research we record the conversation as text — never as an audio recording. Is that OK with you?",
@@ -52,7 +52,7 @@ export default function ConsentOverlay({
           onClick={() => onDecide(true)}
           style={{
             minHeight: 52,
-            fontSize: "clamp(14px, 3.6vw, 19px)",
+            fontSize: "clamp(14px, 3.6cqw, 19px)",
             fontWeight: 600,
             borderRadius: 999,
             border: "none",
@@ -68,7 +68,7 @@ export default function ConsentOverlay({
           onClick={() => onDecide(false)}
           style={{
             minHeight: 44,
-            fontSize: "clamp(12px, 3vw, 16px)",
+            fontSize: "clamp(12px, 3cqw, 16px)",
             borderRadius: 999,
             border: "1px solid currentColor",
             background: "transparent",
@@ -90,7 +90,7 @@ export default function ConsentOverlay({
             color: "inherit",
             opacity: 0.6,
             cursor: "pointer",
-            fontSize: "clamp(11px, 2.6vw, 14px)",
+            fontSize: "clamp(11px, 2.6cqw, 14px)",
           }}
         >
           {lang === "de" ? "EN" : "DE"}

@@ -3,6 +3,7 @@ import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, schemeById } from "@cosimo/face";
 import { useCosimoSocket } from "@cosimo/client";
 import type { PanelLayout } from "../config/panelLayout";
+import { isNative } from "../config/serverUrl";
 import TelemetryStrip from "./TelemetryStrip";
 import ConsentOverlay from "./ConsentOverlay";
 import { usePushToTalk } from "./usePushToTalk";
@@ -203,7 +204,13 @@ export default function CosimoKiosk({
     holdTimer.current = null;
   };
 
-  const circleSize = `min(${layout.circleD}vw, 96vh)`;
+  // All panel geometry is measured against the STAGE (a CSS size container),
+  // not the viewport. On the iPad the stage fills the screen exactly (cqw ≡
+  // vw — pixel-identical to before); in a desktop browser it becomes a
+  // centered portrait frame with the iPad mini's aspect ratio, so the
+  // calibrated layout never overlaps in a landscape window.
+  const native = isNative();
+  const circleSize = `min(${layout.circleD}cqw, 96cqh)`;
   const guide = layout.guides ? "2px dashed rgba(255,80,80,0.9)" : "none";
   // No idle hint — talking happens via the physical button, not the screen.
   const phaseHint: Record<PipelinePhase, Record<Locale, string>> = {
@@ -227,10 +234,31 @@ export default function CosimoKiosk({
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
+        // Center the stage when it doesn't fill the window (browser dev).
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         ["--bg" as string]: scheme.bg,
         ["--ink" as string]: scheme.ink,
       }}
     >
+      {/* ── the stage: the iPad's screen ──────────────────────────
+          Native: exactly the full screen (unchanged rendering). Web dev:
+          a centered portrait frame in the iPad mini's aspect ratio. */}
+      <div
+        style={{
+          position: "relative",
+          containerType: "size",
+          ...(native
+            ? { width: "100%", height: "100%" }
+            : {
+                width: "min(100vw, calc(100vh * (744 / 1133)))",
+                aspectRatio: "744 / 1133",
+                maxHeight: "100vh",
+                outline: "1px solid rgba(255,255,255,0.12)",
+              }),
+        }}
+      >
       {/* ── circle cutout: the Face ───────────────────────────────
           Display-only: talking runs exclusively over the physical talk
           button (HID "s"); touch does nothing here by design. */}
@@ -295,7 +323,7 @@ export default function CosimoKiosk({
               transform: "translateX(-50%)",
               width: "62%",
               textAlign: "center",
-              fontSize: `clamp(12px, ${2.8 * textScale}vw, ${18 * textScale}px)`,
+              fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
               lineHeight: 1.35,
               fontWeight: highContrast ? 700 : 400,
               opacity: 0.55,
@@ -328,7 +356,7 @@ export default function CosimoKiosk({
               top: "7%",
               left: "50%",
               transform: "translateX(-50%)",
-              fontSize: "clamp(10px, 2.2vw, 14px)",
+              fontSize: "clamp(10px, 2.2cqw, 14px)",
               opacity: 0.5,
             }}
           >
@@ -367,6 +395,7 @@ export default function CosimoKiosk({
         }}
       >
         <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+      </div>
       </div>
     </main>
   );

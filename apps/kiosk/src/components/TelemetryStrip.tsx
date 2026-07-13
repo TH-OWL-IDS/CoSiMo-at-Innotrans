@@ -38,7 +38,7 @@ export default function TelemetryStrip({
         padding: "0 4%",
         fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
         fontWeight: 700,
-        fontSize: "clamp(11px, 2.1vw, 18px)",
+        fontSize: "clamp(11px, 2.1cqw, 18px)",
         whiteSpace: "nowrap",
         overflow: "hidden",
       }}
