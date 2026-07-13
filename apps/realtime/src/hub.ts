@@ -9,6 +9,7 @@
 
 import type { Server, Socket } from "socket.io";
 import type { LightDriver } from "./cabin/driver.js";
+import { config } from "./config.js";
 import {
   CABIN_CONTROLS,
   type Accommodations,
@@ -98,12 +99,17 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
+/** Expressive emotions are reactions, not states — they fade back to neutral. */
+const DECAYING_EMOTIONS: ReadonlySet<FaceEmotion> = new Set(["happy", "sad", "surprised"]);
+
 interface DeviceEntry {
   role: "kiosk" | "host";
   socket: Sock;
   persona: PersonaBroadcast;
   emotion: FaceEmotion;
   phase: PipelinePhase;
+  /** Last visitor/agent interaction — idle seats drift to the sleeping face. */
+  lastActivity: number;
   /** This seat's cabin controls (per-seat reading lamp etc.). */
   controls: CabinControlState[];
   /** A visitor session is in progress (consent decided or first input). */
@@ -156,8 +162,41 @@ export class Hub {
     serverTts: false,
   };
 
+  /** Pending expressive-emotion decay per seat (deviceId → timer). */
+  private readonly decayTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
     this.io = io;
+    // Attract mode: seats nobody has touched for a while drift to sleep.
+    const sweep = setInterval(() => this.sweepIdleSeats(), 15_000);
+    sweep.unref?.();
+  }
+
+  /** Emit + store a face emotion for one seat. Internal transitions (decay,
+   *  sleep) use this directly so they don't count as activity. */
+  private emitEmotion(entry: DeviceEntry, emotion: FaceEmotion): void {
+    entry.emotion = emotion;
+    entry.socket.emit("face:emotion", { emotion, since: this.now() });
+  }
+
+  private clearDecay(deviceId: string): void {
+    const t = this.decayTimers.get(deviceId);
+    if (t) clearTimeout(t);
+    this.decayTimers.delete(deviceId);
+  }
+
+  /** Idle seats (no interaction, conversation settled) fall asleep. */
+  private sweepIdleSeats(): void {
+    const now = Date.now();
+    let changed = false;
+    for (const [deviceId, e] of this.devices) {
+      if (e.role !== "kiosk" || e.emotion === "sleeping" || e.phase !== "idle") continue;
+      if (now - e.lastActivity < config.face.idleSleepMs) continue;
+      this.clearDecay(deviceId);
+      this.emitEmotion(e, "sleeping");
+      changed = true;
+    }
+    if (changed) this.pushSeats();
   }
 
   /** Register the agent that handles incoming user turns. */
@@ -235,6 +274,7 @@ export class Hub {
         lastReply: "",
         replyBuffer: "",
         turn: 0,
+        lastActivity: Date.now(),
       };
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
@@ -260,6 +300,9 @@ export class Hub {
       if (entry) {
         entry.consent = consent;
         entry.active = true;
+        entry.lastActivity = Date.now();
+        // A visitor arrived — a sleeping face wakes up.
+        if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
       }
       this.pushSeats();
     });
@@ -271,6 +314,7 @@ export class Hub {
       if (entry) {
         entry.lastUser = text.slice(0, SNIPPET_MAX);
         entry.active = true;
+        entry.lastActivity = Date.now();
       }
       this.pushSeats();
       this.chatHandler?.({
@@ -286,7 +330,10 @@ export class Hub {
     socket.on("ptt:start", ({ sessionId }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
-      if (entry) entry.active = true;
+      if (entry) {
+        entry.active = true;
+        entry.lastActivity = Date.now();
+      }
       this.interruptHandler?.({ deviceId, sessionId });
       this.emitPhase("listening", sessionId);
       this.setEmotion("listening", sessionId);
@@ -298,6 +345,8 @@ export class Hub {
     // Recorded utterance → server-side STT pipeline.
     socket.on("voice:utterance", ({ sessionId, audioBase64, mime, lang }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      const e = this.devices.get(deviceId);
+      if (e) e.lastActivity = Date.now();
       this.voiceHandler?.({
         sessionId, deviceId, audioBase64, mime, lang,
         persona: this.personaOf(deviceId),
@@ -338,7 +387,9 @@ export class Hub {
         entry.lastReply = "";
         entry.replyBuffer = "";
         entry.phase = "idle";
-        // Next visitor starts from the default persona.
+        // Next visitor starts fresh: default persona, sleeping attract face.
+        this.clearDecay(id);
+        this.emitEmotion(entry, "sleeping");
         this.setPersonaForDevice(id, "default");
       }
       this.pushSeats();
@@ -356,7 +407,10 @@ export class Hub {
 
     socket.on("disconnect", () => {
       const id = socket.data.deviceId as string | undefined;
-      if (id) this.devices.delete(id);
+      if (id) {
+        this.clearDecay(id);
+        this.devices.delete(id);
+      }
       this.broadcastDevices();
       this.pushSeats();
     });
@@ -426,17 +480,29 @@ export class Hub {
 
   // ── Per-seat conversation events ────────────────────────────────
 
-  /** Set the Face for a session's device; without a session, for every kiosk. */
+  /**
+   * Set the Face for a session's device; without a session, for every kiosk.
+   * Expressive emotions (happy/sad/surprised) are reactions, not states: a
+   * per-seat timer settles the face back to neutral after a few seconds.
+   * Any newer emotion cancels the pending decay.
+   */
   setEmotion(emotion: FaceEmotion, sessionId?: string): void {
-    const entry = sessionId ? this.entryOf(sessionId) : undefined;
-    if (entry) {
-      entry.emotion = emotion;
-      entry.socket.emit("face:emotion", { emotion, since: this.now() });
-    } else {
-      for (const e of this.devices.values()) {
-        if (e.role !== "kiosk") continue;
-        e.emotion = emotion;
-        e.socket.emit("face:emotion", { emotion, since: this.now() });
+    const known = sessionId ? this.entryOf(sessionId) : undefined;
+    const targets: [string, DeviceEntry][] = known
+      ? [[this.sessionDevice.get(sessionId!)!, known]]
+      : [...this.devices].filter(([, e]) => e.role === "kiosk");
+    for (const [deviceId, entry] of targets) {
+      this.clearDecay(deviceId);
+      entry.lastActivity = Date.now();
+      this.emitEmotion(entry, emotion);
+      if (DECAYING_EMOTIONS.has(emotion)) {
+        const t = setTimeout(() => {
+          this.decayTimers.delete(deviceId);
+          this.emitEmotion(entry, "neutral");
+          this.pushSeats();
+        }, config.face.emotionDecayMs);
+        t.unref?.();
+        this.decayTimers.set(deviceId, t);
       }
     }
     this.pushSeats();

@@ -43,7 +43,9 @@ One `handleUserTurn` runs a manual streaming tool-use loop: stream text
 deltas to the seat as they generate (latency masking), execute tool calls,
 feed results back, repeat until the model stops calling tools (guard-capped).
 Face choreography: `thinking` while working → `speaking` phase while text
-streams → settle on the model's chosen expressive emotion. The moving mouth
+streams → settle on the model's chosen expressive emotion, which fades
+back to neutral after ~10 s (expressive emotions are reactions, not states;
+idle seats drift to the sleeping attract face, FACE_*_MS to tune). The moving mouth
 is driven client-side by actual audio playback, *not* by text streaming.
 
 Tools (`src/agent/tools.ts`): `get_telemetry`, `set_cabin_control` (scoped

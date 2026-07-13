@@ -54,6 +54,12 @@ export const config = {
     driver: (process.env.LIGHT_DRIVER ?? "fake") as "fake" | "shelly",
     shellyBaseUrl: process.env.SHELLY_BASE_URL ?? "",
   },
+  /** Face behaviour: expressive emotions fade back to neutral, and a seat
+   *  with no interaction drifts to the sleeping attract face. */
+  face: {
+    emotionDecayMs: num("FACE_EMOTION_DECAY_MS", 10_000),
+    idleSleepMs: num("FACE_IDLE_SLEEP_MS", 120_000),
+  },
   /** Allowed CORS origins: host console (3001), kiosk dev server (5173) and
    *  the native kiosk WebView. Override via CORS_ORIGINS in prod. */
   corsOrigins: (
