@@ -27,6 +27,10 @@ export function usePushToTalk({
   const chunksRef = useRef<Blob[]>([]);
   // Web Speech types aren't in lib.dom; keep it loose.
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  /** One transcript per press — WKWebView's SpeechRecognition fires onresult
+   *  continuously with the same text (observed at ~400/s), which flooded the
+   *  server with identical turns until it OOM'd. */
+  const sentRef = useRef(false);
 
   const supported =
     typeof window !== "undefined" &&
@@ -77,9 +81,14 @@ export function usePushToTalk({
     rec.lang = lang === "de" ? "de-DE" : "en-US";
     rec.interimResults = false;
     rec.maxAlternatives = 1;
+    sentRef.current = false;
     rec.onresult = (e: SpeechResultLike) => {
+      if (sentRef.current) return; // guard against repeated onresult (WKWebView)
       const t = e.results?.[0]?.[0]?.transcript?.trim();
-      if (t) onTranscript(t, lang);
+      if (t) {
+        sentRef.current = true;
+        onTranscript(t, lang);
+      }
     };
     rec.onerror = () => {};
     recognitionRef.current = rec;

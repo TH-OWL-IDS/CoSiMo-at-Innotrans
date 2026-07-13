@@ -165,11 +165,53 @@ export class Hub {
   /** Pending expressive-emotion decay per seat (deviceId → timer). */
   private readonly decayTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+  /** Per-second inbound event counters — a client stuck in a send loop once
+   *  flooded chat:send at ~7.5k/s and OOM'd the process; this names the
+   *  offender (event, device, sample) the moment a flood starts. */
+  private readonly eventCounts = new Map<string, number>();
+  private eventSample = "";
+
+  private countEvent(event: string, deviceId: string, sample?: string): void {
+    const key = `${event} ${deviceId}`;
+    this.eventCounts.set(key, (this.eventCounts.get(key) ?? 0) + 1);
+    if (sample) this.eventSample = sample;
+  }
+
+  /** Per-device token bucket for turn-starting events (burst 3, 1/s refill).
+   *  A runaway client (WKWebView speech once sent 400 identical turns/s)
+   *  must never OOM the hub — excess turns are dropped, visible in [flood]. */
+  private readonly turnBudget = new Map<string, { tokens: number; last: number }>();
+
+  private allowTurn(deviceId: string): boolean {
+    const now = Date.now();
+    const b = this.turnBudget.get(deviceId) ?? { tokens: 3, last: now };
+    b.tokens = Math.min(3, b.tokens + (now - b.last) / 1000);
+    b.last = now;
+    const ok = b.tokens >= 1;
+    if (ok) b.tokens -= 1;
+    this.turnBudget.set(deviceId, b);
+    return ok;
+  }
+
   constructor(io: Server<ClientToServerEvents, ServerToClientEvents>) {
     this.io = io;
     // Attract mode: seats nobody has touched for a while drift to sleep.
     const sweep = setInterval(() => this.sweepIdleSeats(), 15_000);
     sweep.unref?.();
+    const rate = setInterval(() => {
+      let total = 0;
+      for (const n of this.eventCounts.values()) total += n;
+      if (total > 50) {
+        const top = [...this.eventCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[flood] ${total} client events/s — top: ${top.map(([k, n]) => `${k}=${n}`).join(", ")} | sample: ${this.eventSample.slice(0, 80)}`,
+        );
+      }
+      this.eventCounts.clear();
+      this.eventSample = "";
+    }, 1000);
+    rate.unref?.();
   }
 
   /** Emit + store a face emotion for one seat. Internal transitions (decay,
@@ -298,6 +340,7 @@ export class Hub {
     // Visitor consent for recording (GDPR) — starts the visible session.
     socket.on("consent:set", ({ sessionId, consent }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      this.countEvent("consent:set", deviceId);
       this.consentBySession.set(sessionId, consent);
       const entry = this.devices.get(deviceId);
       if (entry) {
@@ -313,6 +356,8 @@ export class Hub {
     // Text or browser-transcribed message → hand to the agent.
     socket.on("chat:send", ({ sessionId, text, lang, modality }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      this.countEvent("chat:send", deviceId, text);
+      if (!this.allowTurn(deviceId)) return;
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.lastUser = text.slice(0, SNIPPET_MAX);
@@ -332,6 +377,7 @@ export class Hub {
     // reflect listening on this device's Face/phase.
     socket.on("ptt:start", ({ sessionId }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      this.countEvent("ptt:start", deviceId);
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.active = true;
@@ -348,6 +394,8 @@ export class Hub {
     // Recorded utterance → server-side STT pipeline.
     socket.on("voice:utterance", ({ sessionId, audioBase64, mime, lang }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      this.countEvent("voice:utterance", deviceId);
+      if (!this.allowTurn(deviceId)) return;
       const e = this.devices.get(deviceId);
       if (e) e.lastActivity = Date.now();
       this.voiceHandler?.({
@@ -360,6 +408,7 @@ export class Hub {
     // NFC scan at this kiosk → persona/"account" resolution.
     socket.on("nfc:register", ({ sessionId, tagId, lang }) => {
       const deviceId = this.trackSession(socket, sessionId);
+      this.countEvent("nfc:register", deviceId, tagId);
       this.nfcHandler?.({ sessionId, deviceId, tagId, lang });
     });
 
@@ -412,6 +461,7 @@ export class Hub {
       const id = socket.data.deviceId as string | undefined;
       if (id) {
         this.clearDecay(id);
+        this.turnBudget.delete(id);
         this.devices.delete(id);
       }
       this.broadcastDevices();

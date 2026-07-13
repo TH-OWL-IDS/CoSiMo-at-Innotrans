@@ -61,7 +61,7 @@ global key stream:
 - **`i`** — info button, one press = one canned intro question to the agent.
 - **NFC frames** — the reader types `[` + chip id + `Enter`. While a frame
   is open every key is swallowed (ids containing `s`/`i` can't misfire the
-  buttons); stalled frames reset after 600 ms. The chip id goes to the
+  buttons); stalled frames reset after 2 s. The chip id goes to the
   server raw (`nfc:register`) — the server maps it to a persona "account".
 
 All of it is testable without hardware: focus the app (Simulator or
@@ -70,8 +70,12 @@ browser) and type on a real keyboard. Full firmware-facing spec:
 
 ## Voice constraints on iOS
 
-`webkitSpeechRecognition` does not exist in WKWebView — in the native app,
-voice input **requires server STT (Deepgram)**. The recorder path
+WKWebView's `webkitSpeechRecognition` is unreliable: absent on older iOS,
+and where it exists (iOS 26 simulator) it fires `onresult` continuously —
+it once flooded the server with ~400 identical turns/s until the process
+OOM'd (the client now guards one transcript per press, and the hub
+rate-limits turns per device). For the fair, voice input **requires server
+STT (Deepgram)**. The recorder path
 (`usePushToTalk.ts`) uses `getUserMedia` + `MediaRecorder` and uploads the
 utterance; the browser-speech path exists only for web builds. TTS plays
 either server audio (ElevenLabs, preferred) or falls back to the browser's

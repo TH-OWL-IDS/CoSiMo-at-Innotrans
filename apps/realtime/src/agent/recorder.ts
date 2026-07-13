@@ -7,6 +7,10 @@
 
 import type { PersonaKey, SessionRecord, Turn } from "@cosimo/shared";
 
+/** Hard cap per session — a runaway client once produced 200k+ turns in one
+ *  session, ballooning memory and the CMS doc. Oldest turns roll off. */
+const MAX_TURNS = 500;
+
 export class SessionRecorder {
   private readonly sessions = new Map<string, SessionRecord>();
 
@@ -24,7 +28,10 @@ export class SessionRecorder {
 
   /** Append a turn. No-op if the session never started (defensive). */
   addTurn(sessionId: string, turn: Turn): void {
-    this.sessions.get(sessionId)?.turns.push(turn);
+    const rec = this.sessions.get(sessionId);
+    if (!rec) return;
+    rec.turns.push(turn);
+    if (rec.turns.length > MAX_TURNS) rec.turns.splice(0, rec.turns.length - MAX_TURNS);
   }
 
   end(sessionId: string): SessionRecord | undefined {
