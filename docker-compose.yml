@@ -4,6 +4,10 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Zombie "idle in transaction" connections (e.g. Payload transactions
+    # leaked by aborted requests) once starved the CMS pool and hung its API —
+    # kill them after 2 min instead of letting them wedge the stack.
+    command: postgres -c idle_in_transaction_session_timeout=120000
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cosimo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cosimo_dev}
