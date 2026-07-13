@@ -21,7 +21,7 @@ import {
 import type { Hub } from "../hub.js";
 import type { PersonaProvider } from "./personas.js";
 import type { ProfileSink } from "./profileSink.js";
-import type { TelemetryProvider } from "./telemetry.js";
+import type { TelemetrySimulation } from "./telemetry.js";
 
 export interface ToolResult {
   /** Text returned to Claude as the tool_result content. */
@@ -187,7 +187,7 @@ function presentationPatch(setting: string, value: unknown): PresPatch {
 
 export interface ToolContext {
   hub: Hub;
-  telemetry: TelemetryProvider;
+  telemetry: TelemetrySimulation;
   personas: PersonaProvider;
   profiles: ProfileSink;
   lang: Locale;

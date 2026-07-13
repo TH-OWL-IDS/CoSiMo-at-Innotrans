@@ -1,7 +1,8 @@
 /**
  * Mocked MonoCab telemetry. This is the shape CoSiMo reads from to answer
- * questions ("how fast are we going?", "when do we arrive?"). It is sourced
- * from the hand-authored `mockup-data` collection — there is no real MonoCab
+ * questions ("how fast are we going?", "when do we arrive?"). It is produced
+ * by a small server-side journey simulation (realtime `telemetry.ts`) driving
+ * the CMS `route-config` route back and forth — there is no real MonoCab
  * integration (explicitly out of scope).
  */
 
@@ -37,12 +38,15 @@ export interface MonoCabTelemetry {
   doorsOpen: boolean;
   /** Free-form extras the author can attach (accessibility notes, etc.). */
   notes?: Record<Locale, string>;
+  /** True while the journey simulation is paused (host console display). */
+  simPaused?: boolean;
 }
 
-/** Live telemetry overrides the host can force from the operator console. */
+/** Live telemetry overrides the host can force from the operator console.
+ *  Applied INTO the running journey simulation (which owns the state). */
 export interface HostTelemetryPatch {
-  speedKmh?: number;
-  doorsOpen?: boolean;
+  /** Pause / resume the journey simulation. */
+  paused?: boolean;
   batteryPct?: number;
   occupancy?: number;
 }

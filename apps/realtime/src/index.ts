@@ -20,7 +20,7 @@ import { CosimoAgent } from "./agent/agent.js";
 import { LlmRouter } from "./agent/llm.js";
 import { OperatorConfigProvider } from "./agent/operatorConfig.js";
 import { PersonaProvider } from "./agent/personas.js";
-import { TelemetryProvider } from "./agent/telemetry.js";
+import { TelemetrySimulation } from "./agent/telemetry.js";
 import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
@@ -34,7 +34,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 });
 
 const personas = new PersonaProvider();
-const telemetry = new TelemetryProvider();
+const telemetry = new TelemetrySimulation();
 const operatorConfig = new OperatorConfigProvider();
 const stt = createSttProvider(operatorConfig);
 const tts = createTtsProvider(operatorConfig);
@@ -56,12 +56,22 @@ void personas.refresh().then(() => {
   hub.broadcastPersonas();
 });
 
-// Keep an always-on telemetry display: refresh from the CMS and broadcast.
+// The journey simulation ticks every second: advance the state machine
+// (route refreshed from the CMS on its own TTL) and broadcast the derived
+// telemetry so ETAs/speed move smoothly on every display.
 async function broadcastTelemetry(): Promise<void> {
   hub.emitTelemetry(await telemetry.refresh());
 }
 void broadcastTelemetry();
-setInterval(() => void broadcastTelemetry(), 5000);
+setInterval(() => void broadcastTelemetry(), 1000);
+
+// Host telemetry overrides (pause/resume, battery, occupancy) land inside
+// the simulation — so they persist — and rebroadcast immediately.
+hub.onTelemetryPatch((patch) => {
+  telemetry.applyPatch(patch);
+  telemetry.update();
+  hub.emitTelemetry(telemetry.get());
+});
 
 // Watch connectivity → auto-switch to offline canned mode when the cloud drops.
 startHealthMonitor(hub);

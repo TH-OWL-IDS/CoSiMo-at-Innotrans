@@ -18,6 +18,7 @@ import {
   type ConnectedDevice,
   type ConnectionStatus,
   type FaceEmotion,
+  type HostTelemetryPatch,
   type Locale,
   type Modality,
   type MonoCabTelemetry,
@@ -133,6 +134,7 @@ export class Hub {
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
   private interruptHandler: InterruptHandler | undefined;
+  private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
   private lightDriver: LightDriver | undefined;
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
@@ -345,7 +347,7 @@ export class Hub {
       this.manualOffline = offline;
       this.recomputeStatus();
     });
-    socket.on("host:patchTelemetry", (patch) => this.patchTelemetry(patch));
+    socket.on("host:patchTelemetry", (patch) => this.telemetryPatchHandler?.(patch));
     socket.on("host:recover", () => {
       this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
       this.io.emit("chat:delta", { sessionId: "*", text: "", done: true, turn: -1 });
@@ -416,15 +418,10 @@ export class Hub {
     }
   }
 
-  /** Apply a host-forced telemetry override and rebroadcast. */
-  private patchTelemetry(patch: {
-    speedKmh?: number;
-    doorsOpen?: boolean;
-    batteryPct?: number;
-    occupancy?: number;
-  }): void {
-    if (!this.lastTelemetry) return;
-    this.emitTelemetry({ ...this.lastTelemetry, ...patch });
+  /** Register how host telemetry overrides are applied (into the journey
+   *  simulation, which owns the state — not onto a stale snapshot). */
+  onTelemetryPatch(handler: (patch: HostTelemetryPatch) => void): void {
+    this.telemetryPatchHandler = handler;
   }
 
   // ── Per-seat conversation events ────────────────────────────────

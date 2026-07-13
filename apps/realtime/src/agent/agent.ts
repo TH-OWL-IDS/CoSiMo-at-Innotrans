@@ -21,7 +21,7 @@ import type { LlmRouter } from "./llm.js";
 import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
-import { TelemetryProvider } from "./telemetry.js";
+import { TelemetrySimulation } from "./telemetry.js";
 import { executeTool } from "./tools.js";
 import { PayloadSink } from "./sink.js";
 import { ProfileSink } from "./profileSink.js";
@@ -44,7 +44,7 @@ export class CosimoAgent {
   private readonly llm: LlmRouter;
   private readonly operatorConfig: OperatorConfigProvider;
   private readonly hub: Hub;
-  private readonly telemetry: TelemetryProvider;
+  private readonly telemetry: TelemetrySimulation;
   readonly personas: PersonaProvider;
   private readonly tts: TtsProvider;
   private readonly sink = new PayloadSink();
@@ -57,7 +57,7 @@ export class CosimoAgent {
     hub: Hub,
     personas: PersonaProvider,
     tts: TtsProvider,
-    telemetry: TelemetryProvider,
+    telemetry: TelemetrySimulation,
     llm: LlmRouter,
     operatorConfig: OperatorConfigProvider,
   ) {
