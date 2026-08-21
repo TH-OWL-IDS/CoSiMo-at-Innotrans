@@ -29,7 +29,7 @@ turn.end        ok · 2470 ms (stt 610, llm 1460, tts 380) · 1 tool · happy ·
 
 | Kind | When | Carries |
 |---|---|---|
-| `seat.connect` / `seat.disconnect` | a socket says hello / drops | role |
+| `seat.connect` / `seat.disconnect` | a kiosk seat says hello / drops (host consoles are not logged — they are the observer) | role |
 | `consent` | the visitor decides | consent |
 | `nfc.scan` | a card is tapped | chip id, resolved profile (or null → warn) |
 | `persona.switch` | a seat's profile changes | profile, by `nfc` / `host` / `boot` |

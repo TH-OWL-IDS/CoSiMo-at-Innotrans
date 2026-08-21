@@ -374,7 +374,9 @@ export class Hub {
           socket.emit("host:log", { events, replay }),
         );
       }
-      logger.log("seat.connect", { role }, { deviceId });
+      // Only seats are worth a log line — a host console connecting is the
+      // observer, not the observed (and it would see its own refresh).
+      if (role === "kiosk") logger.log("seat.connect", { role }, { deviceId });
       this.pushSeats();
     });
     socket.on("host:log:replay", ({ since }) => {
@@ -551,7 +553,7 @@ export class Hub {
       if (id) {
         const e = this.devices.get(id);
         e?.unsubscribeLog?.();
-        logger.log("seat.disconnect", { role: e?.role ?? "kiosk" }, { deviceId: id });
+        if (e?.role === "kiosk") logger.log("seat.disconnect", { role: "kiosk" }, { deviceId: id });
         this.clearDecay(id);
         this.turnBudget.delete(id);
         this.devices.delete(id);
