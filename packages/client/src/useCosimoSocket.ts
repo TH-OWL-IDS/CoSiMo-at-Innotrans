@@ -10,6 +10,7 @@ import type {
   ClientToServerEvents,
   ConnectedDevice,
   ConnectionStatus,
+  LogEvent,
   FaceEmotion,
   HostTelemetryPatch,
   Locale,
@@ -39,6 +40,12 @@ export interface CosimoState {
   status: ConnectionStatus | null;
   /** Live cabin-control state, kept in sync across all iPads. */
   cabin: CabinControlState[];
+  /** The structured debug log (host consoles): replayed buffer + live tail,
+   *  oldest first, capped client-side. See @cosimo/shared log.ts. */
+  logs: LogEvent[];
+  clearLogs: () => void;
+  /** Ask the hub to resend its buffer (e.g. after a reconnect). */
+  replayLogs: (since?: number) => void;
   /**
    * Register how this client performs a cabin actuation on the cabin LAN.
    * Only the kiosks can — they are the dual-homed devices — so the host
@@ -109,6 +116,9 @@ function makeId(prefix: string): string {
   return `${prefix}-${rnd}`;
 }
 
+/** Client-side cap on buffered log events (the hub keeps its own). */
+const LOG_MAX = 10_000;
+
 /**
  * Connects the kiosk PWA to the realtime service and exposes CoSiMo's live
  * state: the Face emotion, conversation phase, streaming reply, telemetry, and
@@ -143,6 +153,7 @@ export function useCosimoSocket(
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
+  const [logs, setLogs] = useState<LogEvent[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -212,6 +223,17 @@ export function useCosimoSocket(
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:inspect:result", (r) => setInspection(r));
+    socket.on("host:log", ({ events }) => {
+      // Merge by seq (a replay may overlap what we already have), keep order,
+      // and cap so a long day never grows the tab unboundedly.
+      setLogs((prev) => {
+        const seen = new Set(prev.map((e) => e.seq));
+        const fresh = events.filter((e) => !seen.has(e.seq));
+        if (!fresh.length) return prev;
+        const next = [...prev, ...fresh].sort((a, b) => a.seq - b.seq);
+        return next.length > LOG_MAX ? next.slice(next.length - LOG_MAX) : next;
+      });
+    });
     socket.on("session:reset", ({ deviceId: target }) => {
       if (target !== deviceId && target !== "*") return;
       sessionRef.current = makeId("s");
@@ -398,6 +420,11 @@ export function useCosimoSocket(
     });
   };
 
+  const clearLogs = useCallback(() => setLogs([]), []);
+  const replayLogs = useCallback((since?: number) => {
+    sockRef.current?.emit("host:log:replay", since != null ? { since } : {});
+  }, []);
+
   const registerNfc = (tagId: string, lang: Locale) => {
     sockRef.current?.emit("nfc:register", { sessionId: sessionRef.current, tagId, lang });
   };
@@ -416,6 +443,7 @@ export function useCosimoSocket(
     telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection,
+    logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,
     overrideLight, patchTelemetry, toggleOffline, recover, resetSession,

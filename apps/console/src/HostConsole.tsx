@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   CABIN_CONTROLS,
   type Accommodations,
@@ -9,6 +9,7 @@ import {
 } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
 import { resolveServerUrl } from "./serverUrl";
+import LogView from "./LogView";
 
 /**
  * Live operator console (/host). Two levels, mirroring the architecture:
@@ -192,11 +193,31 @@ function InspectorDrawer({
                 </span>
               </div>
               <div style={{ whiteSpace: "pre-wrap" }}>{t.transcript || <i style={{ opacity: 0.4 }}>(leer)</i>}</div>
-              {t.action && (
-                <code style={{ fontSize: 11, opacity: 0.8, background: "#0b0e13", borderRadius: 6, padding: "3px 6px" }}>
-                  ⚙ {t.action.tool}
-                  {t.action.control ? ` ${t.action.control}` : ""}
-                  {t.action.args ? ` ${JSON.stringify(t.action.args)}` : ""}
+              {(t.actions ?? (t.action ? [t.action] : [])).map((a, j) => (
+                <code
+                  key={j}
+                  title={a.result}
+                  style={{
+                    fontSize: 11,
+                    opacity: 0.85,
+                    background: "#0b0e13",
+                    borderRadius: 6,
+                    padding: "3px 6px",
+                    borderLeft: `2px solid ${a.ok === false ? "#f85149" : "#2a2f3a"}`,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  ⚙ {a.tool}
+                  {a.control ? ` ${a.control}` : ""}
+                  {a.args ? ` ${JSON.stringify(a.args)}` : ""}
+                  {a.result ? ` → ${a.result.length > 160 ? `${a.result.slice(0, 160)}…` : a.result}` : ""}
+                  {a.durationMs != null ? ` · ${a.durationMs} ms` : ""}
+                </code>
+              ))}
+              {t.error && (
+                <code style={{ fontSize: 11, color: "#f85149", background: "#0b0e13", borderRadius: 6, padding: "3px 6px", whiteSpace: "pre-wrap" }}>
+                  ✖ {t.error}
                 </code>
               )}
             </div>
@@ -314,20 +335,49 @@ function SeatCard({
   );
 }
 
+type Tab = "operator" | "log";
+
 export default function HostConsole() {
   const c = useCosimoSocket(REALTIME_URL, "host");
   const st = c.status;
   const activeSeats = c.seats.filter((s) => s.active);
   const idleSeats = c.seats.filter((s) => !s.active);
+  // The tab survives a reload — during the show that is the one you left open.
+  const [tab, setTab] = useState<Tab>(() => (window.location.hash === "#log" ? "log" : "operator"));
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    window.location.hash = t === "log" ? "log" : "";
+  };
+  const errors = c.logs.filter((e) => e.level === "error").length;
+  const warns = c.logs.filter((e) => e.level === "warn").length;
 
   return (
     <main style={{ minHeight: "100vh", background: "#0d1117", color: "#e8eaed", padding: 24, fontFamily: "system-ui, sans-serif" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>CoSiMo · Operator</h1>
-        <div style={{ fontSize: 13, opacity: 0.7 }}>
-          {c.connected ? "● connected" : "○ offline"} · <a href="/admin" style={{ color: "#58a6ff" }}>CMS admin →</a>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>CoSiMo · {tab === "log" ? "Log" : "Operator"}</h1>
+          <nav style={{ display: "flex", gap: 4 }}>
+            {(["operator", "log"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => switchTab(t)}
+                style={{
+                  ...btn,
+                  padding: "4px 12px",
+                  background: tab === t ? "#1f6feb" : "#161b22",
+                  borderColor: tab === t ? "#1f6feb" : "#2a2f3a",
+                }}
+              >
+                {t === "log" ? `Log (${c.logs.length}${errors ? ` · ${errors} ✖` : ""}${warns ? ` · ${warns} ⚠` : ""})` : "Operator"}
+              </button>
+            ))}
+          </nav>
         </div>
+        <div style={{ fontSize: 13, opacity: 0.7 }}>{c.connected ? "● connected" : "○ offline"}</div>
       </header>
+
+      {tab === "log" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} />}
+      {tab === "operator" && (<>
 
       {/* ── GLOBALS: the journey everyone shares ─────────────────── */}
       <p style={{ ...h, marginBottom: 10 }}>Fahrt (global)</p>
@@ -431,6 +481,8 @@ export default function HostConsole() {
           ))}
         </div>
       )}
+      </>)}
+
       {c.inspection && (
         <InspectorDrawer
           inspection={c.inspection}
