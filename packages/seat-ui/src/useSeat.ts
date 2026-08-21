@@ -20,7 +20,7 @@ export interface Seat {
   showText: boolean;
   reduceMotion: boolean;
   /** Push-to-talk lifecycle — driven by a physical button or an on-screen one. */
-  ptt: { active: boolean; supported: boolean; start: () => void; stop: () => void };
+  ptt: { active: boolean; supported: boolean; start: () => void; stop: () => void; error: string | null };
   /** The canned intro question (the physical "info" button). */
   askInfo: () => void;
 }

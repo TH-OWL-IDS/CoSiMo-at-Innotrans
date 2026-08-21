@@ -21,8 +21,17 @@ export function usePushToTalk({
   onStop: () => void;
   onUtterance: (audioBase64: string, mime: string, lang: Locale) => void;
   onTranscript: (text: string, lang: Locale) => void;
-}): { active: boolean; supported: boolean; start: () => void; stop: () => void } {
+}): {
+  active: boolean;
+  supported: boolean;
+  start: () => void;
+  stop: () => void;
+  /** What went wrong on the last press, in words (mic denied, no speech,
+   *  recognition service refused…). Cleared on the next press. */
+  error: string | null;
+} {
   const [active, setActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   // Web Speech types aren't in lib.dom; keep it loose.
@@ -44,6 +53,7 @@ export function usePushToTalk({
   async function start() {
     if (active || !supported) return;
     setActive(true);
+    setError(null);
     onStart();
 
     if (serverStt) {
@@ -62,7 +72,8 @@ export function usePushToTalk({
         };
         rec.start();
         recorderRef.current = rec;
-      } catch {
+      } catch (err) {
+        setError(`microphone: ${err instanceof Error ? err.message : String(err)}`);
         setActive(false);
         onStop();
       }
@@ -90,12 +101,26 @@ export function usePushToTalk({
         onTranscript(t, lang);
       }
     };
-    rec.onerror = () => {};
+    // Safari and Chrome report distinct codes: "not-allowed" (mic/permission),
+    // "service-not-allowed" (Siri/Dictation off, or no secure context),
+    // "no-speech", "network", "audio-capture". Surface them — a silent
+    // failure here cost us an afternoon once.
+    rec.onerror = (e: { error?: string; message?: string }) => {
+      const code = e?.error ?? "unknown";
+      setError(`speech recognition: ${code}${e?.message ? ` — ${e.message}` : ""}`);
+      // eslint-disable-next-line no-console
+      console.warn("[cosimo-seat] speech recognition error:", code, e?.message ?? "");
+    };
+    rec.onend = () => {
+      // Ended without ever delivering a result and without an error: the
+      // engine heard nothing it could use (Safari does this quietly).
+      if (!sentRef.current) setError((prev) => prev ?? "speech recognition: ended without a transcript (nothing recognised — check Dictation is on and the mic level)");
+    };
     recognitionRef.current = rec;
     try {
       rec.start();
-    } catch {
-      /* already started */
+    } catch (err) {
+      setError(`speech recognition: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -118,7 +143,7 @@ export function usePushToTalk({
     }
   }
 
-  return { active, supported, start, stop };
+  return { active, supported, start, stop, error };
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -137,7 +162,8 @@ interface SpeechRecognitionLike {
   interimResults: boolean;
   maxAlternatives: number;
   onresult: (e: SpeechResultLike) => void;
-  onerror: () => void;
+  onerror: (e: { error?: string; message?: string }) => void;
+  onend: (() => void) | null;
   start: () => void;
   stop: () => void;
 }

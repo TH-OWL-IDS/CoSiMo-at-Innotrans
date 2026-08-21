@@ -177,6 +177,11 @@ export default function App() {
               <br />
               TTS: {cosimo.status?.serverTts ? "ElevenLabs (server)" : "browser speech synthesis"}
             </div>
+            {ptt.error && (
+              <div style={{ color: "#f85149", fontSize: 12, lineHeight: 1.4, fontFamily: "ui-monospace, Menlo, monospace" }}>
+                ✖ {ptt.error}
+              </div>
+            )}
             {!ptt.supported && seat.consentDecided && (
               <div style={{ color: "#f0883e", fontSize: 12, lineHeight: 1.4 }}>
                 Voice input is unavailable here — use the text field below, or fix the STT
