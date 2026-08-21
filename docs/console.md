@@ -23,6 +23,14 @@ the state model (see [architecture.md](architecture.md)):
   right now plus its full turn log with tool actions, outcomes and
   latencies (the "why did CoSiMo say that?" tool).
 
+- **The Log tab** — the structured debug stream: every turn of every seat
+  with its tool calls (input + result), cabin actuations and what the seat
+  reported back, STT/LLM/TTS timings, errors. Live tail with pause, filters
+  by seat / session / kind / level / text, raw JSON per row, NDJSON export.
+  Replayed from the hub's buffer on connect, so it has history from the
+  first click. `#log` in the URL opens it directly. See
+  [logging.md](logging.md).
+
 Idle connected seats show as small chips. The persona pickers are built from
 `host:personas`, pushed by the hub — no CMS query. **Unauthenticated**: anyone
 who connects as `role: "host"` can reset seats, wherever the page is served

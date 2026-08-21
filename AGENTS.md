@@ -18,6 +18,7 @@ live in [docs/](docs/).
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
 | [docs/console.md](docs/console.md) | The live operator console (`apps/console`) — what booth staff use during the show |
 | [docs/emulator.md](docs/emulator.md) | The browser iPad (`apps/emulator`) and `packages/seat-ui`, the seat UI shared with the kiosk |
+| [docs/logging.md](docs/logging.md) | The structured debug log: every turn, tool call and actuation — live in the console, NDJSON on disk |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 
@@ -97,7 +98,11 @@ client against :6101 works well — see the smoke pattern in git history).
     turn number; new input aborts the seat's in-flight turn. Anything that
     streams to a seat must ride a turn number so stale chunks can be
     dropped — and a running tool call is never aborted mid-flight.
-11. Comments/docs explain *why*; German for visitor-facing strings.
+11. **Anything a turn does must emit a `LogEvent`** (`packages/shared/src/log.ts`,
+    `logger.log()` in realtime). New tool, actuator or fallback path → new
+    event in the same change. The log never blocks the live path and never
+    goes through the CMS. See [docs/logging.md](docs/logging.md).
+12. Comments/docs explain *why*; German for visitor-facing strings.
     **Shared, non-personal content is bilingual de/en** via
     `Record<Locale,…>` (telemetry, cabin labels, consent); **personal
     profiles have *a* preferred language** instead (accommodations).

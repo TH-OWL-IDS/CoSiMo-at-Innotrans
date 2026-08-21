@@ -67,7 +67,14 @@ export const Sessions: CollectionConfig = {
         { name: "faceEmotion", type: "text" },
         { name: "latencyMs", type: "number" },
         { name: "outcome", type: "select", options: ["ok", "not_understood", "error", "offline_canned", "interrupted"] },
-        { name: "action", type: "json" },
+        // Deprecated: the last action only. Kept so old rows still read.
+        { name: "action", type: "json", admin: { description: "Veraltet – nur der letzte Tool-Aufruf. Siehe actions." } },
+        // Every tool call of the turn, in order, with input/result/ok/duration.
+        { name: "actions", type: "json", admin: { description: "Alle Tool-Aufrufe des Turns (Name, Argumente, Ergebnis, ok, Dauer)." } },
+        // Which brain answered, where the latency went, and why it failed.
+        { name: "llm", type: "json", admin: { description: "Provider + Modell (leer bei Canned-Antworten)." } },
+        { name: "timings", type: "json", admin: { description: "sttMs / llmMs / ttsMs." } },
+        { name: "error", type: "text", admin: { description: "Fehlermeldung bei outcome=error." } },
         { name: "at", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
       ],
     },

@@ -89,6 +89,10 @@ What the prod overlay changes:
 - **pg-backup** sidecar: nightly `pg_dump` into `./backups`, N-day
   retention. The sessions collection is the research output — copy this
   directory off the box regularly; it's the one non-negotiable.
+- **`./logs`** — the realtime service's daily NDJSON debug log
+  (`LOG_DIR`, `LOG_KEEP_DAYS`, `LOG_TRANSCRIPTS`; see
+  [logging.md](logging.md)). Worth copying off the box after the fair too —
+  it is the only record of *why* a turn went the way it did.
 
 ## Deployment gotchas learned the hard way
 

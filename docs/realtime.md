@@ -167,6 +167,13 @@ CMS; CMS docs are authoritative on a short TTL. Each rider profile lists
 seat only*, and the agent greets the rider in their own preferred language;
 unknown chips get a friendly refusal. **Full model: [personas.md](personas.md).**
 
+## The debug log
+
+Every step of a turn emits a `LogEvent` through `src/log/logger.ts` — ring
+buffer, daily NDJSON file, live push to host consoles. Turn number = join
+key. **[Full description: logging.md](logging.md).** Anything new a turn can
+do must log.
+
 ## Resilience
 
 - **Offline canned mode** (`src/agent/canned.ts` + `src/health.ts`): a
