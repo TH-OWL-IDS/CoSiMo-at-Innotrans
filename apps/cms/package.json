@@ -13,7 +13,6 @@
     "payload": "payload"
   },
   "dependencies": {
-    "@cosimo/client": "workspace:*",
     "@cosimo/shared": "workspace:*",
     "@payloadcms/db-postgres": "^3.85.0",
     "@payloadcms/next": "^3.85.0",

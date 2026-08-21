@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 /**
- * Frontend (PWA + host console) root layout. Renders its own <html>/<body>;
+ * Frontend root layout (only the /→/admin redirect lives here). Renders its own <html>/<body>;
  * the Payload admin route group has a separate root layout.
  */
 export default function FrontendLayout({ children }: { children: React.ReactNode }) {

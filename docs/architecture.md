@@ -15,7 +15,7 @@ iPad (×4)                      VPS / dev machine                cloud
                           └────────────┬─────────────┘◄───────►│ ElevenLabs   │
 ┌─────────────┐   https               │ REST                  └─────────────┘
 │ browser      │◄──────────┬───────────▼─────────────┐
-│ /host, /admin│           │ apps/cms                 │
+│ /admin       │           │ apps/cms                 │
 └─────────────┘           │ Payload CMS + Postgres   │
                           └──────────────────────────┘
 ```
@@ -27,15 +27,16 @@ iPad (×4)                      VPS / dev machine                cloud
   path: WebSocket hub, agent loop (LLM tool-use), speech in/out, per-seat
   state, resilience. If it's about a *conversation happening right now*, it
   lives here.
-- **[apps/cms](cms.md)** — Payload CMS on Postgres. Owns everything
-  *authored or persisted*: rider profiles, the simulation route, endpoint
-  routing, and the recorded sessions (the research dataset). Never in the
-  live path — the realtime service reads it on short TTLs and falls back to
+- **[apps/cms](cms.md)** — Payload CMS on Postgres: a UI for the database.
+  Owns everything *authored or persisted*: rider profiles, the simulation
+  route, endpoint routing, and the recorded sessions (the research dataset).
+  Never in the live path — the realtime service reads it on short TTLs and falls back to
   built-in defaults when it's unreachable.
 
-A fourth, optional app — **[apps/emulator](emulator.md)** — is a browser
-iPad: the same seat UI with the hardware replaced by a side panel, so a seat
-can be driven from anywhere (its own static service on the VPS).
+A fourth app — **[apps/console](console.md)** — is the staff console, its
+own static service: `/host` (the live operator console) and `/seat` (a
+browser iPad: the same seat UI with the hardware replaced by a side panel).
+Both are socket-only clients of the hub; neither touches the CMS.
 
 Shared packages keep the sides honest:
 
@@ -45,7 +46,7 @@ Shared packages keep the sides honest:
 - **`packages/face` + `packages/client`** — the [face engine](face.md) and
   the `useCosimoSocket` hook, shared by the kiosk and the host console.
 - **`packages/seat-ui`** — the seat as the rider sees it (`useSeat`,
-  `SeatView`), rendered identically by the iPad app and the emulator.
+  `SeatView`), rendered identically by the iPad app and `/seat`.
 
 ## Global vs. per-seat — the core state model
 

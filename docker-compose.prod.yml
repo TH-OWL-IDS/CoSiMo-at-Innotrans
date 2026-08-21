@@ -2,9 +2,9 @@
 # (cloudflared runs there with --network host, token/dashboard-managed).
 #
 # Model: three public hostnames, exactly like every other app on the box —
-#   cosimo.homannjohannes.de      -> CMS      (admin + /host console)
+#   cosimo.homannjohannes.de      -> CMS      (admin + API only)
 #   ws-cosimo.homannjohannes.de   -> realtime (the WebSocket)
-#   seat-cosimo.homannjohannes.de -> seat emulator (a browser iPad)
+#   console-cosimo.homannjohannes.de -> staff console (/host + /seat emulator)
 # Cloudflare terminates TLS at the edge. cms and realtime are published on
 # localhost only (bound to 127.0.0.1), where the host's cloudflared reaches
 # them — nothing is exposed to the public internet directly.
@@ -18,7 +18,7 @@
 # services:
 #   cosimo.homannjohannes.de      -> http://localhost:${COSIMO_CMS_PORT:-6220}
 #   ws-cosimo.homannjohannes.de   -> http://localhost:${COSIMO_RT_PORT:-6221}
-#   seat-cosimo.homannjohannes.de -> http://localhost:${COSIMO_EMU_PORT:-6222}
+#   console-cosimo.homannjohannes.de -> http://localhost:${COSIMO_CONSOLE_PORT:-6222}
 # Make sure the tunnel has WebSockets enabled (default on) for the ws- host.
 
 services:
@@ -30,29 +30,27 @@ services:
       # NEXT_PUBLIC_* must be inlined at build time (see apps/cms/Dockerfile).
       args:
         NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
-        NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN:?set COSIMO_WS_DOMAIN in .env.prod}
     ports: !override
       - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:3001"
     environment:
       NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
-      NEXT_PUBLIC_REALTIME_URL: https://${COSIMO_WS_DOMAIN}
 
   realtime:
     ports: !override
       - "127.0.0.1:${COSIMO_RT_PORT:-6221}:4000"
     environment:
       # Origins that open sockets to realtime: the native kiosk WebView and the
-      # /host console page (served from the CMS hostname). ws- is the target,
-      # not an origin, so it is not listed here.
-      CORS_ORIGINS: https://${COSIMO_DOMAIN},https://${COSIMO_SEAT_DOMAIN:-seat-${COSIMO_DOMAIN}},capacitor://localhost
+      # staff console (/host + /seat). The CMS opens no sockets any more; ws-
+      # is the target, not an origin, so it is not listed here.
+      CORS_ORIGINS: https://${COSIMO_CONSOLE_DOMAIN:-console-${COSIMO_DOMAIN}},capacitor://localhost
 
-  emulator:
+  console:
     build:
       args:
-        # Baked into the static bundle — the emulator dials the ws- host directly.
+        # Baked into the static bundle — the console dials the ws- host directly.
         VITE_REALTIME_URL: https://${COSIMO_WS_DOMAIN:?set COSIMO_WS_DOMAIN in .env.prod}
     ports: !override
-      - "127.0.0.1:${COSIMO_EMU_PORT:-6222}:80"
+      - "127.0.0.1:${COSIMO_CONSOLE_PORT:-6222}:80"
 
   # Nightly pg_dump into ./backups (sessions are the research dataset —
   # copy this directory off the box regularly).

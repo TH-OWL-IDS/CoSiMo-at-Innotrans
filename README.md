@@ -14,9 +14,12 @@ Full documentation lives in [docs/](docs/) — start with
 packages/shared   shared TypeScript types (emotions, telemetry, tools, ws events, turns)
 packages/face     the animated scribble Face engine (poses, ambient idle rig, schemes)
 packages/client   the useCosimoSocket hook — live client state over Socket.IO
+packages/seat-ui  the seat as the rider sees it (useSeat + SeatView), shared by kiosk and /seat
 apps/kiosk        Vite + React + Capacitor — the native iPad app (the visitor-facing agent)
-apps/cms          Payload CMS + Next.js  — admin (research data + content + operator
-                  config) and the /host operator console
+apps/console      Vite + React (static)  — staff console: /host operator console + /seat
+                  browser iPad (seat emulator)
+apps/cms          Payload CMS + Next.js  — a UI for the database: admin (profiles, route,
+                  operator config, recorded sessions) + REST API; nothing live
 apps/realtime     Node + Socket.IO       — agent loop (Claude or an OpenAI-compatible
                   endpoint), STT/TTS, Shelly light driver, WebSocket hub syncing the
                   4 iPads, offline canned mode
@@ -43,11 +46,13 @@ corepack enable           # provides pnpm
 cp .env.example .env.local # fill in ANTHROPIC_API_KEY etc.
 pnpm install
 pnpm up                   # docker compose: postgres + cms + realtime
-pnpm --filter @cosimo/kiosk dev   # kiosk on http://localhost:5173 (proxies to cms/realtime)
+pnpm --filter @cosimo/kiosk dev     # kiosk on http://localhost:5173 (proxies to cms/realtime)
+pnpm --filter @cosimo/console dev   # /host + /seat on http://localhost:5174
 ```
 
 - Kiosk (dev, browser): http://localhost:5173
-- CMS admin + /host:     http://localhost:3001
+- Console:               http://localhost:5174/host · http://localhost:5174/seat
+- CMS admin:             http://localhost:3001
 - Realtime health:       http://localhost:4000/health
 
 ## iPad build (native app)

@@ -10,9 +10,6 @@ importers:
 
   apps/cms:
     dependencies:
-      '@cosimo/client':
-        specifier: workspace:*
-        version: link:../../packages/client
       '@cosimo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -54,7 +51,7 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
-  apps/emulator:
+  apps/console:
     dependencies:
       '@cosimo/client':
         specifier: workspace:*

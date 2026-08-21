@@ -1,13 +1,14 @@
-# apps/cms — Payload CMS (admin + host console)
+# apps/cms — Payload CMS (a UI for the database)
 
 Payload 3 on Next.js 15 with Postgres. It owns everything *authored or
 persisted* and is **never in the live path** — the realtime service reads it
-on short TTLs and works from built-in defaults when it's down.
+on short TTLs and works from built-in defaults when it's down. It plays no
+role during the show: if it is down, the demo runs on, the kiosks run on, the
+operator console runs on.
 
-The frontend surface is intentionally minimal: `/` redirects to `/admin`
-(the Payload login — the admin edits content here), and `/host` serves the
-live operator console. There is no visitor-facing web UI; visitors use the
-native kiosk app.
+The frontend surface is just the admin: `/` redirects to `/admin` (the
+Payload login). There is no other page — the operator console lives in
+[apps/console](console.md) (`/host`), visitors use the native kiosk app.
 
 ## Collections & globals
 
@@ -69,17 +70,8 @@ the CMS imports must be listed in `transpilePackages` in `next.config.mjs`.
 The webpack `extensionAlias` mapping exists because shared packages use ESM
 `.js` import specifiers that resolve to `.ts` sources.
 
-## Host console (`/host`)
+## Host console
 
-A client page connecting to the realtime hub as `role: "host"`. Layout
-mirrors the state model: a **global section** (services health, the live
-journey with pause/resume + battery override, demo mode, recovery,
-all-seats persona) and
-**seat cards** shown only for seats with an active session (live face
-emotion + phase, per-seat persona dropdown, per-seat light toggles, live
-conversation snippet, reset) plus a **seat inspector** — the live system
-prompt that seat would use (CMS core + brief + accommodation prelude +
-memories) and its full turn log with tool actions, outcomes and latencies,
-which is the fastest way to see *why* CoSiMo answered as it did. Idle
-connected seats appear as small chips.
-Unlinked and unauthenticated — add real auth before the fair.
+Moved to [apps/console](console.md) — it is a socket-only client of the
+realtime hub and never needed the CMS. The CMS no longer depends on
+`@cosimo/client` or `NEXT_PUBLIC_REALTIME_URL`.

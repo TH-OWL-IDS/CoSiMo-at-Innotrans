@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
 /**
- * The visitor kiosk is its own native app now (apps/kiosk); this server is
- * the Payload admin (login → edit personas, mockup data, operator config).
- * The operator console still lives at /host.
+ * The CMS is a UI for the database and nothing else: the Payload admin
+ * (profiles, route, operator config, recorded sessions) plus its REST API.
+ * Every live surface is its own app — kiosk (native), console (/host + /seat).
  */
 export default function Home() {
   redirect("/admin");

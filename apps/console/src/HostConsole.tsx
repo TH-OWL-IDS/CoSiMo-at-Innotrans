@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import {
   CABIN_CONTROLS,
@@ -10,6 +8,7 @@ import {
   type SeatSummary,
 } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
+import { resolveServerUrl } from "./serverUrl";
 
 /**
  * Live operator console (/host). Two levels, mirroring the architecture:
@@ -22,10 +21,12 @@ import { useCosimoSocket } from "@cosimo/client";
  *  chips. Per seat: face/phase, persona (NFC or manual), reading lamp & co.,
  *  the live conversation snippet, and reset for the next visitor.
  *
- * Hidden, unlinked route. Add real auth before the fair.
+ * Served by apps/console (its own static service, not the CMS) so it stays
+ * up during the show regardless of the CMS. Unauthenticated — the hub needs
+ * a host token before the fair.
  */
 
-const REALTIME_URL = process.env.NEXT_PUBLIC_REALTIME_URL ?? "http://localhost:4000";
+const REALTIME_URL = resolveServerUrl();
 
 const TOGGLE_CONTROLS = CABIN_CONTROLS.filter((c) => c.kind === "toggle");
 

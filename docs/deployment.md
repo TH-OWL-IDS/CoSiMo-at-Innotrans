@@ -12,8 +12,8 @@ pnpm --filter @cosimo/kiosk dev   # kiosk in the browser (port 5173)
 ```
 
 Ports: **3001** cms (3000 is reserved for another local project — never
-kill it), **4000** realtime, **5173** kiosk dev, **5174** seat emulator
-dev, 5432 postgres.
+kill it), **4000** realtime, **5173** kiosk dev, **5174** console dev
+(`/host` + `/seat`), 5432 postgres.
 
 The kiosk dev server proxies `/socket.io` → 4000 and `/api` → 3001, so the
 browser kiosk runs same-origin like production. The native app in the
@@ -46,10 +46,11 @@ The VPS is already fronted by a Cloudflare Tunnel (`cloudflared` runs with
 ports — the same pattern every other app on the box uses. CoSiMo takes **three
 hostnames**:
 
-- `cosimo.homannjohannes.de` → CMS (admin + `/host` console)
+- `cosimo.homannjohannes.de` → CMS (admin + REST API — nothing live)
 - `ws-cosimo.homannjohannes.de` → realtime (the WebSocket the kiosks use)
-- `seat-cosimo.homannjohannes.de` → the seat emulator (a browser iPad, see
-  [emulator.md](emulator.md)) — static bundle behind nginx
+- `console-cosimo.homannjohannes.de` → the staff console (`/host` operator
+  console + `/seat` browser iPad, see [console.md](console.md)) — static
+  bundle behind nginx
 
 Cloudflare terminates TLS at the edge, so nothing on the box needs certs and
 nothing is published to the public internet — cms and realtime bind to
@@ -67,24 +68,21 @@ services on the box:
 
 - `cosimo.homannjohannes.de` → `http://localhost:6220`
 - `ws-cosimo.homannjohannes.de` → `http://localhost:6221`
-- `seat-cosimo.homannjohannes.de` → `http://localhost:6222`
+- `console-cosimo.homannjohannes.de` → `http://localhost:6222`
 
 Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 
 What the prod overlay changes:
 
-- cms + realtime + emulator bind to `127.0.0.1:6220` / `6221` / `6222`
+- cms + realtime + console bind to `127.0.0.1:6220` / `6221` / `6222`
   (free ports on the box — 3001/4000 are taken by other apps). Postgres
   publishes nothing.
-- CORS on realtime = `https://cosimo.homannjohannes.de` (the `/host` page
-  origin) + `https://seat-cosimo.homannjohannes.de` (the emulator) +
-  `capacitor://localhost` (the native app). The ws- host is the target, not
-  an origin, so it is not listed.
-- The emulator's realtime URL is a **build arg** (`VITE_REALTIME_URL`) —
-  it is a static bundle, so like `NEXT_PUBLIC_*` it is inlined at build.
-- **`NEXT_PUBLIC_*` are passed as build args** so the `/host` console's
-  browser code is compiled with the right realtime URL — they can't be set
-  at runtime (Next inlines them at build). The overlay wires this up.
+- CORS on realtime = `https://console-cosimo.homannjohannes.de` (the
+  console) + `capacitor://localhost` (the native app). The CMS opens no
+  sockets; the ws- host is the target, not an origin — neither is listed.
+- The console's realtime URL is a **build arg** (`VITE_REALTIME_URL`): it is
+  a static bundle, so the URL is inlined at build — same reason
+  `NEXT_PUBLIC_SERVER_URL` is a build arg for the CMS.
 - **pg-backup** sidecar: nightly `pg_dump` into `./backups`, N-day
   retention. The sessions collection is the research output — copy this
   directory off the box regularly; it's the one non-negotiable.

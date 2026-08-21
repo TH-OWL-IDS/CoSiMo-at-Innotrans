@@ -50,7 +50,8 @@ a handler kills the process.
 
 ### Host console support
 
-Hosts (`role: "host"`) additionally receive `host:seats` — a live summary
+Hosts (`role: "host"` — the `/host` page of [apps/console](console.md))
+additionally receive `host:seats` — a live summary
 of every kiosk seat (persona, emotion, phase, consent, active flag, last
 utterance/reply, cabin state), pushed on every relevant change. Host
 actions: per-seat or all-seat persona, per-seat light override, per-seat

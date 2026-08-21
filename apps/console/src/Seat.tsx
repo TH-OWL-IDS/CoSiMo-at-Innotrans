@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
 import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat } from "@cosimo/seat-ui";
+import { resolveServerUrl } from "./serverUrl";
 
 /**
  * The seat emulator: a browser stand-in for one iPad. To the hub it IS a
@@ -10,23 +11,6 @@ import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat } from "@cosimo/seat-ui";
  * the NFC reader, and the cabin-LAN light controller (which is logged, or
  * optionally fired for real when this machine can reach it).
  */
-
-/**
- * Where the realtime service lives. Priority: `?server=` in the URL (kept in
- * localStorage, so it survives reloads) → the build-time VITE_REALTIME_URL →
- * same-origin (the Vite dev proxy). Mirrors the kiosk's own resolution order.
- */
-function resolveServerUrl(): string {
-  const KEY = "cosimo.emulator.serverUrl";
-  const q = new URLSearchParams(window.location.search).get("server");
-  if (q != null) {
-    const url = q.trim().replace(/\/+$/, "");
-    if (url) localStorage.setItem(KEY, url);
-    else localStorage.removeItem(KEY);
-    return url;
-  }
-  return localStorage.getItem(KEY) ?? (import.meta.env.VITE_REALTIME_URL as string | undefined) ?? "";
-}
 
 interface LogEntry {
   at: string;
@@ -40,7 +24,7 @@ function entry(at: string, a: CabinActuation, outcome: LogEntry["outcome"], erro
   return { at, control: a.control, urls: a.urls, outcome, ...(error ? { error } : {}) };
 }
 
-export default function App() {
+export default function Seat() {
   const serverUrl = useMemo(resolveServerUrl, []);
   const seat = useSeat(serverUrl);
   const { cosimo, lang, ptt } = seat;
@@ -141,6 +125,7 @@ export default function App() {
         <header>
           <div style={{ fontSize: 11, letterSpacing: 2, color: "var(--panel-mute)" }}>COSIMO</div>
           <h1 style={{ margin: "2px 0 6px", fontSize: 18 }}>Seat emulator</h1>
+          <a href="/host" style={{ color: "#58a6ff", fontSize: 12 }}>→ host console</a>
           <div style={{ color: "var(--panel-mute)", lineHeight: 1.5 }}>
             {cosimo.connected ? "🟢 connected" : "🔴 connecting…"} ·{" "}
             <span title={serverUrl || "same-origin (dev proxy)"}>

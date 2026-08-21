@@ -41,7 +41,6 @@ services:
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-dev-secret}
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001}
-      NEXT_PUBLIC_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-http://localhost:4000}
     ports:
       - "${CMS_PORT:-3001}:3001"
 
@@ -66,18 +65,18 @@ services:
     ports:
       - "${REALTIME_PORT:-4000}:4000"
 
-  # Seat emulator — a browser stand-in for one iPad (static bundle). Optional
-  # for local dev (`pnpm --filter @cosimo/emulator dev` is faster); on the VPS
-  # it lets you drive a seat without hardware.
-  emulator:
+  # Staff console — /host (live operator console) + /seat (browser iPad), one
+  # static bundle. Optional locally (`pnpm --filter @cosimo/console dev` is
+  # faster); on the VPS it is the control surface during the show.
+  console:
     build:
       context: .
-      dockerfile: apps/emulator/Dockerfile
+      dockerfile: apps/console/Dockerfile
       args:
-        VITE_REALTIME_URL: ${NEXT_PUBLIC_REALTIME_URL:-http://localhost:4000}
+        VITE_REALTIME_URL: ${REALTIME_PUBLIC_URL:-http://localhost:4000}
     restart: unless-stopped
     ports:
-      - "${EMULATOR_PORT:-5174}:80"
+      - "${CONSOLE_PORT:-5174}:80"
 
 volumes:
   pgdata:
