@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import type {
   CabinControlId,
+  CabinActuation,
+  CabinActuationResult,
   CabinControlState,
   ClientToServerEvents,
   ConnectedDevice,
@@ -37,6 +39,15 @@ export interface CosimoState {
   status: ConnectionStatus | null;
   /** Live cabin-control state, kept in sync across all iPads. */
   cabin: CabinControlState[];
+  /**
+   * Register how this client performs a cabin actuation on the cabin LAN.
+   * Only the kiosks can — they are the dual-homed devices — so the host
+   * console never registers one and the hub simply hears nothing back.
+   * The result is reported to the hub automatically.
+   */
+  setCabinActuator: (
+    perform: ((actuation: CabinActuation) => Promise<CabinActuationResult>) | null,
+  ) => void;
   /** The active persona (theme + presentation), or null before first sync. */
   persona: PersonaBroadcast | null;
   /** Emotion to render on the Face — "speaking" while audio plays, else the
@@ -110,6 +121,11 @@ export function useCosimoSocket(
   const sockRef = useRef<CosimoSocket | null>(null);
   const deviceId = useMemo(() => makeId(role === "host" ? "host" : "ipad"), [role]);
   const sessionRef = useRef<string>(makeId("s"));
+
+  /** Set by the kiosk (see setCabinActuator) — the host console leaves it null. */
+  const actuatorRef = useRef<
+    ((actuation: CabinActuation) => Promise<CabinActuationResult>) | null
+  >(null);
 
   const [connected, setConnected] = useState(false);
   const [emotion, setEmotion] = useState<FaceEmotion>("sleeping");
@@ -212,6 +228,20 @@ export function useCosimoSocket(
     socket.on("telemetry:update", (t) => setTelemetry(t));
     socket.on("status:update", (s) => setStatus(s));
     socket.on("cabin:state", ({ controls }) => setCabin(controls));
+    // The hub hands us ready-made URLs for the cabin controller; we only fire
+    // them and answer. A client with no actuator (host console, browser dev)
+    // stays silent, and the hub keeps the control's last-known state.
+    socket.on("cabin:actuate", (actuation) => {
+      const perform = actuatorRef.current;
+      if (!perform) return;
+      void perform(actuation)
+        .catch((err: unknown) => ({
+          control: actuation.control,
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        }))
+        .then((result) => socket.emit("cabin:actuate:result", result));
+    });
     socket.on("persona:active", (p) => setPersonaState(p));
     socket.on("voice:transcript", ({ text }) => {
       setHeard(text);
@@ -372,11 +402,20 @@ export function useCosimoSocket(
     sockRef.current?.emit("nfc:register", { sessionId: sessionRef.current, tagId, lang });
   };
 
+  const setCabinActuator = useCallback(
+    (perform: ((a: CabinActuation) => Promise<CabinActuationResult>) | null) => {
+      actuatorRef.current = perform;
+    },
+    [],
+  );
+
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
     connected, emotion, phase, reply, replying, transcript,
     telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
+    setCabinActuator,
+    inspection, inspectSeat, clearInspection,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,
     overrideLight, patchTelemetry, toggleOffline, recover, resetSession,

@@ -79,10 +79,12 @@ per *active* seat (see [realtime.md](realtime.md#host-console-support)).
 - **The model never touches the database.** It asks for tools; the realtime
   service executes them. API keys never leave the server environment.
 - **The kiosk never interprets content.** NFC chip IDs, button presses,
-  audio — all reported raw to the server, which owns the meaning.
+  audio — all reported raw to the server, which owns the meaning. It does
+  *act* on the cabin LAN (it is the only device on it), but only by firing
+  URLs the server built — execution, not interpretation.
 - **Everything degrades gracefully.** CMS down → built-in profile/route
   defaults (the journey simulation keeps driving). LLM/network down →
-  scripted canned replies grounded in telemetry. Light hardware down →
-  state marked degraded, demo continues.
+  scripted canned replies grounded in telemetry. Light hardware down → the
+  seat reports the failure, state is marked degraded, demo continues.
 - **A misbehaving client must never crash the hub.** Socket handlers catch;
   a stale browser tab once took the whole service down before this rule.

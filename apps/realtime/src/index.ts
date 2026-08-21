@@ -41,6 +41,16 @@ const tts = createTtsProvider(operatorConfig);
 const llm = new LlmRouter(operatorConfig);
 const hub = new Hub(io);
 hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
+// Cabin lighting is actuated BY THE SEATS (air-gapped cabin LAN) — the hub
+// only builds the URLs, from the TTL-cached operator config.
+hub.setCabinActuator(() => {
+  const cabin = operatorConfig.get().cabin;
+  return {
+    baseUrl: cabin.lpu2BaseUrl,
+    mapping: cabin.lpu2Mapping,
+    timeoutMs: cabin.lpu2TimeoutMs,
+  };
+});
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setPersonaLister(() => personas.list());
 hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));

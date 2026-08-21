@@ -108,4 +108,6 @@ status bar, `NSMicrophoneUsageDescription`, idle timer disabled in
   changes theme/presentation locally.
 - No interpretation of NFC ids, no CMS queries for content.
 - No cabin UI — lights are voice-controlled through the agent; the seat
-  only receives its own cabin state.
+  receives its own cabin state and, as the only device on the cabin LAN,
+  *performs* the change (`cabin:actuate` → GET → result). It is handed
+  finished URLs: it decides nothing, it knows nothing about DMX.

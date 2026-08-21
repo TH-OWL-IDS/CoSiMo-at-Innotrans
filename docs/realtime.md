@@ -16,9 +16,33 @@ The hub is the state router. Its central idea is the
   from the first event a socket sends for a session and keeps a
   `DeviceEntry` per connected device: persona, emotion, phase, per-seat
   cabin controls, consent, live conversation snippets.
-- Cabin controls are per seat (reading lamp etc.). The one `real` control
-  drives the hardware light driver (Shelly relay or fake) — physically a
-  single relay today, per-seat state regardless.
+- Cabin controls are per seat (reading lamp etc.). State lives here; the
+  *physical* change is performed by the seat (below). The legacy server-side
+  `LightDriver` (Shelly relay / fake) still runs for the one `real` control and
+  is only usable when this service sits on the cabin network itself.
+
+### Cabin lighting: the seat is the actuator
+
+The cabin LAN is air-gapped and will never get an uplink, so a hub on the VPS
+cannot reach the light controller. The iPads are the only dual-homed devices
+(Wi-Fi → hub, USB-C Ethernet → cabin LAN), which makes them the actuators:
+
+1. `set_cabin_control` (or a host override) lands in `applyCabinControl` —
+   the hub owns the decision and the state, as before.
+2. `cabin/lpu2.ts` turns the change into ready-made URLs for the Cuety LPU-2
+   (`pbXX/in=100` on, `pbXX/re` off so the standalone scene resumes,
+   `pbXX/in=<level>` for a level). This is the only file that knows the
+   controller's dialect.
+3. The hub emits `cabin:actuate` to the owning seat, which fires the GETs on
+   its LAN and answers `cabin:actuate:result`. A failure marks the control
+   `degraded` and rebroadcasts — last-known intent stays on screen, the demo
+   continues.
+
+The URLs are idempotent, so a repeat is harmless — which is what makes a
+future cabin-wide split (all seats firing the same change) safe. Controls with
+no playback mapped stay purely simulated. Address + playback mapping come from
+the CMS (`operator-config` → Kabine) with `LPU2_BASE_URL` as the env fallback,
+so mounting-day IP changes need no redeploy.
 
 **Hardening rule:** every socket handler must tolerate malformed or stale
 clients — log and continue, never throw through. An unhandled rejection in

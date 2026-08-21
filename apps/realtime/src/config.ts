@@ -54,6 +54,14 @@ export const config = {
     driver: (process.env.LIGHT_DRIVER ?? "fake") as "fake" | "shelly",
     shellyBaseUrl: process.env.SHELLY_BASE_URL ?? "",
   },
+  /** Cabin DMX controller (Cuety LPU-2). Reached by the KIOSKS on the cabin
+   *  LAN, never by this service — the cabin network has no uplink and the
+   *  hub may well run on the VPS. Base URL + playback mapping are also
+   *  CMS-editable (operator-config), because they change on mounting day. */
+  lpu2: {
+    baseUrl: process.env.LPU2_BASE_URL ?? "",
+    timeoutMs: num("LPU2_TIMEOUT_MS", 2500),
+  },
   /** Face behaviour: expressive emotions fade back to neutral, and a seat
    *  with no interaction drifts to the sleeping attract face. */
   face: {

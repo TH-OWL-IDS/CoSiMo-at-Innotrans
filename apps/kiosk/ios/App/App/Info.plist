@@ -30,6 +30,8 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CoSiMo steuert das Licht in der Kabine über das lokale Kabinennetz.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CoSiMo hört nur, während die Sprechen-Taste gehalten wird (Push-to-talk).</string>
 	<key>UIRequiresFullScreen</key>

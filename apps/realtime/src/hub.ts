@@ -9,6 +9,7 @@
 
 import type { Server, Socket } from "socket.io";
 import type { LightDriver } from "./cabin/driver.js";
+import { buildActuation, type Lpu2Config } from "./cabin/lpu2.js";
 import { config } from "./config.js";
 import {
   CABIN_CONTROLS,
@@ -148,9 +149,13 @@ export class Hub {
   private interruptHandler: InterruptHandler | undefined;
   private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
   private lightDriver: LightDriver | undefined;
+  /** How to reach the cabin's DMX controller — resolved per change so an
+   *  operator edit (new IP on mounting day) applies without a restart. */
+  private lpu2Config: (() => Lpu2Config) | undefined;
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private memoriesResolver: MemoriesResolver | undefined;
+  private inspectResolver: InspectResolver | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
   private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
@@ -265,6 +270,24 @@ export class Hub {
   /** Register the handler for rider barge-in (talk button during a turn). */
   onInterrupt(handler: InterruptHandler): void {
     this.interruptHandler = handler;
+  }
+
+  /** Register how a seat's deep inspection (prompt + turns) is composed. */
+  onInspect(resolver: InspectResolver): void {
+    this.inspectResolver = resolver;
+  }
+
+  /** Latest session seen on a seat ("" before any interaction). */
+  sessionOf(deviceId: string): string {
+    return this.devices.get(deviceId)?.sessionId ?? "";
+  }
+
+  /**
+   * Register how the cabin controller is addressed. The hub never calls it —
+   * it hands the built URLs to the seat, which is on the cabin LAN.
+   */
+  setCabinActuator(resolve: () => Lpu2Config): void {
+    this.lpu2Config = resolve;
   }
 
   /** Attach the hardware light driver and reflect its kind in the status. */
@@ -410,6 +433,24 @@ export class Hub {
         persona: this.personaOf(deviceId),
         consent: this.consentBySession.get(sessionId) ?? false,
       });
+    });
+
+    // The seat tried to drive the cabin controller and is telling us how it
+    // went. A failure marks the control degraded (last-known intent stays on
+    // screen) instead of silently pretending the light changed.
+    socket.on("cabin:actuate:result", ({ control, ok, error }) => {
+      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      this.countEvent("cabin:actuate:result", deviceId);
+      const entry = this.devices.get(deviceId);
+      const state = entry?.controls.find((c) => c.id === control);
+      if (!entry || !state) return;
+      state.degraded = !ok;
+      if (!ok) {
+        // eslint-disable-next-line no-console
+        console.warn(`[hub] ${deviceId} could not actuate ${control}: ${error ?? "unknown"}`);
+      }
+      entry.socket.emit("cabin:state", { controls: entry.controls });
+      this.pushSeats();
     });
 
     // NFC scan at this kiosk → persona/"account" resolution.
@@ -760,6 +801,14 @@ export class Hub {
     if (change.on !== undefined) entry.on = change.on;
     if (change.level !== undefined) entry.level = change.level;
     device.socket.emit("cabin:state", { controls: device.controls });
+    // Hand the physical change to the seat: the cabin LAN is air-gapped, so
+    // the dual-homed iPad is the only thing that can reach the controller.
+    // Fire-and-forget — the seat answers with cabin:actuate:result, and the
+    // demo carries on regardless (state is already broadcast above).
+    const actuation = this.lpu2Config
+      ? buildActuation(control, change, this.lpu2Config())
+      : null;
+    if (actuation && device.role === "kiosk") device.socket.emit("cabin:actuate", actuation);
     this.pushSeats();
     return entry;
   }

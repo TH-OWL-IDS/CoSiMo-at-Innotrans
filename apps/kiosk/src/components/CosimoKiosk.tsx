@@ -8,6 +8,7 @@ import TelemetryStrip from "./TelemetryStrip";
 import ConsentOverlay from "./ConsentOverlay";
 import { usePushToTalk } from "./usePushToTalk";
 import { useHidInput } from "./useHidInput";
+import { useCabinActuator } from "./useCabinActuator";
 
 /**
  * Running conversation, shown inside the circle for text-first (deaf) riders:
@@ -267,6 +268,10 @@ export default function CosimoKiosk({
       );
     }
   }, [consentDecided, pttSupported]);
+
+  // This seat drives the cabin's light controller on the local LAN — the hub
+  // is on the other side of the air gap and can only decide, not act.
+  useCabinActuator(cosimo.setCabinActuator);
 
   // Physical buttons + NFC reader (ESP32 as a BLE keyboard).
   useHidInput({

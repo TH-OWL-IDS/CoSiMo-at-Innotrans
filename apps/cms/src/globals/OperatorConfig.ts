@@ -127,5 +127,58 @@ export const OperatorConfig: GlobalConfig = {
         },
       ],
     },
+    {
+      name: "cabin",
+      type: "group",
+      label: "Kabine (Licht)",
+      admin: {
+        description:
+          "Der LPU-2-DMX-Controller im Kabinen-LAN. Die iPads sprechen ihn an (das Kabinennetz hat keine Internetverbindung), nicht der Server — hier steht nur, welche Adresse und welcher Playback wofür zuständig ist. Wirkt ohne Neustart.",
+      },
+      fields: [
+        {
+          name: "lpu2BaseUrl",
+          type: "text",
+          label: "LPU-2 Base URL (Kabinen-LAN)",
+          admin: {
+            description:
+              "z. B. http://10.0.0.50 — die Adresse aus Sicht der iPads. Leer = kein echtes Licht, alles bleibt simuliert.",
+          },
+        },
+        {
+          name: "lpu2Playbacks",
+          type: "array",
+          label: "Playback-Zuordnung",
+          admin: {
+            description:
+              "Welcher Playback (1–64) steuert welche Kabinenfunktion. Nicht zugeordnete Funktionen bleiben rein simuliert. An = in=100, Stufe = in=<Wert>, Aus = re (Release, die Standalone-Szene übernimmt wieder).",
+          },
+          fields: [
+            {
+              // Not `id`: an array row's own PK is called that (AGENTS.md rule 7).
+              name: "control",
+              type: "select",
+              required: true,
+              label: "Kabinenfunktion",
+              options: [
+                { label: "Innenlicht", value: "interior-light" },
+                { label: "Leselampe", value: "reading-lamp" },
+                { label: "Belüftung", value: "ventilation" },
+                { label: "Fenstertönung", value: "window-tint" },
+                { label: "Klangkulisse", value: "ambient-sound" },
+              ],
+            },
+            {
+              name: "playback",
+              type: "number",
+              required: true,
+              min: 1,
+              max: 64,
+              label: "Playback (1–64)",
+            },
+          ],
+        },
+      ],
+    },
   ],
 };

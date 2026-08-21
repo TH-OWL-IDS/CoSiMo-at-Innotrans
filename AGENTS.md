@@ -65,7 +65,8 @@ client against :4000 works well — see the smoke pattern in git history).
    must catch — a malformed client event must never crash the process.
 5. **The kiosk stays dumb.** Input goes up raw; meaning is assigned
    server-side. Don't put content logic, CMS queries, or interpretation
-   into the app.
+   into the app. The one thing it *does* is act on the air-gapped cabin LAN
+   (it is the only device on it) — and only by firing URLs the hub built.
 6. **The face is server-driven, playback-synced.** Emotions come over the
    socket; the moving mouth follows actual audio playback. Don't couple the
    mouth to text streaming.

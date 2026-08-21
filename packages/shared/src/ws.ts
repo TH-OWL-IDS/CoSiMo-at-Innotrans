@@ -9,9 +9,14 @@
 
 import type { FaceEmotion } from "./emotion.js";
 import type { MonoCabTelemetry, HostTelemetryPatch, Locale } from "./telemetry.js";
-import type { CabinControlState, CabinControlId } from "./cabin.js";
+import type {
+  CabinActuation,
+  CabinActuationResult,
+  CabinControlState,
+  CabinControlId,
+} from "./cabin.js";
 import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
-import type { Modality } from "./session.js";
+import type { Modality, Turn } from "./session.js";
 
 /** A device connected to the realtime hub (for the operator console). */
 export interface ConnectedDevice {
@@ -84,6 +89,10 @@ export interface ServerToClientEvents {
   "chat:delta": (payload: { sessionId: string; text: string; done: boolean; turn: number }) => void;
   /** Full cabin state broadcast (all controls). */
   "cabin:state": (payload: { controls: CabinControlState[] }) => void;
+  /** Perform this change on the cabin LAN (kiosks only — they are the only
+   *  devices on that network). Sent alongside `cabin:state` to the owning
+   *  seat; answer with `cabin:actuate:result` so the hub knows if it landed. */
+  "cabin:actuate": (payload: CabinActuation) => void;
   /** Telemetry snapshot for the on-screen display. */
   "telemetry:update": (payload: MonoCabTelemetry) => void;
   /** Active persona changed (host console or auto) — carries theme + a11y. */
@@ -131,6 +140,8 @@ export interface ClientToServerEvents {
   }) => void;
   /** Visitor consent decision for recording. */
   "consent:set": (payload: { sessionId: string; consent: boolean }) => void;
+  /** Outcome of a `cabin:actuate` — a failure marks the control degraded. */
+  "cabin:actuate:result": (payload: CabinActuationResult) => void;
   /** An NFC chip was scanned at this kiosk (chip id → persona "account"). */
   "nfc:register": (payload: { sessionId: string; tagId: string; lang: Locale }) => void;
 
