@@ -133,7 +133,9 @@ export default function SeatView({
   return (
     <main
       style={{
-        position: "fixed",
+        // The iPad: the stage is the screen. A browser frame: fill the box the
+        // host page gives us — never the viewport, or we'd paint over its UI.
+        position: fullscreen ? "fixed" : "absolute",
         inset: 0,
         // Behind the panel: pitch black, so light bleed around cutouts is invisible.
         background: "#000",
