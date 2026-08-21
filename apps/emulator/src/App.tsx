@@ -165,10 +165,22 @@ export default function App() {
             <button className="em-btn" disabled={!seat.consentDecided} onClick={seat.askInfo}>
               ⓘ info — canned intro question
             </button>
+            {/* Say which speech path is live — "STT doesn't work" is usually
+                "there is no Deepgram key and this isn't Chrome". */}
+            <div style={{ fontSize: 11.5, color: "var(--panel-mute)", lineHeight: 1.5 }}>
+              STT:{" "}
+              {cosimo.status?.serverStt
+                ? "Deepgram (server)"
+                : ptt.supported
+                  ? "browser speech recognition (no DEEPGRAM_API_KEY on the server)"
+                  : "none — no DEEPGRAM_API_KEY on the server and this browser has no speech recognition (use Chrome, or set the key)"}
+              <br />
+              TTS: {cosimo.status?.serverTts ? "ElevenLabs (server)" : "browser speech synthesis"}
+            </div>
             {!ptt.supported && seat.consentDecided && (
               <div style={{ color: "#f0883e", fontSize: 12, lineHeight: 1.4 }}>
-                Voice needs server STT (Deepgram) or Chrome — and a secure origin (https /
-                localhost) for the mic.
+                Voice input is unavailable here — use the text field below, or fix the STT
+                path above. The mic also needs a secure origin (https / localhost).
               </div>
             )}
           </div>
