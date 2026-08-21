@@ -5,7 +5,7 @@
  * the kiosk's own resolution order.
  */
 export function resolveServerUrl(): string {
-  const KEY = "cosimo.console.serverUrl";
+  const KEY = "cosimo.emulator.serverUrl";
   const q = new URLSearchParams(window.location.search).get("server");
   if (q != null) {
     const url = q.trim().replace(/\/+$/, "");

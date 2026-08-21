@@ -6,7 +6,7 @@ never sleeps). It is deliberately a *thin client*: all intelligence lives in
 the realtime service; the app renders CoSiMo and forwards input.
 
 What the rider sees (`useSeat` + `SeatView`) lives in **`packages/seat-ui`**
-and is shared with the browser [emulator](console.md) (`/seat`); this app adds only
+and is shared with the browser [emulator](emulator.md); this app adds only
 what the iPad has — HID input, the cabin-LAN actuator, server-URL and
 calibration persistence, the setup screen. **Change rider-facing UI in
 seat-ui**, so both stay identical.

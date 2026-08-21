@@ -24,7 +24,7 @@ function entry(at: string, a: CabinActuation, outcome: LogEntry["outcome"], erro
   return { at, control: a.control, urls: a.urls, outcome, ...(error ? { error } : {}) };
 }
 
-export default function Seat() {
+export default function App() {
   const serverUrl = useMemo(resolveServerUrl, []);
   const seat = useSeat(serverUrl);
   const { cosimo, lang, ptt } = seat;
@@ -125,7 +125,6 @@ export default function Seat() {
         <header>
           <div style={{ fontSize: 11, letterSpacing: 2, color: "var(--panel-mute)" }}>COSIMO</div>
           <h1 style={{ margin: "2px 0 6px", fontSize: 18 }}>Seat emulator</h1>
-          <a href="/host" style={{ color: "#58a6ff", fontSize: 12 }}>→ host console</a>
           <div style={{ color: "var(--panel-mute)", lineHeight: 1.5 }}>
             {cosimo.connected ? "🟢 connected" : "🔴 connecting…"} ·{" "}
             <span title={serverUrl || "same-origin (dev proxy)"}>

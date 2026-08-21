@@ -33,10 +33,10 @@ iPad (×4)                      VPS / dev machine                cloud
   Never in the live path — the realtime service reads it on short TTLs and falls back to
   built-in defaults when it's unreachable.
 
-A fourth app — **[apps/console](console.md)** — is the staff console, its
-own static service: `/host` (the live operator console) and `/seat` (a
-browser iPad: the same seat UI with the hardware replaced by a side panel).
-Both are socket-only clients of the hub; neither touches the CMS.
+Two more apps are static, socket-only clients of the hub that never touch
+the CMS: **[apps/console](console.md)**, the live operator console booth staff use
+during the show, and **[apps/emulator](emulator.md)**, a browser iPad (the
+same seat UI with the hardware replaced by a side panel) for development.
 
 Shared packages keep the sides honest:
 
@@ -46,7 +46,7 @@ Shared packages keep the sides honest:
 - **`packages/face` + `packages/client`** — the [face engine](face.md) and
   the `useCosimoSocket` hook, shared by the kiosk and the host console.
 - **`packages/seat-ui`** — the seat as the rider sees it (`useSeat`,
-  `SeatView`), rendered identically by the iPad app and `/seat`.
+  `SeatView`), rendered identically by the iPad app and the emulator.
 
 ## Global vs. per-seat — the core state model
 

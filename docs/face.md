@@ -1,7 +1,7 @@
 # packages/face + packages/client — the face engine and the socket hook
 
 (The seat *around* the face — stage, cutouts, transcript, consent — is
-`packages/seat-ui`, see [console.md](console.md).)
+`packages/seat-ui`, see [emulator.md](emulator.md).)
 
 ## packages/face
 

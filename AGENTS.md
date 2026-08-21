@@ -16,20 +16,23 @@ live in [docs/](docs/).
 | [docs/personas.md](docs/personas.md) | Rider profiles: accommodations vs. brief vs. memories, the clean-plate default, the adapt/remember tools, GDPR stance |
 | [docs/cms.md](docs/cms.md) | Payload collections/globals, seeding, schema-change workflow, host console |
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
-| [docs/console.md](docs/console.md) | The staff console — `/host` operator console + `/seat` browser iPad — and `packages/seat-ui` |
+| [docs/console.md](docs/console.md) | The live operator console (`apps/console`) — what booth staff use during the show |
+| [docs/emulator.md](docs/emulator.md) | The browser iPad (`apps/emulator`) and `packages/seat-ui`, the seat UI shared with the kiosk |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 
 ## Repo shape
 
-pnpm monorepo. Four apps, four shared packages — **treat the apps as
+pnpm monorepo. Five apps, four shared packages — **treat the apps as
 separate systems** that only meet through `packages/shared`:
 
 - `apps/kiosk` — visitor iPad app (Vite + React + Capacitor). Thin client;
   holds only what the iPad has (HID input, cabin-LAN actuator, calibration).
-- `apps/console` — the staff console, one static service (`console-cosimo.…`):
-  `/host` (live operator console) and `/seat` (a browser iPad: the same
-  seat UI, hardware replaced by a side panel).
+- `apps/console` — the live operator console (static, `console-cosimo.…`). What
+  booth staff have open during the show; socket-only.
+- `apps/emulator` — a browser iPad (static, `seat-cosimo.…`): the same seat
+  UI, hardware replaced by a side panel. A developer tool — kept separate
+  from the host console on purpose.
 - `apps/realtime` — Socket.IO hub + agent loop (Node). The live path.
 - `apps/cms` — Payload 3 + Next 15 + Postgres. **A UI for the database and
   nothing else**: admin at `/`→`/admin` plus the REST API. No live surface
@@ -38,7 +41,7 @@ separate systems** that only meet through `packages/shared`:
   telemetry, personas, sessions. Protocol changes start here.
 - `packages/face` — the animated face engine. `packages/client` — the
   `useCosimoSocket` hook. `packages/seat-ui` — the seat as the rider sees
-  it (`useSeat` + `SeatView`), rendered identically by kiosk and `/seat`.
+  it (`useSeat` + `SeatView`), rendered identically by kiosk and emulator.
   **Rider-facing UI changes go in seat-ui, never in one app alone.**
 
 ## Commands
@@ -49,7 +52,8 @@ pnpm -r --no-bail typecheck            # the verification gate — keep it green
 docker compose up -d postgres cms      # DB + cms on :3001
 cd apps/realtime && pnpm start         # realtime on :4000 (loads root .env.local)
 pnpm --filter @cosimo/kiosk dev        # kiosk in browser on :5173
-pnpm --filter @cosimo/console dev      # /host + /seat on :5174
+pnpm --filter @cosimo/console dev         # operator console on :5174
+pnpm --filter @cosimo/emulator dev     # seat emulator on :5175
 cd apps/cms && pnpm seed               # idempotent demo content
 cd apps/cms && pnpm generate:types     # after Payload schema changes
 cd apps/kiosk && pnpm cap:sync         # rebuild native app bundle
@@ -102,11 +106,12 @@ client against :4000 works well — see the smoke pattern in git history).
 ## Environment facts
 
 - Ports: cms 3001 (3000 is reserved by an unrelated project — leave it
-  alone), realtime 4000, kiosk dev 5173, console dev 5174.
+  alone), realtime 4000, kiosk dev 5173, host console dev 5174, emulator
+  dev 5175.
 - Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
-  `ws-cosimo.homannjohannes.de` → realtime,
-  `console-cosimo.homannjohannes.de` → console. The kiosk is socket-only,
-  so it bakes the ws- host in `serverUrl.ts`; the console bakes it at build
+  `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,
+  `seat-cosimo.…` → emulator. The kiosk is socket-only, so it bakes the ws-
+  host in `serverUrl.ts`; the two static apps bake it at build
   (`VITE_REALTIME_URL`).
 - iOS builds: `ios/` is committed; `xcode-select` on this machine points at
   CommandLineTools, so prefix Capacitor/xcodebuild with

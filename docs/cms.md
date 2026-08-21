@@ -7,8 +7,8 @@ role during the show: if it is down, the demo runs on, the kiosks run on, the
 operator console runs on.
 
 The frontend surface is just the admin: `/` redirects to `/admin` (the
-Payload login). There is no other page — the operator console lives in
-[apps/console](console.md) (`/host`), visitors use the native kiosk app.
+Payload login). There is no other page — the operator console is
+[apps/console](console.md), visitors use the native kiosk app.
 
 ## Collections & globals
 

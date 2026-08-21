@@ -1,10 +1,11 @@
 # Production overlay for the VPS, which is fronted by a Cloudflare Tunnel
 # (cloudflared runs there with --network host, token/dashboard-managed).
 #
-# Model: three public hostnames, exactly like every other app on the box —
+# Model: four public hostnames, exactly like every other app on the box —
 #   cosimo.homannjohannes.de      -> CMS      (admin + API only)
 #   ws-cosimo.homannjohannes.de   -> realtime (the WebSocket)
-#   console-cosimo.homannjohannes.de -> staff console (/host + /seat emulator)
+#   console-cosimo.homannjohannes.de -> host console (the operator's control surface)
+#   seat-cosimo.homannjohannes.de -> seat emulator (a browser iPad)
 # Cloudflare terminates TLS at the edge. cms and realtime are published on
 # localhost only (bound to 127.0.0.1), where the host's cloudflared reaches
 # them — nothing is exposed to the public internet directly.
@@ -13,12 +14,13 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 #     --env-file .env.prod up -d --build
 #
-# Then add THREE public hostnames in the Cloudflare dashboard (Zero Trust ->
+# Then add FOUR public hostnames in the Cloudflare dashboard (Zero Trust ->
 # Networks -> Tunnels -> your tunnel -> Public Hostnames), same as your other
 # services:
 #   cosimo.homannjohannes.de      -> http://localhost:${COSIMO_CMS_PORT:-6220}
 #   ws-cosimo.homannjohannes.de   -> http://localhost:${COSIMO_RT_PORT:-6221}
 #   console-cosimo.homannjohannes.de -> http://localhost:${COSIMO_CONSOLE_PORT:-6222}
+#   seat-cosimo.homannjohannes.de -> http://localhost:${COSIMO_EMU_PORT:-6223}
 # Make sure the tunnel has WebSockets enabled (default on) for the ws- host.
 
 services:
@@ -39,18 +41,25 @@ services:
     ports: !override
       - "127.0.0.1:${COSIMO_RT_PORT:-6221}:4000"
     environment:
-      # Origins that open sockets to realtime: the native kiosk WebView and the
-      # staff console (/host + /seat). The CMS opens no sockets any more; ws-
-      # is the target, not an origin, so it is not listed here.
-      CORS_ORIGINS: https://${COSIMO_CONSOLE_DOMAIN:-console-${COSIMO_DOMAIN}},capacitor://localhost
+      # Origins that open sockets to realtime: the native kiosk WebView, the
+      # host console and the seat emulator. The CMS opens no sockets; ws- is
+      # the target, not an origin, so it is not listed here.
+      CORS_ORIGINS: https://${COSIMO_CONSOLE_DOMAIN:-console-${COSIMO_DOMAIN}},https://${COSIMO_SEAT_DOMAIN:-seat-${COSIMO_DOMAIN}},capacitor://localhost
 
+  # Both static bundles bake the ws- host at build time.
   console:
     build:
       args:
-        # Baked into the static bundle — the console dials the ws- host directly.
         VITE_REALTIME_URL: https://${COSIMO_WS_DOMAIN:?set COSIMO_WS_DOMAIN in .env.prod}
     ports: !override
       - "127.0.0.1:${COSIMO_CONSOLE_PORT:-6222}:80"
+
+  emulator:
+    build:
+      args:
+        VITE_REALTIME_URL: https://${COSIMO_WS_DOMAIN}
+    ports: !override
+      - "127.0.0.1:${COSIMO_EMU_PORT:-6223}:80"
 
   # Nightly pg_dump into ./backups (sessions are the research dataset —
   # copy this directory off the box regularly).

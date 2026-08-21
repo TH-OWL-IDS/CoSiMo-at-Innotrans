@@ -14,10 +14,10 @@ Full documentation lives in [docs/](docs/) — start with
 packages/shared   shared TypeScript types (emotions, telemetry, tools, ws events, turns)
 packages/face     the animated scribble Face engine (poses, ambient idle rig, schemes)
 packages/client   the useCosimoSocket hook — live client state over Socket.IO
-packages/seat-ui  the seat as the rider sees it (useSeat + SeatView), shared by kiosk and /seat
+packages/seat-ui  the seat as the rider sees it (useSeat + SeatView), shared by kiosk and emulator
 apps/kiosk        Vite + React + Capacitor — the native iPad app (the visitor-facing agent)
-apps/console      Vite + React (static)  — staff console: /host operator console + /seat
-                  browser iPad (seat emulator)
+apps/console         Vite + React (static)  — the live operator console (booth staff)
+apps/emulator     Vite + React (static)  — a browser iPad (seat emulator, developers)
 apps/cms          Payload CMS + Next.js  — a UI for the database: admin (profiles, route,
                   operator config, recorded sessions) + REST API; nothing live
 apps/realtime     Node + Socket.IO       — agent loop (Claude or an OpenAI-compatible
@@ -47,11 +47,13 @@ cp .env.example .env.local # fill in ANTHROPIC_API_KEY etc.
 pnpm install
 pnpm up                   # docker compose: postgres + cms + realtime
 pnpm --filter @cosimo/kiosk dev     # kiosk on http://localhost:5173 (proxies to cms/realtime)
-pnpm --filter @cosimo/console dev   # /host + /seat on http://localhost:5174
+pnpm --filter @cosimo/console dev      # operator console on http://localhost:5174
+pnpm --filter @cosimo/emulator dev  # seat emulator on http://localhost:5175
 ```
 
 - Kiosk (dev, browser): http://localhost:5173
-- Console:               http://localhost:5174/host · http://localhost:5174/seat
+- Host console:          http://localhost:5174
+- Seat emulator:         http://localhost:5175
 - CMS admin:             http://localhost:3001
 - Realtime health:       http://localhost:4000/health
 

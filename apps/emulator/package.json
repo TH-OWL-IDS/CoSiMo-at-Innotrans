@@ -1,16 +1,17 @@
 {
-  "name": "@cosimo/console",
+  "name": "@cosimo/emulator",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 5174",
+    "dev": "vite --host --port 5175",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 5174",
+    "preview": "vite preview --port 5175",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cosimo/client": "workspace:*",
+    "@cosimo/seat-ui": "workspace:*",
     "@cosimo/shared": "workspace:*",
     "react": "19.1.2",
     "react-dom": "19.1.2"
