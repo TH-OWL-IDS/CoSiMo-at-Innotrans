@@ -85,7 +85,7 @@ const LEVEL_RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error
 
 const mono = 'ui-monospace, "SF Mono", Menlo, monospace';
 /** One template for the header and every row — the columns can never drift. */
-const GRID = "92px 110px 60px 150px 1fr";
+const GRID = "92px 110px 96px 60px 150px 1fr";
 const input: React.CSSProperties = {
   background: "#0b0e13",
   color: "#c9d1d9",
@@ -250,6 +250,7 @@ export default function LogView({
         >
           <span>Time</span>
           <span>Seat</span>
+          <span>Session</span>
           <span>Turn</span>
           <span>Event</span>
           <span>Details</span>
@@ -281,6 +282,9 @@ export default function LogView({
               <span style={{ opacity: 0.6 }}>{time(e.ts)}</span>
               <span style={{ opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.deviceId}>
                 {e.deviceId ?? "—"}
+              </span>
+              <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.sessionId}>
+                {e.sessionId ?? ""}
               </span>
               <span style={{ opacity: 0.6 }}>{e.turn != null ? `#${e.turn}` : ""}</span>
               <span>{KIND_ICON[e.kind]} {e.kind}</span>
