@@ -84,6 +84,8 @@ const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
 const mono = 'ui-monospace, "SF Mono", Menlo, monospace';
+/** One template for the header and every row — the columns can never drift. */
+const GRID = "92px 110px 60px 150px 1fr";
 const input: React.CSSProperties = {
   background: "#0b0e13",
   color: "#c9d1d9",
@@ -229,6 +231,29 @@ export default function LogView({
           lineHeight: 1.5,
         }}
       >
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 1,
+            display: "grid",
+            gridTemplateColumns: GRID,
+            gap: 10,
+            padding: "6px 10px 6px 13px",
+            background: "#11151c",
+            borderBottom: "1px solid #2a2f3a",
+            fontSize: 10.5,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+            color: "#8b949e",
+          }}
+        >
+          <span>Time</span>
+          <span>Seat</span>
+          <span>Turn</span>
+          <span>Event</span>
+          <span>Details</span>
+        </div>
         {filtered.length === 0 && (
           <div style={{ padding: 16, opacity: 0.5 }}>
             {logs.length === 0 ? "No events yet — they appear as seats connect and talk." : "Nothing matches the current filter."}
@@ -244,7 +269,7 @@ export default function LogView({
               onClick={() => setOpen(isOpen ? null : e.seq)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "92px 110px 60px 150px 1fr",
+                gridTemplateColumns: GRID,
                 gap: 10,
                 padding: "3px 10px",
                 background: key && band ? "#0f131a" : "transparent",
