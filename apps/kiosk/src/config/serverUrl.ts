@@ -8,8 +8,9 @@ import { Preferences } from "@capacitor/preferences";
  * CMS. In production the CMS and realtime are separate Cloudflare hostnames
  * (cosimo.… → CMS, ws-cosimo.… → realtime); the kiosk wants the ws- one.
  *
- * - Web/dev build: defaults to same-origin ("") — the Vite proxy forwards
- *   /socket.io to the local realtime service.
+ * - Non-native (a stray browser load of the bundle): same-origin ("").
+ *   There is no browser dev server any more — apps/emulator is the
+ *   browser stand-in for a seat.
  * - Native build: baked default below; overridable on-device via the hidden
  *   setup screen (3s hold on the slit), persisted with Capacitor Preferences.
  */

@@ -1,20 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Dev proxy: the kiosk talks same-origin (like the packaged native app talks
-// to one server URL); Vite forwards the socket to realtime and /api to Payload.
+// Build-only: the kiosk is a native app (`pnpm cap:sync` builds this bundle
+// into ios/). There is no browser dev server — use apps/emulator for that.
 export default defineConfig({
   plugins: [react()],
-  server: {
-    proxy: {
-      "/socket.io": {
-        target: "http://localhost:4000",
-        ws: true,
-      },
-      "/api": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-      },
-    },
-  },
 });

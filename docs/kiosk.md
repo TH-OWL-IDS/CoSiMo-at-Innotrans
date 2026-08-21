@@ -50,8 +50,8 @@ No baked localhost, no env vars on device. Resolution order in
 1. stored per-device override (Capacitor Preferences),
 2. the baked production default — the realtime host
    (`https://ws-cosimo.homannjohannes.de`); the kiosk is socket-only,
-3. web builds default to same-origin (the Vite dev proxy forwards
-   `/socket.io` to the local realtime service).
+3. a non-native load of the bundle defaults to same-origin. (There is no
+   browser dev server — the [emulator](emulator.md) is the browser seat.)
 
 Fresh installs auto-connect; the operator screen can repoint a device (e.g.
 to a dev machine) without an Xcode rebuild. Socket.IO reconnects
@@ -92,7 +92,6 @@ speech synthesis. The mic permission is granted once, natively, permanently
 ## Build & run
 
 ```bash
-pnpm --filter @cosimo/kiosk dev   # browser dev, hot reload, port 5173
 cd apps/kiosk
 pnpm cap:sync                      # vite build + copy into ios/
 pnpm ios:open                      # open Xcode → select iPad → Run

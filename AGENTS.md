@@ -51,7 +51,6 @@ pnpm install
 pnpm -r --no-bail typecheck            # the verification gate — keep it green
 docker compose up -d postgres cms      # DB + cms on :3001
 cd apps/realtime && pnpm start         # realtime on :4000 (loads root .env.local)
-pnpm --filter @cosimo/kiosk dev        # kiosk in browser on :5173
 pnpm --filter @cosimo/console dev         # operator console on :5174
 pnpm --filter @cosimo/emulator dev     # seat emulator on :5175
 cd apps/cms && pnpm seed               # idempotent demo content
@@ -106,8 +105,8 @@ client against :4000 works well — see the smoke pattern in git history).
 ## Environment facts
 
 - Ports: cms 3001 (3000 is reserved by an unrelated project — leave it
-  alone), realtime 4000, kiosk dev 5173, host console dev 5174, emulator
-  dev 5175.
+  alone), realtime 4000, console dev 5174, emulator dev 5175. The kiosk
+  has no browser dev server — it is the native app; use the emulator.
 - Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
   `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,
   `seat-cosimo.…` → emulator. The kiosk is socket-only, so it bakes the ws-

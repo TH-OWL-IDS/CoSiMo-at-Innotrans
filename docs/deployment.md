@@ -8,17 +8,19 @@ cp .env.example .env.local        # fill ANTHROPIC_API_KEY etc.
 pnpm install
 docker compose up -d postgres cms # DB + admin/host console (port 3001)
 cd apps/realtime && pnpm start    # agent + socket hub (port 4000)
-pnpm --filter @cosimo/kiosk dev   # kiosk in the browser (port 5173)
+pnpm --filter @cosimo/console dev   # operator console (port 5174)
+pnpm --filter @cosimo/emulator dev  # a browser iPad (port 5175)
 ```
 
 Ports: **3001** cms (3000 is reserved for another local project — never
-kill it), **4000** realtime, **5173** kiosk dev, **5174** host console
-dev, **5175** emulator dev, 5432 postgres.
+kill it), **4000** realtime, **5174** console dev, **5175** emulator dev,
+5432 postgres. The kiosk has no dev server — it is the native app; the
+emulator is its browser stand-in.
 
-The kiosk dev server proxies `/socket.io` → 4000 and `/api` → 3001, so the
-browser kiosk runs same-origin like production. The native app in the
-Simulator reaches the Mac's services via `http://localhost:4000` (enter it
-once via the hidden operator screen — 3s hold on the telemetry slit).
+The console and emulator dev servers proxy `/socket.io` → 4000, so the
+browser runs same-origin like production. The native app in the Simulator
+reaches the Mac's services via `http://localhost:4000` (enter it once via the
+hidden operator screen — 3s hold on the telemetry slit).
 
 Realtime can also run in Docker (`docker compose up -d`), but running it
 natively with `pnpm start` gives faster iteration; it loads the root

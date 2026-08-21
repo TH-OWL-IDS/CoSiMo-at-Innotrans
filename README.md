@@ -46,12 +46,10 @@ corepack enable           # provides pnpm
 cp .env.example .env.local # fill in ANTHROPIC_API_KEY etc.
 pnpm install
 pnpm up                   # docker compose: postgres + cms + realtime
-pnpm --filter @cosimo/kiosk dev     # kiosk on http://localhost:5173 (proxies to cms/realtime)
 pnpm --filter @cosimo/console dev      # operator console on http://localhost:5174
 pnpm --filter @cosimo/emulator dev  # seat emulator on http://localhost:5175
 ```
 
-- Kiosk (dev, browser): http://localhost:5173
 - Host console:          http://localhost:5174
 - Seat emulator:         http://localhost:5175
 - CMS admin:             http://localhost:3001
