@@ -26,6 +26,10 @@ export interface TurnAction {
   control?: CabinControlId;
   /** Serialized arguments, for later analysis. */
   args?: Record<string, unknown>;
+  /** What the tool returned to the model (truncated), and whether it worked. */
+  result?: string;
+  ok?: boolean;
+  durationMs?: number;
 }
 
 export interface Turn {
@@ -36,8 +40,16 @@ export interface Turn {
   transcript: string;
   /** Classified intent for the user turn (e.g. "ask_eta", "command_light"). */
   detectedIntent?: string;
-  /** Action taken on a cosimo turn. */
+  /** @deprecated Last action only — kept for old rows. Use `actions`. */
   action?: TurnAction;
+  /** Every tool call of a cosimo turn, in order (incl. set_emotion). */
+  actions?: TurnAction[];
+  /** The brain that answered (absent for canned turns). */
+  llm?: { provider: string; model: string };
+  /** Where the latency went. */
+  timings?: { sttMs?: number; llmMs?: number; ttsMs?: number };
+  /** The error message when outcome is "error". */
+  error?: string;
   /** Face emotion CoSiMo displayed during this turn. */
   faceEmotion?: FaceEmotion;
   /** End-to-end latency for a cosimo turn, in milliseconds. */

@@ -64,6 +64,9 @@ services:
       CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:6100},http://localhost:6102,http://localhost:6103,capacitor://localhost
     ports:
       - "${REALTIME_PORT:-6101}:6101"
+    # The structured debug log (daily NDJSON) — survives container rebuilds.
+    volumes:
+      - ./logs:/app/apps/realtime/logs
 
   # Host console — the live operator console (static bundle). On the VPS it
   # is the control surface during the show. Locally the dev server is faster.

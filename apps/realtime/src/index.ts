@@ -25,6 +25,7 @@ import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
 import { startHealthMonitor } from "./health.js";
+import { logger } from "./log/logger.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -62,7 +63,7 @@ const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig
 // push the authored persona set to any connected host consoles.
 void operatorConfig.refresh();
 void personas.refresh().then(() => {
-  hub.setPersona("default");
+  hub.setPersona("default", "boot");
   hub.broadcastPersonas();
 });
 
@@ -121,8 +122,9 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
   await personas.refresh();
   hub.broadcastPersonas();
   const key = personas.byNfcId(tagId);
+  logger.log("nfc.scan", { tagId, persona: key }, { deviceId, sessionId, level: key ? "info" : "warn" });
   if (key) {
-    hub.setPersonaForDevice(deviceId, key);
+    hub.setPersonaForDevice(deviceId, key, "nfc");
     const p = personas.get(key);
     // Greet in the rider's own preferred language — the card tells us who they
     // are, so the kiosk's UI toggle no longer has to guess.
@@ -145,7 +147,14 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
 hub.onVoice(async (v) => {
   try {
     const audio = Buffer.from(v.audioBase64, "base64");
+    const t0 = Date.now();
     const text = await stt.transcribe(audio, v.mime, v.lang);
+    const sttMs = Date.now() - t0;
+    logger.log(
+      "stt.result",
+      { chars: text.length, durationMs: sttMs, mime: v.mime, bytes: audio.byteLength },
+      { deviceId: v.deviceId, sessionId: v.sessionId, level: text ? "debug" : "warn" },
+    );
     if (!text) return;
     hub.emitTranscript(v.sessionId, text, v.lang);
     void agent.handleUserTurn({
@@ -156,6 +165,7 @@ hub.onVoice(async (v) => {
       persona: v.persona,
       modality: "voice",
       consent: v.consent,
+      sttMs,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

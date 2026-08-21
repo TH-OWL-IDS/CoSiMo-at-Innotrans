@@ -10,6 +10,7 @@
 import type { Server, Socket } from "socket.io";
 import type { LightDriver } from "./cabin/driver.js";
 import { buildActuation, type Lpu2Config } from "./cabin/lpu2.js";
+import { logger } from "./log/logger.js";
 import { config } from "./config.js";
 import {
   CABIN_CONTROLS,
@@ -128,6 +129,8 @@ interface DeviceEntry {
   turn: number;
   /** Latest session seen on this seat (for the host inspector). */
   sessionId: string;
+  /** Host consoles: unsubscribes this socket from the debug log stream. */
+  unsubscribeLog?: () => void;
 }
 
 function freshControls(): CabinControlState[] {
@@ -364,7 +367,25 @@ export class Hub {
       if (role === "host" && this.personaLister) {
         socket.emit("host:personas", { personas: this.personaLister() });
       }
+      // Hosts get the debug log: the buffer now, then live. A re-subscribe
+      // (host:log:replay) swaps the sink so there is never a double stream.
+      if (role === "host") {
+        entry.unsubscribeLog = logger.subscribe((events, replay) =>
+          socket.emit("host:log", { events, replay }),
+        );
+      }
+      logger.log("seat.connect", { role }, { deviceId });
       this.pushSeats();
+    });
+    socket.on("host:log:replay", ({ since }) => {
+      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      const entry = this.devices.get(deviceId);
+      if (!entry || entry.role !== "host") return;
+      entry.unsubscribeLog?.();
+      entry.unsubscribeLog = logger.subscribe(
+        (events, replay) => socket.emit("host:log", { events, replay }),
+        since,
+      );
     });
 
     // Visitor consent for recording (GDPR) — starts the visible session.
@@ -372,6 +393,7 @@ export class Hub {
       const deviceId = this.trackSession(socket, sessionId);
       this.countEvent("consent:set", deviceId);
       this.consentBySession.set(sessionId, consent);
+      logger.log("consent", { consent }, { deviceId, sessionId });
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.consent = consent;
@@ -444,6 +466,11 @@ export class Hub {
       const entry = this.devices.get(deviceId);
       const state = entry?.controls.find((c) => c.id === control);
       if (!entry || !state) return;
+      logger.log(
+        "cabin.result",
+        { control, ok, ...(error ? { error } : {}) },
+        { deviceId, sessionId: entry.sessionId, turn: entry.turn, level: ok ? "info" : "warn" },
+      );
       state.degraded = !ok;
       if (!ok) {
         // eslint-disable-next-line no-console
@@ -461,11 +488,15 @@ export class Hub {
     });
 
     // Host console actions.
+    const hostAction = (action: string, args: Record<string, unknown>) =>
+      logger.log("host.action", { action, args }, { deviceId: socket.data.deviceId as string | undefined });
     socket.on("host:setPersona", ({ persona, deviceId }) => {
-      if (deviceId) this.setPersonaForDevice(deviceId, persona);
-      else this.setPersona(persona);
+      hostAction("setPersona", { persona, ...(deviceId ? { deviceId } : {}) });
+      if (deviceId) this.setPersonaForDevice(deviceId, persona, "host");
+      else this.setPersona(persona, "host");
     });
     socket.on("host:overrideLight", ({ deviceId, control, on }) => {
+      hostAction("overrideLight", { deviceId, control, on });
       // Stale/foreign clients must never crash the hub — log and carry on.
       this.applyCabinControl(deviceId, control, { on }).catch((err) => {
         // eslint-disable-next-line no-console
@@ -473,6 +504,7 @@ export class Hub {
       });
     });
     socket.on("host:resetSession", ({ deviceId }) => {
+      hostAction("resetSession", { deviceId });
       this.io.emit("session:reset", { deviceId });
       const targets =
         deviceId === "*"
@@ -490,20 +522,25 @@ export class Hub {
         // Next visitor starts fresh: default persona, sleeping attract face.
         this.clearDecay(id);
         this.emitEmotion(entry, "sleeping");
-        this.setPersonaForDevice(id, "default");
+        this.setPersonaForDevice(id, "default", "host");
       }
       this.pushSeats();
     });
     socket.on("host:toggleOffline", ({ offline }) => {
+      hostAction("toggleOffline", { offline });
       this.manualOffline = offline;
       this.recomputeStatus();
     });
-    socket.on("host:patchTelemetry", (patch) => this.telemetryPatchHandler?.(patch));
+    socket.on("host:patchTelemetry", (patch) => {
+      hostAction("patchTelemetry", patch as Record<string, unknown>);
+      this.telemetryPatchHandler?.(patch);
+    });
     socket.on("host:inspect", ({ deviceId }) => {
       const result = this.inspectResolver?.(deviceId);
       if (result) socket.emit("host:inspect:result", result);
     });
     socket.on("host:recover", () => {
+      hostAction("recover", {});
       this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
       this.io.emit("chat:delta", { sessionId: "*", text: "", done: true, turn: -1 });
       this.setEmotion("neutral");
@@ -512,6 +549,9 @@ export class Hub {
     socket.on("disconnect", () => {
       const id = socket.data.deviceId as string | undefined;
       if (id) {
+        const e = this.devices.get(id);
+        e?.unsubscribeLog?.();
+        logger.log("seat.disconnect", { role: e?.role ?? "kiosk" }, { deviceId: id });
         this.clearDecay(id);
         this.turnBudget.delete(id);
         this.devices.delete(id);
@@ -619,15 +659,18 @@ export class Hub {
   }
 
   /** Switch every kiosk's persona (host console "all seats" action). */
-  setPersona(persona: PersonaKey): void {
+  setPersona(persona: PersonaKey, by: "nfc" | "host" | "boot" = "boot"): void {
     for (const [deviceId, entry] of this.devices) {
-      if (entry.role === "kiosk") this.setPersonaForDevice(deviceId, persona);
+      if (entry.role === "kiosk") this.setPersonaForDevice(deviceId, persona, by);
     }
   }
 
   /** Switch one kiosk's persona (NFC "account" registration / host). */
-  setPersonaForDevice(deviceId: string, persona: PersonaKey): void {
+  setPersonaForDevice(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot" = "host"): void {
     const entry = this.devices.get(deviceId);
+    if (entry && entry.persona.persona !== persona) {
+      logger.log("persona.switch", { persona, by }, { deviceId, sessionId: entry.sessionId });
+    }
     if (!entry) return;
     entry.persona = this.resolvePersona(persona);
     entry.socket.emit("persona:active", entry.persona);
@@ -645,6 +688,11 @@ export class Hub {
    * (barge-in) and reset their reply view when a higher number appears.
    * Unknown seat → -1 (wildcard: clients accept it unconditionally).
    */
+  /** The seat's current turn number (-1 for an unknown session). */
+  currentTurn(sessionId: string): number {
+    return this.entryOf(sessionId)?.turn ?? -1;
+  }
+
   beginTurn(sessionId: string): number {
     const entry = this.entryOf(sessionId);
     if (!entry) return -1;
@@ -808,7 +856,14 @@ export class Hub {
     const actuation = this.lpu2Config
       ? buildActuation(control, change, this.lpu2Config())
       : null;
-    if (actuation && device.role === "kiosk") device.socket.emit("cabin:actuate", actuation);
+    if (actuation && device.role === "kiosk") {
+      logger.log(
+        "cabin.actuate",
+        { control, urls: actuation.urls, change: { ...change } },
+        { deviceId, sessionId: device.sessionId, turn: device.turn },
+      );
+      device.socket.emit("cabin:actuate", actuation);
+    }
     this.pushSeats();
     return entry;
   }

@@ -13,8 +13,8 @@ import {
   type Modality,
   type PersonaKey,
   type SeatInspection,
-  type Turn,
   type TurnAction,
+  type TurnOutcome,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
@@ -28,6 +28,7 @@ import { PayloadSink } from "./sink.js";
 import { ProfileSink } from "./profileSink.js";
 import { cannedReply, errorReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
+import { logger } from "../log/logger.js";
 
 export interface AgentTurnInput {
   sessionId: string;
@@ -39,6 +40,8 @@ export interface AgentTurnInput {
   modality: Modality;
   /** Whether the visitor consented to recording (GDPR). */
   consent: boolean;
+  /** How long server STT took for this utterance (voice turns). */
+  sttMs?: number;
 }
 
 /**
@@ -119,14 +122,16 @@ export class CosimoAgent {
    * same seat aborts this turn mid-stream (see interrupt()).
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
-    const { sessionId, deviceId, text, lang, persona, modality, consent } = input;
+    const { sessionId, deviceId, text, lang, persona, modality, consent, sttMs } = input;
     const startedAt = Date.now();
+    const ctx = { deviceId, sessionId, turn: -1 };
 
     // A new input supersedes whatever this seat was still generating.
     this.interrupt(deviceId);
     const ctrl = new AbortController();
     this.activeTurns.set(deviceId, ctrl);
     const turnNo = this.hub.beginTurn(sessionId);
+    ctx.turn = turnNo;
 
     this.recorder.start(sessionId, deviceId, persona, consent);
     this.recorder.addTurn(sessionId, {
@@ -148,17 +153,24 @@ export class CosimoAgent {
     // the provider/endpoint from the operator-config global (TTL-cached).
     const llm = await this.llm.current();
     this.hub.setLlmConfigured(llm !== null);
+    const llmInfo = llm ? { provider: this.operatorConfig.get().llm.provider, model: llm.model } : null;
+    const canned = this.hub.isOfflineMode() || !llm;
+    logger.log(
+      "turn.start",
+      { text, modality, lang, persona, consent, llm: canned ? null : llmInfo, historyMessages: history.length },
+      ctx,
+    );
     // A newer input may have barged in while we awaited the (possibly
     // CMS-refreshing) config above. That turn owns the seat now — close this
     // one quietly before it emits any phase/emotion.
     if (ctrl.signal.aborted) {
       this.hub.emitChatDelta(sessionId, "", true, turnNo);
-      this.recordCosimoTurn(sessionId, lang, "", undefined, "neutral", startedAt, modality, "interrupted");
+      this.recordCosimoTurn(sessionId, lang, "", [], "neutral", startedAt, modality, "interrupted", { sttMs });
       this.persist(sessionId);
       return;
     }
-    if (this.hub.isOfflineMode() || !llm) {
-      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt, turnNo, ctrl.signal);
+    if (canned || !llm) {
+      await this.handleCannedTurn(sessionId, deviceId, text, lang, persona, modality, startedAt, turnNo, ctrl.signal, sttMs);
       this.persist(sessionId);
       return;
     }
@@ -186,15 +198,22 @@ export class CosimoAgent {
     let assistantText = "";
     let startedSpeaking = false;
     let chosenEmotion: ExpressiveEmotion = "neutral";
-    let lastAction: TurnAction | undefined;
-    let outcome: Turn["outcome"] = "ok";
+    /** Every tool call of this turn, in order — the record and the log. */
+    const actions: TurnAction[] = [];
+    let outcome: TurnOutcome = "ok";
+    let errorMessage: string | undefined;
     /** True when the fallback already emitted done + idle (emitFullReply). */
     let streamClosed = false;
+    const llmStarted = Date.now();
+    let llmMs = 0;
 
     try {
       // Manual tool-use loop: iterate until the model stops calling tools.
       for (let guard = 0; guard < 6; guard++) {
+        const stepStarted = Date.now();
+        let stepChars = 0;
         const { toolCalls } = await turn.step((delta) => {
+          stepChars += delta.length;
           if (ctrl.signal.aborted) return; // barged-in — swallow late chunks
           if (!startedSpeaking) {
             startedSpeaking = true;
@@ -207,6 +226,11 @@ export class CosimoAgent {
           this.hub.emitChatDelta(sessionId, delta, false, turnNo);
         });
 
+        logger.log(
+          "llm.step",
+          { step: guard, chars: stepChars, toolCalls: toolCalls.map((c) => c.name), durationMs: Date.now() - stepStarted },
+          ctx,
+        );
         if (toolCalls.length === 0 || ctrl.signal.aborted) break;
 
         // Execute every tool call, then feed all results back in one batch.
@@ -214,6 +238,7 @@ export class CosimoAgent {
         // half-applied state); we stop before the next generation step instead.
         const results: { id: string; text: string }[] = [];
         for (const call of toolCalls) {
+          const t0 = Date.now();
           const res = await executeTool(call.name, call.input, {
             hub: this.hub,
             telemetry: this.telemetry,
@@ -226,16 +251,31 @@ export class CosimoAgent {
             persona,
             consent,
           });
+          const durationMs = Date.now() - t0;
+          const ok = !res.text.startsWith("error");
+          logger.log(
+            "tool.call",
+            { tool: call.name, input: call.input, result: res.text, ok, durationMs },
+            { ...ctx, level: ok ? "info" : "warn" },
+          );
           if (res.emotion) chosenEmotion = res.emotion;
-          else if (res.action && res.action.tool !== "set_emotion") lastAction = res.action;
+          actions.push({
+            ...(res.action ?? { tool: call.name }),
+            args: res.action?.args ?? call.input,
+            result: res.text.slice(0, 2_000),
+            ok,
+            durationMs,
+          });
           results.push({ id: call.id, text: res.text });
         }
         if (ctrl.signal.aborted) break;
         turn.addToolResults(results);
       }
     } catch (err) {
+      llmMs = Date.now() - llmStarted;
       if (!ctrl.signal.aborted) {
         outcome = "error";
+        errorMessage = err instanceof Error ? err.message : String(err);
         // Graceful recovery: fall back to a grounded canned reply rather than
         // a dead end. If the canned matcher has a real answer (speed, light…)
         // use it; otherwise be honest that something went wrong — the rider
@@ -253,11 +293,12 @@ export class CosimoAgent {
               await this.hub.applyCabinControl(deviceId, fallback.cabin.control, {
                 on: fallback.cabin.on,
               });
-              lastAction = {
+              actions.push({
                 tool: "set_cabin_control",
                 control: fallback.cabin.control,
                 args: { on: fallback.cabin.on },
-              };
+                ok: true,
+              });
             } catch {
               // light unreachable — still answer
             }
@@ -270,13 +311,16 @@ export class CosimoAgent {
       }
     }
 
+    if (!llmMs) llmMs = Date.now() - llmStarted;
     if (ctrl.signal.aborted) {
       // Barge-in: close this turn's stream quietly. No canned fallback, no
       // phase/face changes — the interrupter (listening) or the next turn owns
       // the seat now. Record what was said so far as an interrupted turn.
       outcome = "interrupted";
       this.hub.emitChatDelta(sessionId, "", true, turnNo);
-      this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
+      this.recordCosimoTurn(sessionId, lang, assistantText, actions, chosenEmotion, startedAt, modality, outcome, {
+        sttMs, llmMs, llm: llmInfo ?? undefined,
+      });
       this.persist(sessionId);
       return;
     }
@@ -290,9 +334,11 @@ export class CosimoAgent {
 
     // Keep the controller registered through TTS so a barge-in during
     // synthesis still cancels the audio; clean up only if we're still current.
-    await this.speak(sessionId, assistantText, lang, persona, turnNo, ctrl.signal);
+    const ttsMs = await this.speak(sessionId, assistantText, lang, persona, turnNo, ctrl.signal);
     if (this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
-    this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
+    this.recordCosimoTurn(sessionId, lang, assistantText, actions, chosenEmotion, startedAt, modality, outcome, {
+      sttMs, llmMs, ttsMs, llm: llmInfo ?? undefined, error: errorMessage,
+    });
     this.persist(sessionId);
   }
 
@@ -338,14 +384,15 @@ export class CosimoAgent {
     startedAt: number,
     turnNo: number,
     signal?: AbortSignal,
+    sttMs?: number,
   ): Promise<void> {
     const reply = cannedReply(text, lang, this.telemetry.get());
 
-    let action: TurnAction | undefined;
+    const actions: TurnAction[] = [];
     if (reply.cabin) {
       try {
         await this.hub.applyCabinControl(deviceId, reply.cabin.control, { on: reply.cabin.on });
-        action = { tool: "set_cabin_control", control: reply.cabin.control, args: { on: reply.cabin.on } };
+        actions.push({ tool: "set_cabin_control", control: reply.cabin.control, args: { on: reply.cabin.on }, ok: true });
       } catch {
         // light unreachable — still answer
       }
@@ -357,10 +404,10 @@ export class CosimoAgent {
     this.hub.emitPhase("idle", sessionId, turnNo);
     this.hub.setEmotion(reply.emotion, sessionId, turnNo);
 
-    await this.speak(sessionId, reply.text, lang, persona, turnNo, signal);
+    const ttsMs = await this.speak(sessionId, reply.text, lang, persona, turnNo, signal);
     this.recordCosimoTurn(
-      sessionId, lang, reply.text, action, reply.emotion, startedAt, modality,
-      reply.matched ? "offline_canned" : "not_understood",
+      sessionId, lang, reply.text, actions, reply.emotion, startedAt, modality,
+      reply.matched ? "offline_canned" : "not_understood", { sttMs, ttsMs },
     );
   }
 
@@ -382,17 +429,28 @@ export class CosimoAgent {
     persona: PersonaKey,
     turnNo: number,
     signal?: AbortSignal,
-  ): Promise<void> {
-    if (!this.tts.available || !text.trim()) return;
-    if (!this.personas.get(persona).accommodations.audioOutput) return;
+  ): Promise<number | undefined> {
+    if (!this.tts.available || !text.trim()) return undefined;
+    if (!this.personas.get(persona).accommodations.audioOutput) return undefined;
+    const t0 = Date.now();
     try {
       const audio = await this.tts.synthesize(text, lang);
+      const durationMs = Date.now() - t0;
+      if (audio) {
+        logger.log(
+          "tts.done",
+          { chars: text.length, bytes: Math.floor((audio.audioBase64.length * 3) / 4), durationMs },
+          { sessionId, turn: turnNo },
+        );
+      }
       // Barge-in during synthesis → never ship the stale clip.
-      if (signal?.aborted) return;
+      if (signal?.aborted) return durationMs;
       if (audio) this.hub.emitTtsAudio(sessionId, audio.audioBase64, audio.mime, turnNo);
+      return durationMs;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[cosimo-agent] tts failed:", err);
+      return Date.now() - t0;
     }
   }
 
@@ -426,22 +484,60 @@ export class CosimoAgent {
     sessionId: string,
     lang: Locale,
     transcript: string,
-    action: TurnAction | undefined,
+    actions: TurnAction[],
     faceEmotion: ExpressiveEmotion,
     startedAt: number,
     modality: Modality,
-    outcome: Turn["outcome"],
+    outcome: TurnOutcome,
+    extra: {
+      sttMs?: number;
+      llmMs?: number;
+      ttsMs?: number;
+      llm?: { provider: string; model: string };
+      error?: string;
+    } = {},
   ): void {
+    const latencyMs = Date.now() - startedAt;
+    const timings = {
+      ...(extra.sttMs != null ? { sttMs: extra.sttMs } : {}),
+      ...(extra.llmMs != null ? { llmMs: extra.llmMs } : {}),
+      ...(extra.ttsMs != null ? { ttsMs: extra.ttsMs } : {}),
+    };
+    // The last non-emotion action keeps the deprecated single field alive.
+    const lastAction = [...actions].reverse().find((a) => a.tool !== "set_emotion");
+    const rec = this.recorder.get(sessionId);
     this.recorder.addTurn(sessionId, {
       role: "cosimo",
       modality,
       lang,
       transcript,
-      action,
+      action: lastAction,
+      actions,
       faceEmotion,
-      latencyMs: Date.now() - startedAt,
+      latencyMs,
       outcome,
+      ...(extra.llm ? { llm: extra.llm } : {}),
+      timings,
+      ...(extra.error ? { error: extra.error } : {}),
       at: new Date().toISOString(),
     });
+    logger.log(
+      "turn.end",
+      {
+        outcome,
+        reply: transcript,
+        emotion: faceEmotion,
+        latencyMs,
+        timings,
+        tools: actions.length,
+        ...(extra.error ? { error: extra.error } : {}),
+      },
+      {
+        deviceId: rec?.deviceId,
+        sessionId,
+        turn: this.hub.currentTurn(sessionId),
+        level: outcome === "error" ? "error" : outcome === "ok" ? "info" : "warn",
+      },
+    );
   }
 }

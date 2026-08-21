@@ -23,6 +23,10 @@ function toTurnRow(t: Turn): Record<string, unknown> {
     latencyMs: t.latencyMs,
     outcome: t.outcome,
     action: t.action ?? undefined,
+    actions: t.actions ?? undefined,
+    llm: t.llm ?? undefined,
+    timings: t.timings ?? undefined,
+    error: t.error ?? undefined,
     at: t.at,
   };
 }

@@ -35,5 +35,8 @@ apps/kiosk/ios/App/App/capacitor.config.json
 apps/kiosk/ios/DerivedData/
 xcuserdata/
 
+# structured debug log (realtime NDJSON)
+logs/
+
 # vps backups (pg_dump)
 backups/

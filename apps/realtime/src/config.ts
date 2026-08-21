@@ -62,6 +62,15 @@ export const config = {
     baseUrl: process.env.LPU2_BASE_URL ?? "",
     timeoutMs: num("LPU2_TIMEOUT_MS", 2500),
   },
+  /** The structured debug log (see log/logger.ts). `dir` relative to the
+   *  realtime package; empty = no file (buffer + live stream only).
+   *  `transcripts` is the one GDPR switch: off blanks visitor/CoSiMo text. */
+  log: {
+    dir: process.env.LOG_DIR ?? "logs",
+    keepDays: num("LOG_KEEP_DAYS", 14),
+    bufferSize: num("LOG_BUFFER", 5_000),
+    transcripts: (process.env.LOG_TRANSCRIPTS ?? "true") !== "false",
+  },
   /** Face behaviour: expressive emotions fade back to neutral, and a seat
    *  with no interaction drifts to the sleeping attract face. */
   face: {

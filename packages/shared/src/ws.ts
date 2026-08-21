@@ -17,6 +17,7 @@ import type {
 } from "./cabin.js";
 import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
 import type { Modality, Turn } from "./session.js";
+import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
 export interface ConnectedDevice {
@@ -115,6 +116,9 @@ export interface ServerToClientEvents {
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
   /** Reply to host:inspect — sent only to the requesting host socket. */
   "host:inspect:result": (payload: SeatInspection) => void;
+  /** The structured debug log (host consoles only): a replay batch on
+   *  connect, then one event at a time as they happen. See log.ts. */
+  "host:log": (payload: { events: LogEvent[]; replay: boolean }) => void;
 }
 
 /** Events clients send to the server. */
@@ -157,4 +161,6 @@ export interface ClientToServerEvents {
   "host:recover": (payload: Record<string, never>) => void;
   /** Request a deep view of one seat (system prompt + full turn log). */
   "host:inspect": (payload: { deviceId: string }) => void;
+  /** Re-request the log buffer, optionally only events after `since` (seq). */
+  "host:log:replay": (payload: { since?: number }) => void;
 }
