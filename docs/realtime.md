@@ -32,7 +32,9 @@ utterance/reply, cabin state), pushed on every relevant change. Host
 actions: per-seat or all-seat persona, per-seat light override, per-seat
 session reset (clears the seat back to default persona + consent screen),
 journey pause/resume + battery override, offline-mode toggle,
-stuck-conversation recovery.
+stuck-conversation recovery, and `host:inspect` — a deep view of one seat
+(`host:inspect:result`, sent only to the asking host socket) carrying the exact
+system prompt a turn on that seat would use right now plus its recorded turns.
 
 A seat is **active** from the visitor's consent decision (or first input)
 until reset/disconnect — the host UI only shows cards for active seats.
@@ -51,7 +53,23 @@ is driven client-side by actual audio playback, *not* by text streaming.
 Tools (`src/agent/tools.ts`): `get_telemetry`, `set_cabin_control` (scoped
 to the calling seat via `deviceId`), `request_stop` (demo-only),
 `set_emotion` (expressive emotions only — mechanical ones are pipeline-owned,
-see `packages/shared/src/emotion.ts`).
+see `packages/shared/src/emotion.ts`). Every seat-affecting tool is scoped to
+the seat that called it: `ToolContext` carries `deviceId`, `sessionId` and the
+turn number, and `set_emotion` passes the latter two on so one rider's happy
+face cannot colour the other three cabin faces (it once did) and a barged-in
+turn's late emotion is dropped like its late text.
+
+**Conversation memory.** A turn is not a one-shot: the seat's earlier
+messages are replayed to the model, so "say that again", "and the next stop?"
+or a rider correcting themselves work. The history comes from the session
+recorder — one memory of what was said, not a second copy — capped at the last
+`HISTORY_MESSAGES` (12, ~6 exchanges) to bound prompt size and latency over a
+long booth day. Two cuts keep it honest: a session reset gives the next visitor
+a new `sessionId` and therefore an empty history, and a **card tap cuts history
+at the switch** — one seat, two different people, so the new rider's prompt
+never carries the previous visitor's words. Partial (interrupted) replies stay
+in: the rider heard them. Both adapters normalize the replay (drop empties,
+merge consecutive same-role messages, start on a user message).
 
 `announce()` pushes a server-initiated utterance to one seat (text + face +
 TTS) — used for NFC greetings and unknown-card replies.

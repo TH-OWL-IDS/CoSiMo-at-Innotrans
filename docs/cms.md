@@ -75,5 +75,9 @@ journey with pause/resume + battery override, demo mode, recovery,
 all-seats persona) and
 **seat cards** shown only for seats with an active session (live face
 emotion + phase, per-seat persona dropdown, per-seat light toggles, live
-conversation snippet, reset). Idle connected seats appear as small chips.
+conversation snippet, reset) plus a **seat inspector** — the live system
+prompt that seat would use (CMS core + brief + accommodation prelude +
+memories) and its full turn log with tool actions, outcomes and latencies,
+which is the fastest way to see *why* CoSiMo answered as it did. Idle
+connected seats appear as small chips.
 Unlinked and unauthenticated — add real auth before the fair.

@@ -26,6 +26,7 @@ import {
   type PersonaBroadcast,
   type PersonaKey,
   type PipelinePhase,
+  type SeatInspection,
   type SeatSummary,
   type ServerToClientEvents,
 } from "@cosimo/shared";
@@ -97,6 +98,9 @@ export type NfcHandler = (nfc: IncomingNfc) => void;
 /** Rider barge-in (talk button pressed while a turn runs) — abort that seat. */
 export type InterruptHandler = (payload: { deviceId: string; sessionId: string }) => void;
 
+/** Composes the host inspector view for one seat (system prompt + turns). */
+export type InspectResolver = (deviceId: string) => SeatInspection | null;
+
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 /** Expressive emotions are reactions, not states — they fade back to neutral. */
@@ -121,6 +125,8 @@ interface DeviceEntry {
   replyBuffer: string;
   /** Monotonically increasing turn number — stale turns are dropped client-side. */
   turn: number;
+  /** Latest session seen on this seat (for the host inspector). */
+  sessionId: string;
 }
 
 function freshControls(): CabinControlState[] {
@@ -317,6 +323,7 @@ export class Hub {
         replyBuffer: "",
         turn: 0,
         lastActivity: Date.now(),
+        sessionId: "",
       };
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
@@ -451,6 +458,10 @@ export class Hub {
       this.recomputeStatus();
     });
     socket.on("host:patchTelemetry", (patch) => this.telemetryPatchHandler?.(patch));
+    socket.on("host:inspect", ({ deviceId }) => {
+      const result = this.inspectResolver?.(deviceId);
+      if (result) socket.emit("host:inspect:result", result);
+    });
     socket.on("host:recover", () => {
       this.io.emit("pipeline:phase", { phase: "idle", sessionId: "*" });
       this.io.emit("chat:delta", { sessionId: "*", text: "", done: true, turn: -1 });
@@ -473,6 +484,8 @@ export class Hub {
   private trackSession(socket: Sock, sessionId: string): string {
     const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
     this.sessionDevice.set(sessionId, deviceId);
+    const entry = this.devices.get(deviceId);
+    if (entry) entry.sessionId = sessionId;
     return deviceId;
   }
 

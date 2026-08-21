@@ -44,6 +44,18 @@ export interface SeatSummary {
   controls: CabinControlState[];
 }
 
+/** Deep view of one seat's conversation, for the host console inspector. */
+export interface SeatInspection {
+  deviceId: string;
+  sessionId: string;
+  persona: PersonaKey;
+  /** The exact system prompt a turn on this seat would use right now
+   *  (CMS core + rider section incl. brief, prelude, memories). */
+  systemPrompt: string;
+  /** The recorded conversation (incl. tool actions, outcomes, latencies). */
+  turns: Turn[];
+}
+
 export interface ConnectionStatus {
   llm: boolean;
   speech: boolean;
@@ -92,6 +104,8 @@ export interface ServerToClientEvents {
   /** The set of authored personas (host consoles only) — drives the pickers.
    *  Sent on host connect and whenever the persona set is refreshed from CMS. */
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
+  /** Reply to host:inspect — sent only to the requesting host socket. */
+  "host:inspect:result": (payload: SeatInspection) => void;
 }
 
 /** Events clients send to the server. */
@@ -130,4 +144,6 @@ export interface ClientToServerEvents {
   "host:patchTelemetry": (payload: HostTelemetryPatch) => void;
   /** Recover a stuck conversation: settle phase to idle and the Face to neutral. */
   "host:recover": (payload: Record<string, never>) => void;
+  /** Request a deep view of one seat (system prompt + full turn log). */
+  "host:inspect": (payload: { deviceId: string }) => void;
 }

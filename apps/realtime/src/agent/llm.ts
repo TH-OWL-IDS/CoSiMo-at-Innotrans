@@ -25,10 +25,42 @@ export interface LlmTurn {
   addToolResults(results: { id: string; text: string }[]): void;
 }
 
+/** One earlier message of this seat's conversation, replayed for context. */
+export interface LlmHistoryMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface LlmProvider {
   readonly model: string;
-  /** `signal` aborts the streamed generation mid-turn (rider barge-in). */
-  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn;
+  /** `signal` aborts the streamed generation mid-turn (rider barge-in).
+   *  `history` is the seat's earlier conversation (see agent.ts) — without it
+   *  CoSiMo could not answer "say that again" or any follow-up. */
+  startTurn(
+    system: string,
+    userText: string,
+    signal?: AbortSignal,
+    history?: LlmHistoryMessage[],
+  ): LlmTurn;
+}
+
+/**
+ * Normalize replayed history into what both APIs accept: drop empty texts
+ * (an interrupted turn can record none), merge consecutive same-role messages,
+ * and start on a user message. Partial/interrupted replies stay in — the rider
+ * heard them, so CoSiMo should know it said them.
+ */
+export function normalizeHistory(history: LlmHistoryMessage[]): LlmHistoryMessage[] {
+  const out: LlmHistoryMessage[] = [];
+  for (const m of history) {
+    const text = m.text.trim();
+    if (!text) continue;
+    const last = out[out.length - 1];
+    if (last && last.role === m.role) last.text = `${last.text}\n${text}`;
+    else out.push({ role: m.role, text });
+  }
+  while (out.length && out[0]!.role !== "user") out.shift();
+  return out;
 }
 
 /* ---------- Anthropic ---------- */
@@ -41,8 +73,15 @@ class AnthropicTurn implements LlmTurn {
     private readonly system: string,
     userText: string,
     private readonly signal?: AbortSignal,
+    history: LlmHistoryMessage[] = [],
   ) {
-    this.messages = [{ role: "user", content: userText }];
+    this.messages = [
+      ...normalizeHistory(history).map((m) => ({
+        role: m.role,
+        content: m.text,
+      })),
+      { role: "user", content: userText },
+    ];
   }
 
   async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[] }> {
@@ -97,8 +136,13 @@ class AnthropicProvider implements LlmProvider {
       ...(baseUrl ? { baseURL: baseUrl } : {}),
     });
   }
-  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn {
-    return new AnthropicTurn(this.client, this.model, system, userText, signal);
+  startTurn(
+    system: string,
+    userText: string,
+    signal?: AbortSignal,
+    history?: LlmHistoryMessage[],
+  ): LlmTurn {
+    return new AnthropicTurn(this.client, this.model, system, userText, signal, history);
   }
 }
 
@@ -134,9 +178,14 @@ class OpenAiCompatTurn implements LlmTurn {
     system: string,
     userText: string,
     private readonly signal?: AbortSignal,
+    history: LlmHistoryMessage[] = [],
   ) {
     this.messages = [
       { role: "system", content: system },
+      ...normalizeHistory(history).map((m) => ({
+        role: m.role,
+        content: m.text,
+      })),
       { role: "user", content: userText },
     ];
   }
@@ -249,8 +298,15 @@ class OpenAiCompatProvider implements LlmProvider {
     private readonly baseUrl: string,
     private readonly apiKey: string,
   ) {}
-  startTurn(system: string, userText: string, signal?: AbortSignal): LlmTurn {
-    return new OpenAiCompatTurn(this.baseUrl, this.apiKey, this.model, system, userText, signal);
+  startTurn(
+    system: string,
+    userText: string,
+    signal?: AbortSignal,
+    history?: LlmHistoryMessage[],
+  ): LlmTurn {
+    return new OpenAiCompatTurn(
+      this.baseUrl, this.apiKey, this.model, system, userText, signal, history,
+    );
   }
 }
 

@@ -12,12 +12,13 @@ import {
   type Locale,
   type Modality,
   type PersonaKey,
+  type SeatInspection,
   type Turn,
   type TurnAction,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
-import type { LlmRouter } from "./llm.js";
+import type { LlmHistoryMessage, LlmRouter } from "./llm.js";
 import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
@@ -40,6 +41,14 @@ export interface AgentTurnInput {
   consent: boolean;
 }
 
+/**
+ * How many earlier messages of a seat's conversation are replayed to the model.
+ * A turn is one message, so this is ~6 exchanges — enough for "say that again",
+ * "and the next stop?", or a rider correcting themselves, without growing the
+ * prompt (and the latency) unboundedly over a long booth session.
+ */
+const HISTORY_MESSAGES = 12;
+
 export class CosimoAgent {
   private readonly llm: LlmRouter;
   private readonly operatorConfig: OperatorConfigProvider;
@@ -52,6 +61,13 @@ export class CosimoAgent {
   readonly recorder = new SessionRecorder();
   /** In-flight turn per seat — aborted on barge-in / a newer input. */
   private readonly activeTurns = new Map<string, AbortController>();
+  /**
+   * Where each seat's replayable history starts, and under which profile.
+   * A card tap swaps the rider on a seat mid-session, so history is cut at the
+   * switch: the new rider's prompt must never carry the previous visitor's
+   * words (they are different people sharing one seat).
+   */
+  private readonly historyStart = new Map<string, { persona: PersonaKey; from: number }>();
 
   constructor(
     hub: Hub,
@@ -68,6 +84,23 @@ export class CosimoAgent {
     this.llm = llm;
     this.operatorConfig = operatorConfig;
     this.hub.setLlmConfigured(this.llm.maybeConfigured());
+  }
+
+  /**
+   * Compose the host inspector's deep view of one seat: the exact system
+   * prompt a turn would use right now, plus the recorded conversation.
+   */
+  inspect(deviceId: string, sessionId: string, persona: PersonaKey): SeatInspection {
+    return {
+      deviceId,
+      sessionId,
+      persona,
+      systemPrompt: buildSystemPrompt(
+        this.personas.get(persona),
+        this.operatorConfig.get().agent.systemPrompt,
+      ),
+      turns: this.recorder.get(sessionId)?.turns ?? [],
+    };
   }
 
   /**
@@ -103,6 +136,12 @@ export class CosimoAgent {
       transcript: text,
       at: new Date().toISOString(),
     });
+
+    // The seat's earlier conversation, replayed so the turn is not an amnesiac
+    // one-shot: the recorder already holds exactly what was said on this
+    // session (a reset starts a new sessionId, so a new visitor starts clean).
+    // The turn we just recorded above is dropped — it goes in as userText.
+    const history = this.historyFor(sessionId, deviceId, persona);
 
     // Offline / demo mode (host-forced or network down) or no usable LLM →
     // serve a scripted, telemetry-grounded canned reply. The router resolves
@@ -141,6 +180,7 @@ export class CosimoAgent {
       system,
       text,
       AbortSignal.any([ctrl.signal, AbortSignal.timeout(90_000)]),
+      history,
     );
 
     let assistantText = "";
@@ -181,6 +221,8 @@ export class CosimoAgent {
             profiles: this.profiles,
             lang,
             deviceId,
+            sessionId,
+            turn: turnNo,
             persona,
             consent,
           });
@@ -204,6 +246,22 @@ export class CosimoAgent {
           const fallback = matched.matched ? matched : errorReply(lang);
           assistantText = fallback.text;
           chosenEmotion = fallback.emotion;
+          // If the canned answer claims a cabin action ("Ich schalte das
+          // Licht an"), actually perform it — same as offline mode does.
+          if (fallback.cabin) {
+            try {
+              await this.hub.applyCabinControl(deviceId, fallback.cabin.control, {
+                on: fallback.cabin.on,
+              });
+              lastAction = {
+                tool: "set_cabin_control",
+                control: fallback.cabin.control,
+                args: { on: fallback.cabin.on },
+              };
+            } catch {
+              // light unreachable — still answer
+            }
+          }
           this.emitFullReply(sessionId, fallback.text, turnNo);
           streamClosed = true; // emitFullReply already sent done + idle
         }
@@ -236,6 +294,34 @@ export class CosimoAgent {
     if (this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
     this.recordCosimoTurn(sessionId, lang, assistantText, lastAction, chosenEmotion, startedAt, modality, outcome);
     this.persist(sessionId);
+  }
+
+  /**
+   * The replayed conversation for a seat: this session's recorded turns minus
+   * the current user turn, capped to the most recent HISTORY_MESSAGES. Sourced
+   * from the recorder so there is one memory of what was said, not two.
+   */
+  private historyFor(
+    sessionId: string,
+    deviceId: string,
+    persona: PersonaKey,
+  ): LlmHistoryMessage[] {
+    const turns = this.recorder.get(sessionId)?.turns ?? [];
+    // The user turn for THIS turn is already recorded — it is the last one.
+    const current = Math.max(0, turns.length - 1);
+    const mark = this.historyStart.get(deviceId);
+    // New seat, a different profile than last turn, or a fresh session → the
+    // conversation starts here.
+    const from =
+      mark && mark.persona === persona && mark.from <= current ? mark.from : current;
+    this.historyStart.set(deviceId, { persona, from });
+    return turns
+      .slice(from, -1)
+      .slice(-HISTORY_MESSAGES)
+      .map((t) => ({
+        role: t.role === "user" ? ("user" as const) : ("assistant" as const),
+        text: t.transcript,
+      }));
   }
 
   /**

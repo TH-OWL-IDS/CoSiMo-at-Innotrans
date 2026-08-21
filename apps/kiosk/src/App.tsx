@@ -20,6 +20,8 @@ export default function App() {
   const [serverUrl, setUrl] = useState<string | null | undefined>(undefined);
   const [layout, setLayout] = useState<PanelLayout>(DEFAULT_PANEL_LAYOUT);
   const [setupOpen, setSetupOpen] = useState(false);
+  /** Testing aid (reached via the hidden setup): text chat with CoSiMo. */
+  const [testChat, setTestChat] = useState(false);
 
   useEffect(() => {
     void getServerUrl().then(setUrl);
@@ -42,6 +44,14 @@ export default function App() {
         layout={layout}
         onSave={save}
         onCancel={serverUrl !== null ? () => setSetupOpen(false) : undefined}
+        onOpenTestChat={
+          serverUrl !== null
+            ? () => {
+                setTestChat(true);
+                setSetupOpen(false);
+              }
+            : undefined
+        }
       />
     );
   }
@@ -52,6 +62,8 @@ export default function App() {
       serverUrl={serverUrl}
       layout={layout}
       onOpenSetup={() => setSetupOpen(true)}
+      testChat={testChat}
+      onCloseTestChat={() => setTestChat(false)}
     />
   );
 }

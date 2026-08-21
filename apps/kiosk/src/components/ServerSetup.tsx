@@ -11,12 +11,15 @@ export default function ServerSetup({
   layout,
   onSave,
   onCancel,
+  onOpenTestChat,
 }: {
   current: string | null;
   layout: PanelLayout;
   onSave: (url: string, layout: PanelLayout) => void;
   /** Present when opened as an overlay over a running kiosk. */
   onCancel?: () => void;
+  /** Testing aid: return to the kiosk with the text console open. */
+  onOpenTestChat?: () => void;
 }) {
   const [draft, setDraft] = useState(current ?? "https://");
   const [geo, setGeo] = useState<PanelLayout>(layout);
@@ -185,6 +188,24 @@ export default function ServerSetup({
             </button>
           )}
         </div>
+        {onOpenTestChat && (
+          <button
+            type="button"
+            onClick={onOpenTestChat}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 12,
+              border: "1px dashed #4b5563",
+              background: "transparent",
+              color: "inherit",
+              opacity: 0.6,
+              cursor: "pointer",
+              fontSize: "0.85rem",
+            }}
+          >
+            🧪 Text-Konsole (Test) — mit CoSiMo schreiben
+          </button>
+        )}
       </form>
       {error && <p style={{ margin: 0, color: "#fca5a5", fontSize: 13 }}>{error}</p>}
     </main>

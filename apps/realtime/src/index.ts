@@ -99,6 +99,11 @@ hub.onInterrupt(({ deviceId }) => {
   agent.interrupt(deviceId);
 });
 
+// Host console inspector: deep view of one seat (live system prompt + turns).
+hub.onInspect((deviceId) =>
+  agent.inspect(deviceId, hub.sessionOf(deviceId), hub.seatPersonaKey(deviceId)),
+);
+
 // NFC scan → resolve the chip to a persona ("account") for that kiosk seat.
 hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
   // A card tap supersedes whatever CoSiMo was still saying at this seat.

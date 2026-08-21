@@ -31,6 +31,24 @@ import type { Locale } from "./telemetry.js";
 export type PersonaKey = string;
 
 /**
+ * The canonical appearance-scheme ids. The face package's `schemes` list is
+ * typed against this, and `set_presentation` validates against it — a theme
+ * outside this list would silently fall back to "classic" on the kiosk while
+ * CoSiMo claims success (that bug happened: the LLM sent "dark").
+ */
+export const SCHEME_IDS = [
+  "classic",
+  "night",
+  "ocean",
+  "forest",
+  "sun",
+  "berry",
+  "slate",
+] as const;
+
+export type SchemeId = (typeof SCHEME_IDS)[number];
+
+/**
  * The bounded schema of machine-actionable UI levers. Every field exists ONLY
  * because deterministic client/agent code acts on it; nuance that drives no
  * mechanism lives in the (prose) brief/memories instead. All are voice-mutable

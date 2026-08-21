@@ -16,6 +16,7 @@ import type {
   PersonaBroadcast,
   PersonaKey,
   PipelinePhase,
+  SeatInspection,
   SeatSummary,
   ServerToClientEvents,
 } from "@cosimo/shared";
@@ -67,6 +68,11 @@ export interface CosimoState {
   seats: SeatSummary[];
   /** The authored persona set (operator console; drives the persona pickers). */
   personas: PersonaBroadcast[];
+  /** Deep view of one seat (host inspector), latest host:inspect result. */
+  inspection: SeatInspection | null;
+  /** Request a seat's deep view (system prompt + turns). */
+  inspectSeat: (deviceId: string) => void;
+  clearInspection: () => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
   /** Host actions. */
@@ -120,6 +126,7 @@ export function useCosimoSocket(
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
+  const [inspection, setInspection] = useState<SeatInspection | null>(null);
   const [resetNonce, setResetNonce] = useState(0);
   const [speaking, setSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -188,6 +195,7 @@ export function useCosimoSocket(
     socket.on("devices:update", ({ devices }) => setDevices(devices));
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
+    socket.on("host:inspect:result", (r) => setInspection(r));
     socket.on("session:reset", ({ deviceId: target }) => {
       if (target !== deviceId && target !== "*") return;
       sessionRef.current = makeId("s");
@@ -334,6 +342,9 @@ export function useCosimoSocket(
   const recover = () => sockRef.current?.emit("host:recover", {});
   const resetSession = (target: string) =>
     sockRef.current?.emit("host:resetSession", { deviceId: target });
+  const inspectSeat = (deviceId: string) =>
+    sockRef.current?.emit("host:inspect", { deviceId });
+  const clearInspection = () => setInspection(null);
 
   const pttStart = () => {
     // Barge-in: the button press itself silences CoSiMo — instantly locally,

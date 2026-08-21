@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   CABIN_CONTROLS,
   type Accommodations,
   type PersonaBroadcast,
   type PersonaKey,
+  type SeatInspection,
   type SeatSummary,
 } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
@@ -87,18 +89,137 @@ function Dot({ ok }: { ok: boolean }) {
   );
 }
 
+/**
+ * Deep view of one seat: the exact live system prompt and the recorded
+ * conversation incl. tool calls, outcomes and latencies. Auto-refreshes
+ * while open so a running turn appears as it happens.
+ */
+function InspectorDrawer({
+  inspection,
+  onRefresh,
+  onClose,
+}: {
+  inspection: SeatInspection;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const t = setInterval(onRefresh, 2000);
+    return () => clearInterval(t);
+  }, [onRefresh]);
+
+  const roleColor = (r: string) => (r === "user" ? "#7ee1a2" : "#8ab8ff");
+  return (
+    <aside
+      style={{
+        position: "fixed",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "min(520px, 92vw)",
+        background: "#11141a",
+        borderLeft: "1px solid #2a2f3a",
+        zIndex: 200,
+        display: "flex",
+        flexDirection: "column",
+        padding: 16,
+        gap: 12,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 14 }}>
+          <b>🔍 {inspection.deviceId}</b>{" "}
+          <span style={{ opacity: 0.6 }}>
+            · {inspection.persona} · {inspection.sessionId || "keine Session"}
+          </span>
+        </div>
+        <button style={{ ...btn, padding: "4px 10px" }} onClick={onClose}>✕</button>
+      </div>
+
+      <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+        <details>
+          <summary style={{ cursor: "pointer", fontSize: 13, opacity: 0.8 }}>
+            Systemprompt ({inspection.systemPrompt.length} Zeichen)
+          </summary>
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              fontSize: 11.5,
+              lineHeight: 1.45,
+              background: "#0b0e13",
+              border: "1px solid #2a2f3a",
+              borderRadius: 10,
+              padding: 10,
+              margin: "8px 0 0",
+              maxHeight: 320,
+              overflowY: "auto",
+            }}
+          >
+            {inspection.systemPrompt}
+          </pre>
+        </details>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <span style={{ fontSize: 12, opacity: 0.6, textTransform: "uppercase", letterSpacing: 1 }}>
+            Verlauf ({inspection.turns.length} Turns)
+          </span>
+          {inspection.turns.length === 0 && (
+            <span style={{ opacity: 0.45, fontSize: 13 }}>noch keine Unterhaltung</span>
+          )}
+          {inspection.turns.map((t, i) => (
+            <div
+              key={i}
+              style={{
+                border: "1px solid #232936",
+                borderRadius: 10,
+                padding: "8px 10px",
+                fontSize: 13,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.75 }}>
+                <span style={{ color: roleColor(t.role) }}>
+                  {t.role === "user" ? "Gast" : "CoSiMo"} · {t.modality} · {t.lang}
+                </span>
+                <span>
+                  {t.faceEmotion ? `${t.faceEmotion} · ` : ""}
+                  {t.latencyMs != null ? `${(t.latencyMs / 1000).toFixed(1)}s · ` : ""}
+                  {t.outcome ?? ""}
+                </span>
+              </div>
+              <div style={{ whiteSpace: "pre-wrap" }}>{t.transcript || <i style={{ opacity: 0.4 }}>(leer)</i>}</div>
+              {t.action && (
+                <code style={{ fontSize: 11, opacity: 0.8, background: "#0b0e13", borderRadius: 6, padding: "3px 6px" }}>
+                  ⚙ {t.action.tool}
+                  {t.action.control ? ` ${t.action.control}` : ""}
+                  {t.action.args ? ` ${JSON.stringify(t.action.args)}` : ""}
+                </code>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function SeatCard({
   seat,
   personas,
   onPersona,
   onLight,
   onReset,
+  onInspect,
 }: {
   seat: SeatSummary;
   personas: PersonaBroadcast[];
   onPersona: (key: PersonaKey) => void;
   onLight: (control: (typeof TOGGLE_CONTROLS)[number]["id"], on: boolean) => void;
   onReset: () => void;
+  onInspect: () => void;
 }) {
   return (
     <section style={{ ...card, borderColor: seat.phase !== "idle" ? "#1f6feb" : "#2a2f3a" }}>
@@ -184,9 +305,10 @@ function SeatCard({
         )}
       </div>
 
-      <button style={{ ...btn, alignSelf: "flex-start" }} onClick={onReset}>
-        Sitz zurücksetzen
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={btn} onClick={onInspect}>🔍 Verlauf</button>
+        <button style={btn} onClick={onReset}>Sitz zurücksetzen</button>
+      </div>
     </section>
   );
 }
@@ -300,12 +422,20 @@ export default function HostConsole() {
               key={seat.deviceId}
               seat={seat}
               personas={c.personas}
+              onInspect={() => c.inspectSeat(seat.deviceId)}
               onPersona={(p) => c.setPersona(p, seat.deviceId)}
               onLight={(control, on) => c.overrideLight(seat.deviceId, control, on)}
               onReset={() => c.resetSession(seat.deviceId)}
             />
           ))}
         </div>
+      )}
+      {c.inspection && (
+        <InspectorDrawer
+          inspection={c.inspection}
+          onRefresh={() => c.inspectSeat(c.inspection!.deviceId)}
+          onClose={() => c.clearInspection()}
+        />
       )}
       {idleSeats.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>

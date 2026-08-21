@@ -1,10 +1,13 @@
+import type { SchemeId } from "@cosimo/shared";
+
 /**
  * Two-colour app schemes, ported from CoSiMo-mockup. `bg` is the background,
  * `ink` is the foreground used for text and the Face's `currentColor` strokes.
- * Phase 3 maps personas to these for high-contrast / themed presentation.
+ * Profiles select schemes by id; the id vocabulary is SCHEME_IDS in
+ * @cosimo/shared (typed here, validated by the agent's set_presentation).
  */
 export interface ColorScheme {
-  id: string;
+  id: SchemeId;
   label: string;
   bg: string;
   ink: string;

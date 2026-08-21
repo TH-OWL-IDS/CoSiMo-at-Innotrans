@@ -10,6 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import {
   CABIN_CONTROLS,
   EXPRESSIVE_EMOTIONS,
+  SCHEME_IDS,
   isFaceEmotion,
   type Accommodations,
   type CabinControlId,
@@ -96,7 +97,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. audioOutput/showText/reduceMotion: true|false. speechRate: 0.5–1.5. theme: a colour-scheme id. language: de|en.",
+            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. audioOutput/showText/reduceMotion: true|false. speechRate: 0.5–1.5. language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
         },
       },
       required: ["setting", "value"],
@@ -172,10 +173,14 @@ function presentationPatch(setting: string, value: unknown): PresPatch {
         ? { patch: { speechRate: n } }
         : { error: "speechRate must be a number 0.5–1.5" };
     }
-    case "theme":
-      return typeof value === "string" && value.trim()
-        ? { patch: { theme: value.trim() } }
-        : { error: "theme must be a scheme id" };
+    case "theme": {
+      // Strict: an unknown id would silently render as "classic" on the
+      // kiosk while CoSiMo claims success (the LLM once sent "dark").
+      const id = String(value).trim().toLowerCase();
+      return (SCHEME_IDS as readonly string[]).includes(id)
+        ? { patch: { theme: id } }
+        : { error: `theme must be one of: ${SCHEME_IDS.join("|")}` };
+    }
     case "language":
       return value === "de" || value === "en"
         ? { patch: { language: value } }
@@ -192,6 +197,10 @@ export interface ToolContext {
   profiles: ProfileSink;
   lang: Locale;
   deviceId: string;
+  /** The calling seat's session — scopes per-seat effects (the face) to it. */
+  sessionId: string;
+  /** The seat's turn number, so a barged-in turn's emotion is dropped. */
+  turn: number;
   /** The active profile key for the calling seat (for profile-mutating tools). */
   persona: PersonaKey;
   /** Whether the visitor consented to being remembered (gates `remember`). */
@@ -239,7 +248,10 @@ export async function executeTool(
       if (!isFaceEmotion(emotion)) {
         return { text: `error: unknown emotion "${String(emotion)}"`, action: { tool: name } };
       }
-      ctx.hub.setEmotion(emotion);
+      // Per seat: the face belongs to the rider who caused it. Broadcasting
+      // here coloured all four cabin faces from one seat's conversation, and
+      // bypassed the turn guard that drops a barged-in turn's leftovers.
+      ctx.hub.setEmotion(emotion, ctx.sessionId, ctx.turn);
       return { text: "ok", action: { tool: name, args: { emotion } }, emotion: emotion as ExpressiveEmotion };
     }
 
