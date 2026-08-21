@@ -553,7 +553,11 @@ export class Hub {
       if (id) {
         const e = this.devices.get(id);
         e?.unsubscribeLog?.();
-        if (e?.role === "kiosk") logger.log("seat.disconnect", { role: "kiosk" }, { deviceId: id });
+        // The entry still knows which session was on the seat — log it, so a
+        // drop mid-conversation is attributable in the Log tab.
+        if (e?.role === "kiosk") {
+          logger.log("seat.disconnect", { role: "kiosk" }, { deviceId: id, sessionId: e.sessionId || undefined });
+        }
         this.clearDecay(id);
         this.turnBudget.delete(id);
         this.devices.delete(id);
