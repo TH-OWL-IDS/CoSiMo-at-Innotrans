@@ -1,5 +1,8 @@
 # packages/face + packages/client — the face engine and the socket hook
 
+(The seat *around* the face — stage, cutouts, transcript, consent — is
+`packages/seat-ui`, see [emulator.md](emulator.md).)
+
 ## packages/face
 
 CoSiMo's hand-drawn scribble face, ported from the CoSiMo-mockup project

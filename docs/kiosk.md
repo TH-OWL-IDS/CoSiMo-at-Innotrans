@@ -5,6 +5,12 @@ A Vite + React SPA wrapped with Capacitor into a native iOS app
 never sleeps). It is deliberately a *thin client*: all intelligence lives in
 the realtime service; the app renders CoSiMo and forwards input.
 
+What the rider sees (`useSeat` + `SeatView`) lives in **`packages/seat-ui`**
+and is shared with the browser [emulator](emulator.md); this app adds only
+what the iPad has — HID input, the cabin-LAN actuator, server-URL and
+calibration persistence, the setup screen. **Change rider-facing UI in
+seat-ui**, so both stay identical.
+
 ## The panel UI
 
 The iPad sits behind a physical panel with exactly two cutouts. Everything
@@ -27,8 +33,9 @@ outside them renders pitch black (invisible, no light bleed):
 
 The panel never aligns pixel-perfect with hardcoded positions. Cutout
 geometry (circle x/y/diameter, slit x/y/w/h/corner-radius, all in % of
-screen) lives in `src/config/panelLayout.ts`, persisted per device via
-Capacitor Preferences, and is edited in the hidden operator screen — which
+screen) is the `PanelLayout` type from seat-ui; `src/config/panelLayout.ts`
+persists it per device via Capacitor Preferences, and it is edited in the
+hidden operator screen — which
 also has a "show outlines" toggle that draws the cutout borders for
 physical alignment on mounting day.
 

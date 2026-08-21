@@ -12,7 +12,8 @@ pnpm --filter @cosimo/kiosk dev   # kiosk in the browser (port 5173)
 ```
 
 Ports: **3001** cms (3000 is reserved for another local project — never
-kill it), **4000** realtime, **5173** kiosk dev, 5432 postgres.
+kill it), **4000** realtime, **5173** kiosk dev, **5174** seat emulator
+dev, 5432 postgres.
 
 The kiosk dev server proxies `/socket.io` → 4000 and `/api` → 3001, so the
 browser kiosk runs same-origin like production. The native app in the
@@ -42,11 +43,13 @@ CMS-editable at runtime via the operator-config global.
 
 The VPS is already fronted by a Cloudflare Tunnel (`cloudflared` runs with
 `--network host`, token/dashboard-managed) that maps hostnames to localhost
-ports — the same pattern every other app on the box uses. CoSiMo takes **two
+ports — the same pattern every other app on the box uses. CoSiMo takes **three
 hostnames**:
 
 - `cosimo.homannjohannes.de` → CMS (admin + `/host` console)
 - `ws-cosimo.homannjohannes.de` → realtime (the WebSocket the kiosks use)
+- `seat-cosimo.homannjohannes.de` → the seat emulator (a browser iPad, see
+  [emulator.md](emulator.md)) — static bundle behind nginx
 
 Cloudflare terminates TLS at the edge, so nothing on the box needs certs and
 nothing is published to the public internet — cms and realtime bind to
@@ -58,22 +61,27 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --env-file .env.prod up -d --build
 ```
 
-Then add the two public hostnames in the Cloudflare dashboard (Zero Trust →
+Then add the three public hostnames in the Cloudflare dashboard (Zero Trust →
 Networks → Tunnels → your tunnel → Public Hostnames), just like the other
 services on the box:
 
 - `cosimo.homannjohannes.de` → `http://localhost:6220`
 - `ws-cosimo.homannjohannes.de` → `http://localhost:6221`
+- `seat-cosimo.homannjohannes.de` → `http://localhost:6222`
 
 Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 
 What the prod overlay changes:
 
-- cms + realtime bind to `127.0.0.1:6220` / `127.0.0.1:6221` (free ports on
-  the box — 3001/4000 are taken by other apps). Postgres publishes nothing.
+- cms + realtime + emulator bind to `127.0.0.1:6220` / `6221` / `6222`
+  (free ports on the box — 3001/4000 are taken by other apps). Postgres
+  publishes nothing.
 - CORS on realtime = `https://cosimo.homannjohannes.de` (the `/host` page
-  origin) + `capacitor://localhost` (the native app). The ws- host is the
-  target, not an origin, so it is not listed.
+  origin) + `https://seat-cosimo.homannjohannes.de` (the emulator) +
+  `capacitor://localhost` (the native app). The ws- host is the target, not
+  an origin, so it is not listed.
+- The emulator's realtime URL is a **build arg** (`VITE_REALTIME_URL`) —
+  it is a static bundle, so like `NEXT_PUBLIC_*` it is inlined at build.
 - **`NEXT_PUBLIC_*` are passed as build args** so the `/host` console's
   browser code is compiled with the right realtime URL — they can't be set
   at runtime (Next inlines them at build). The overlay wires this up.

@@ -68,10 +68,11 @@ export const config = {
     emotionDecayMs: num("FACE_EMOTION_DECAY_MS", 10_000),
     idleSleepMs: num("FACE_IDLE_SLEEP_MS", 120_000),
   },
-  /** Allowed CORS origins: host console (3001), kiosk dev server (5173) and
-   *  the native kiosk WebView. Override via CORS_ORIGINS in prod. */
+  /** Allowed CORS origins: host console (3001), kiosk dev server (5173),
+   *  seat emulator (5174) and the native kiosk WebView. Override via
+   *  CORS_ORIGINS in prod. */
   corsOrigins: (
     process.env.CORS_ORIGINS ??
-    "http://localhost:3001,http://localhost:5173,capacitor://localhost"
+    "http://localhost:3001,http://localhost:5173,http://localhost:5174,capacitor://localhost"
   ).split(","),
 } as const;

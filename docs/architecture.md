@@ -33,13 +33,19 @@ iPad (×4)                      VPS / dev machine                cloud
   live path — the realtime service reads it on short TTLs and falls back to
   built-in defaults when it's unreachable.
 
-Two shared packages keep the sides honest:
+A fourth, optional app — **[apps/emulator](emulator.md)** — is a browser
+iPad: the same seat UI with the hardware replaced by a side panel, so a seat
+can be driven from anywhere (its own static service on the VPS).
+
+Shared packages keep the sides honest:
 
 - **`packages/shared`** — the contract: emotion vocabulary, WebSocket event
   types, telemetry/persona/session shapes. Realtime and all clients import
   the same types, so protocol drift is a compile error.
 - **`packages/face` + `packages/client`** — the [face engine](face.md) and
   the `useCosimoSocket` hook, shared by the kiosk and the host console.
+- **`packages/seat-ui`** — the seat as the rider sees it (`useSeat`,
+  `SeatView`), rendered identically by the iPad app and the emulator.
 
 ## Global vs. per-seat — the core state model
 

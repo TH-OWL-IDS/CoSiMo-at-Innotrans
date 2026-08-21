@@ -16,22 +16,28 @@ live in [docs/](docs/).
 | [docs/personas.md](docs/personas.md) | Rider profiles: accommodations vs. brief vs. memories, the clean-plate default, the adapt/remember tools, GDPR stance |
 | [docs/cms.md](docs/cms.md) | Payload collections/globals, seeding, schema-change workflow, host console |
 | [docs/face.md](docs/face.md) | The scribble face engine and the shared socket hook (incl. the mouth-sync design) |
+| [docs/emulator.md](docs/emulator.md) | The browser seat emulator and `packages/seat-ui` — the seat UI shared by iPad and browser |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 
 ## Repo shape
 
-pnpm monorepo. Three apps, three shared packages — **treat the apps as
+pnpm monorepo. Four apps, four shared packages — **treat the apps as
 separate systems** that only meet through `packages/shared`:
 
-- `apps/kiosk` — visitor iPad app (Vite + React + Capacitor). Thin client.
+- `apps/kiosk` — visitor iPad app (Vite + React + Capacitor). Thin client;
+  holds only what the iPad has (HID input, cabin-LAN actuator, calibration).
+- `apps/emulator` — a browser iPad: the same seat UI, hardware replaced by
+  a side panel. Its own static service (`seat-cosimo.…`).
 - `apps/realtime` — Socket.IO hub + agent loop (Node). The live path.
 - `apps/cms` — Payload 3 + Next 15 + Postgres. Authored/persisted state;
   admin at `/`→`/admin`, operator console at `/host`.
 - `packages/shared` — THE contract (types only): ws events, emotions,
   telemetry, personas, sessions. Protocol changes start here.
 - `packages/face` — the animated face engine. `packages/client` — the
-  `useCosimoSocket` hook. Both consumed by kiosk and cms.
+  `useCosimoSocket` hook. `packages/seat-ui` — the seat as the rider sees
+  it (`useSeat` + `SeatView`), rendered identically by kiosk and emulator.
+  **Rider-facing UI changes go in seat-ui, never in one app alone.**
 
 ## Commands
 
@@ -41,6 +47,7 @@ pnpm -r --no-bail typecheck            # the verification gate — keep it green
 docker compose up -d postgres cms      # DB + cms on :3001
 cd apps/realtime && pnpm start         # realtime on :4000 (loads root .env.local)
 pnpm --filter @cosimo/kiosk dev        # kiosk in browser on :5173
+pnpm --filter @cosimo/emulator dev     # seat emulator on :5174
 cd apps/cms && pnpm seed               # idempotent demo content
 cd apps/cms && pnpm generate:types     # after Payload schema changes
 cd apps/kiosk && pnpm cap:sync         # rebuild native app bundle
@@ -93,10 +100,11 @@ client against :4000 works well — see the smoke pattern in git history).
 ## Environment facts
 
 - Ports: cms 3001 (3000 is reserved by an unrelated project — leave it
-  alone), realtime 4000, kiosk dev 5173.
+  alone), realtime 4000, kiosk dev 5173, emulator dev 5174.
 - Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
-  `ws-cosimo.homannjohannes.de` → realtime. The kiosk is socket-only, so
-  it bakes the ws- host in `serverUrl.ts`.
+  `ws-cosimo.homannjohannes.de` → realtime, `seat-cosimo.homannjohannes.de`
+  → emulator. The kiosk is socket-only, so it bakes the ws- host in
+  `serverUrl.ts`; the emulator bakes it at build (`VITE_REALTIME_URL`).
 - iOS builds: `ios/` is committed; `xcode-select` on this machine points at
   CommandLineTools, so prefix Capacitor/xcodebuild with
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
