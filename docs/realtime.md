@@ -2,7 +2,7 @@
 
 A single Node process (Express + Socket.IO) that owns everything *live*:
 the connection hub, the agent loop, speech bridges, per-seat state, and
-resilience. Port 4000; health endpoint at `/health`.
+resilience. Port 6101; health endpoint at `/health`.
 
 ## The hub (`src/hub.ts`)
 

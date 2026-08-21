@@ -33,13 +33,13 @@ services:
       args:
         NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
     ports: !override
-      - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:3001"
+      - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:6100"
     environment:
       NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
 
   realtime:
     ports: !override
-      - "127.0.0.1:${COSIMO_RT_PORT:-6221}:4000"
+      - "127.0.0.1:${COSIMO_RT_PORT:-6221}:6101"
     environment:
       # Origins that open sockets to realtime: the native kiosk WebView, the
       # host console and the seat emulator. The CMS opens no sockets; ws- is

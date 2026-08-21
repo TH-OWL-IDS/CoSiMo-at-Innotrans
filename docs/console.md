@@ -2,7 +2,7 @@
 
 What booth staff have open on a phone or spare iPad during the show. Its own
 static service (Vite bundle, nginx in prod) — `console-cosimo.…` on the VPS,
-`:5174` locally — deliberately **not** part of the CMS: the CMS is a UI for
+`:6102` locally — deliberately **not** part of the CMS: the CMS is a UI for
 the database and plays no role during the show, while this is the one page
 that must stay up *during* it. A socket-only client of the realtime hub; it
 never calls the CMS (not even for the persona list).
@@ -33,12 +33,12 @@ on the page. Add it before the fair.
 
 Resolution order mirrors the kiosk: `?server=https://…` in the URL (remembered
 in localStorage; `?server=` clears it) → the build-time `VITE_REALTIME_URL` →
-same-origin (the Vite dev proxy to `:4000`). The prod image bakes the ws- host;
-the realtime CORS list must include the origin (prod overlay adds `https://$COSIMO_CONSOLE_DOMAIN`, dev allows `localhost:5174`).
+same-origin (the Vite dev proxy to `:6101`). The prod image bakes the ws- host;
+the realtime CORS list must include the origin (prod overlay adds `https://$COSIMO_CONSOLE_DOMAIN`, dev allows `localhost:6102`).
 
 ## Run
 
 ```bash
-pnpm --filter @cosimo/console dev         # :5174, socket proxied to :4000
+pnpm --filter @cosimo/console dev         # :6102, socket proxied to :6101
 # prod: part of docker-compose.prod.yml → console-cosimo.homannjohannes.de
 ```

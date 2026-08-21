@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 5175",
+    "dev": "vite --host --port 6103",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 5175",
+    "preview": "vite preview --port 6103",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

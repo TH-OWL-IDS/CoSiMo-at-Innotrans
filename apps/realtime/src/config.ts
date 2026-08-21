@@ -19,7 +19,7 @@ function num(name: string, fallback: number): number {
 }
 
 export const config = {
-  port: num("REALTIME_PORT", 4000),
+  port: num("REALTIME_PORT", 6101),
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY ?? "",
     model: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
@@ -34,7 +34,7 @@ export const config = {
     apiKey: process.env.LLM_API_KEY ?? "",
   },
   payload: {
-    internalUrl: process.env.PAYLOAD_INTERNAL_URL ?? "http://localhost:3001",
+    internalUrl: process.env.PAYLOAD_INTERNAL_URL ?? "http://localhost:6100",
     apiKey: process.env.PAYLOAD_API_KEY ?? "",
     /** Shared secret authorizing server-to-server writes to the CMS. */
     internalKey: process.env.PAYLOAD_INTERNAL_KEY ?? "",
@@ -68,11 +68,11 @@ export const config = {
     emotionDecayMs: num("FACE_EMOTION_DECAY_MS", 10_000),
     idleSleepMs: num("FACE_IDLE_SLEEP_MS", 120_000),
   },
-  /** Allowed CORS origins: cms (3001), console dev (5174), emulator dev
-   *  (5175) and the native kiosk WebView. Override via
+  /** Allowed CORS origins: cms (6100), console dev (6102), emulator dev
+   *  (6103) and the native kiosk WebView. Override via
    *  CORS_ORIGINS in prod. */
   corsOrigins: (
     process.env.CORS_ORIGINS ??
-    "http://localhost:3001,http://localhost:5174,http://localhost:5175,capacitor://localhost"
+    "http://localhost:6100,http://localhost:6102,http://localhost:6103,capacitor://localhost"
   ).split(","),
 } as const;

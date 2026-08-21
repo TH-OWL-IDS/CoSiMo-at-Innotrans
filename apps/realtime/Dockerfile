@@ -14,7 +14,7 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/realtime apps/realtime
 
-EXPOSE 4000
+EXPOSE 6101
 # Run via tsx so the workspace TS (incl. @cosimo/shared) resolves without a
 # separate build step — fine for the showcase service.
 CMD ["pnpm", "--filter", "@cosimo/realtime", "run", "start"]

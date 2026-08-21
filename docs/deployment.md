@@ -6,20 +6,19 @@
 corepack enable
 cp .env.example .env.local        # fill ANTHROPIC_API_KEY etc.
 pnpm install
-docker compose up -d postgres cms # DB + admin/host console (port 3001)
-cd apps/realtime && pnpm start    # agent + socket hub (port 4000)
-pnpm --filter @cosimo/console dev   # operator console (port 5174)
-pnpm --filter @cosimo/emulator dev  # a browser iPad (port 5175)
+docker compose up -d postgres cms # DB + admin/host console (port 6100)
+cd apps/realtime && pnpm start    # agent + socket hub (port 6101)
+pnpm --filter @cosimo/console dev   # operator console (port 6102)
+pnpm --filter @cosimo/emulator dev  # a browser iPad (port 6103)
 ```
 
-Ports: **3001** cms (3000 is reserved for another local project — never
-kill it), **4000** realtime, **5174** console dev, **5175** emulator dev,
+Ports: **6100** cms, **6101** realtime, **6102** console dev, **6103** emulator dev,
 5432 postgres. The kiosk has no dev server — it is the native app; the
 emulator is its browser stand-in.
 
-The console and emulator dev servers proxy `/socket.io` → 4000, so the
+The console and emulator dev servers proxy `/socket.io` → 6101, so the
 browser runs same-origin like production. The native app in the Simulator
-reaches the Mac's services via `http://localhost:4000` (enter it once via the
+reaches the Mac's services via `http://localhost:6101` (enter it once via the
 hidden operator screen — 3s hold on the telemetry slit).
 
 Realtime can also run in Docker (`docker compose up -d`), but running it
@@ -79,7 +78,7 @@ Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 What the prod overlay changes:
 
 - cms / realtime / host / emulator bind to `127.0.0.1:6220` / `6221` /
-  `6222` / `6223` (free ports on the box — 3001/4000 are taken by other
+  `6222` / `6223` (free ports on the box — 6100/6101 are taken by other
   apps). Postgres publishes nothing.
 - CORS on realtime = the host console + the emulator origins +
   `capacitor://localhost` (the native app). The CMS opens no sockets; the

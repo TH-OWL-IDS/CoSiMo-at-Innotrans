@@ -40,9 +40,9 @@ services:
       DATABASE_URI: ${DATABASE_URI:-postgres://cosimo:cosimo_dev@postgres:5432/cosimo}
       PAYLOAD_SECRET: ${PAYLOAD_SECRET:-dev-secret}
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
-      NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001}
+      NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:6100}
     ports:
-      - "${CMS_PORT:-3001}:3001"
+      - "${CMS_PORT:-6100}:6100"
 
   realtime:
     build:
@@ -58,12 +58,12 @@ services:
       - path: .env.local
         required: false
     environment:
-      REALTIME_PORT: 4000
-      PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:3001}
+      REALTIME_PORT: 6101
+      PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:6100}
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
-      CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:3001},http://localhost:5174,http://localhost:5175,capacitor://localhost
+      CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:6100},http://localhost:6102,http://localhost:6103,capacitor://localhost
     ports:
-      - "${REALTIME_PORT:-4000}:4000"
+      - "${REALTIME_PORT:-6101}:6101"
 
   # Host console — the live operator console (static bundle). On the VPS it
   # is the control surface during the show. Locally the dev server is faster.
@@ -72,10 +72,10 @@ services:
       context: .
       dockerfile: apps/console/Dockerfile
       args:
-        VITE_REALTIME_URL: ${REALTIME_PUBLIC_URL:-http://localhost:4000}
+        VITE_REALTIME_URL: ${REALTIME_PUBLIC_URL:-http://localhost:6101}
     restart: unless-stopped
     ports:
-      - "${CONSOLE_PORT:-5174}:80"
+      - "${CONSOLE_PORT:-6102}:80"
 
   # Seat emulator — a browser stand-in for one iPad (static bundle). Optional.
   emulator:
@@ -83,10 +83,10 @@ services:
       context: .
       dockerfile: apps/emulator/Dockerfile
       args:
-        VITE_REALTIME_URL: ${REALTIME_PUBLIC_URL:-http://localhost:4000}
+        VITE_REALTIME_URL: ${REALTIME_PUBLIC_URL:-http://localhost:6101}
     restart: unless-stopped
     ports:
-      - "${EMULATOR_PORT:-5175}:80"
+      - "${EMULATOR_PORT:-6103}:80"
 
 volumes:
   pgdata:

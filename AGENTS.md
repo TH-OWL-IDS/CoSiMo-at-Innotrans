@@ -49,10 +49,10 @@ separate systems** that only meet through `packages/shared`:
 ```bash
 pnpm install
 pnpm -r --no-bail typecheck            # the verification gate — keep it green
-docker compose up -d postgres cms      # DB + cms on :3001
-cd apps/realtime && pnpm start         # realtime on :4000 (loads root .env.local)
-pnpm --filter @cosimo/console dev         # operator console on :5174
-pnpm --filter @cosimo/emulator dev     # seat emulator on :5175
+docker compose up -d postgres cms      # DB + cms on :6100
+cd apps/realtime && pnpm start         # realtime on :6101 (loads root .env.local)
+pnpm --filter @cosimo/console dev         # operator console on :6102
+pnpm --filter @cosimo/emulator dev     # seat emulator on :6103
 cd apps/cms && pnpm seed               # idempotent demo content
 cd apps/cms && pnpm generate:types     # after Payload schema changes
 cd apps/kiosk && pnpm cap:sync         # rebuild native app bundle
@@ -60,7 +60,7 @@ cd apps/kiosk && pnpm cap:sync         # rebuild native app bundle
 
 There is no test suite yet; `pnpm -r typecheck` is the bar every change
 must clear. For behavior, exercise the real stack (a scripted socket.io
-client against :4000 works well — see the smoke pattern in git history).
+client against :6101 works well — see the smoke pattern in git history).
 
 ## Rules that keep this codebase coherent
 
@@ -104,8 +104,7 @@ client against :4000 works well — see the smoke pattern in git history).
 
 ## Environment facts
 
-- Ports: cms 3001 (3000 is reserved by an unrelated project — leave it
-  alone), realtime 4000, console dev 5174, emulator dev 5175. The kiosk
+- Ports: cms 6100, realtime 6101, console dev 6102, emulator dev 6103. The kiosk
   has no browser dev server — it is the native app; use the emulator.
 - Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
   `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,

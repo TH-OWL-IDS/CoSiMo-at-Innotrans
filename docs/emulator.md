@@ -5,7 +5,7 @@ without an iPad, a panel, an ESP32 or the cabin. To the hub it **is** a seat:
 it connects with `role: "kiosk"` through the same `useCosimoSocket`, gets a
 session, a profile, consent, telemetry, streamed replies and TTS audio, and
 shows up as a seat card in the [host console](console.md). Its own static
-service — `seat-cosimo.…` on the VPS, `:5175` locally — separate from the
+service — `seat-cosimo.…` on the VPS, `:6103` locally — separate from the
 host console because they serve different people (developers vs booth staff).
 
 A browser stand-in for one kiosk seat, so CoSiMo can be driven end-to-end
@@ -58,12 +58,12 @@ Voice needs a secure origin for the mic (https or localhost) plus server STT
 
 Resolution order mirrors the kiosk: `?server=https://…` in the URL (remembered
 in localStorage; `?server=` clears it) → the build-time `VITE_REALTIME_URL` →
-same-origin (the Vite dev proxy to `:4000`). The prod image bakes the ws- host;
-the realtime CORS list must include the origin (prod overlay adds `https://$COSIMO_SEAT_DOMAIN`, dev allows `localhost:5175`).
+same-origin (the Vite dev proxy to `:6101`). The prod image bakes the ws- host;
+the realtime CORS list must include the origin (prod overlay adds `https://$COSIMO_SEAT_DOMAIN`, dev allows `localhost:6103`).
 
 ## Run
 
 ```bash
-pnpm --filter @cosimo/emulator dev     # :5175, socket proxied to :4000
+pnpm --filter @cosimo/emulator dev     # :6103, socket proxied to :6101
 # prod: part of docker-compose.prod.yml → seat-cosimo.homannjohannes.de
 ```

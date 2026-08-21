@@ -23,7 +23,7 @@ export default buildConfig({
   globals: [OperatorConfig, RouteConfig],
   // The native kiosk app's WebView origin, plus the public site itself.
   cors: [
-    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3001",
+    process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:6100",
     "capacitor://localhost",
   ],
   editor: lexicalEditor(),
