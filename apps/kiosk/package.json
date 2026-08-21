@@ -17,6 +17,7 @@
     "@capacitor/preferences": "^7.0.1",
     "@cosimo/client": "workspace:*",
     "@cosimo/face": "workspace:*",
+    "@cosimo/seat-ui": "workspace:*",
     "@cosimo/shared": "workspace:*",
     "react": "19.1.2",
     "react-dom": "19.1.2"

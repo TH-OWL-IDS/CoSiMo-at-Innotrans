@@ -1,0 +1,306 @@
+import { useEffect, useRef, type ReactNode } from "react";
+import type { Locale, PipelinePhase } from "@cosimo/shared";
+import { CosimoFaceAnimated } from "@cosimo/face";
+import TelemetryStrip from "./TelemetryStrip.js";
+import ConsentOverlay from "./ConsentOverlay.js";
+import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
+import type { Seat } from "./useSeat.js";
+
+/**
+ * Running conversation, shown inside the circle for text-first (deaf) riders:
+ * a small face sits above, this fills the rest and auto-scrolls to the latest.
+ * No replay button — re-requests stay conversational ("say that again").
+ */
+function Transcript({
+  items,
+  reply,
+  replying,
+  ink,
+  textScale,
+  bold,
+}: {
+  items: { role: "user" | "cosimo"; text: string }[];
+  reply: string;
+  replying: boolean;
+  ink: string;
+  textScale: number;
+  bold: boolean;
+}) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [items.length, reply]);
+
+  return (
+    <div
+      ref={boxRef}
+      role="log"
+      aria-live="polite"
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: "36%",
+        transform: "translateX(-50%)",
+        width: "78%",
+        height: "56%",
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: `${6 * textScale}px`,
+        fontSize: `${13 * textScale}px`,
+        lineHeight: 1.35,
+        fontWeight: bold ? 700 : 400,
+        color: ink,
+        scrollbarWidth: "none",
+      }}
+    >
+      {/* no idle hint — talking happens via the physical button */}
+      {items.map((m, i) => (
+        <div
+          key={i}
+          style={{
+            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+            textAlign: m.role === "user" ? "right" : "left",
+            maxWidth: "88%",
+            opacity: m.role === "user" ? 0.6 : 1,
+          }}
+        >
+          {m.text}
+        </div>
+      ))}
+      {replying && reply && (
+        <div style={{ alignSelf: "flex-start", maxWidth: "88%" }}>{reply} ▍</div>
+      )}
+    </div>
+  );
+}
+
+// No idle hint — talking happens via the physical button, not the screen.
+const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
+  idle: { de: "", en: "" },
+  listening: { de: "Hört zu …", en: "Listening …" },
+  thinking: { de: "Denkt nach …", en: "Thinking …" },
+  speaking: { de: "", en: "" },
+};
+
+/**
+ * The seat as the rider sees it: a black stage with two cutouts — a circle
+ * (CoSiMo's face) and a slit (telemetry) — exactly as the physical panel
+ * reveals them. Rendered identically by the native iPad app and the browser
+ * emulator; only *what drives it* differs (HID keys vs on-screen buttons),
+ * and that lives outside this component.
+ *
+ * The circle is display-only: touch does nothing here by design. The one
+ * gesture is the operator's — a 3s hold on the slit (`onSlitHold`).
+ */
+export default function SeatView({
+  seat,
+  layout,
+  fullscreen,
+  onSlitHold,
+  children,
+}: {
+  seat: Seat;
+  layout: PanelLayout;
+  /**
+   * True on the iPad: the stage is the whole screen. False in a browser:
+   * a centred portrait frame in the iPad mini's aspect ratio, so the
+   * calibrated layout never overlaps in a landscape window.
+   */
+  fullscreen: boolean;
+  /** Operator gesture: the slit was held for 3 seconds. */
+  onSlitHold?: () => void;
+  /** Overlays drawn on top of the stage (e.g. the hidden test console). */
+  children?: ReactNode;
+}) {
+  const { cosimo, lang, scheme, textScale, highContrast, showText, reduceMotion, ptt } = seat;
+
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdStart = () => {
+    if (onSlitHold) holdTimer.current = setTimeout(onSlitHold, 3000);
+  };
+  const holdEnd = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  // All panel geometry is measured against the STAGE (a CSS size container),
+  // not the viewport — on the iPad the two coincide.
+  const circleSize = `min(${layout.circleD}cqw, 96cqh)`;
+  const guide = layout.guides ? "2px dashed rgba(255,80,80,0.9)" : "none";
+
+  return (
+    <main
+      style={{
+        position: "fixed",
+        inset: 0,
+        // Behind the panel: pitch black, so light bleed around cutouts is invisible.
+        background: "#000",
+        color: scheme.ink,
+        overflow: "hidden",
+        // Kiosk surface: long-pressing must never select text or pop the
+        // OS copy/look-up callout (iPad long-press, desktop drag-select).
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        // Center the stage when it doesn't fill the window (browser).
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        ["--bg" as string]: scheme.bg,
+        ["--ink" as string]: scheme.ink,
+      }}
+    >
+      {/* ── the stage: the iPad's screen ────────────────────────── */}
+      <div
+        style={{
+          position: "relative",
+          containerType: "size",
+          ...(fullscreen
+            ? { width: "100%", height: "100%" }
+            : {
+                width: `min(100%, calc(100vh * (${IPAD_MINI_ASPECT})))`,
+                aspectRatio: IPAD_MINI_ASPECT,
+                maxHeight: "100%",
+                outline: "1px solid rgba(255,255,255,0.12)",
+              }),
+        }}
+      >
+        {/* ── circle cutout: the Face ─────────────────────────────── */}
+        <div
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            position: "absolute",
+            left: `${layout.circleX}%`,
+            top: `${layout.circleY}%`,
+            transform: "translate(-50%, -50%)",
+            width: circleSize,
+            height: circleSize,
+            borderRadius: "50%",
+            background: scheme.bg,
+            overflow: "hidden",
+            outline: guide,
+            touchAction: "none",
+            transition: "background 300ms",
+          }}
+        >
+          {/* the Face — centred by default; shrinks to the top when the rider
+              reads a running transcript (showText). reduceMotion stills its idle life. */}
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: showText ? "18%" : "44%",
+              transform: "translate(-50%, -50%)",
+              width: showText ? "44%" : "88%",
+              transition: "top 300ms, width 300ms",
+            }}
+          >
+            <CosimoFaceAnimated
+              emotion={cosimo.faceEmotion}
+              idle={!reduceMotion}
+              mouthDrive={cosimo.getMouthDrive}
+              style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
+            />
+          </div>
+
+          {/* Reply text is progressive disclosure: face-and-voice-first by
+              default (only a short phase hint); a running transcript when the
+              rider needs to read (showText, e.g. a deaf rider). */}
+          {showText ? (
+            <Transcript
+              items={cosimo.transcript}
+              reply={cosimo.reply}
+              replying={cosimo.replying}
+              ink={scheme.ink}
+              textScale={textScale}
+              bold={highContrast}
+            />
+          ) : (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: "9%",
+                transform: "translateX(-50%)",
+                width: "62%",
+                textAlign: "center",
+                fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
+                lineHeight: 1.35,
+                fontWeight: highContrast ? 700 : 400,
+                opacity: 0.55,
+              }}
+            >
+              {seat.consentDecided ? PHASE_HINT[cosimo.phase][lang] : ""}
+            </div>
+          )}
+
+          {/* listening ring while push-to-talk is held */}
+          {ptt.active && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "50%",
+                border: "6px solid currentColor",
+                opacity: 0.35,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+
+          {/* connection state, tucked at the top of the circle */}
+          {!cosimo.connected && (
+            <div
+              role="status"
+              style={{
+                position: "absolute",
+                top: "7%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                fontSize: "clamp(10px, 2.2cqw, 14px)",
+                opacity: 0.5,
+              }}
+            >
+              {lang === "de" ? "Verbindung wird hergestellt …" : "Connecting …"}
+            </div>
+          )}
+
+          {!seat.consentDecided && (
+            <ConsentOverlay lang={lang} onDecide={seat.decideConsent} onToggleLang={seat.toggleLang} />
+          )}
+        </div>
+
+        {/* ── slit cutout: telemetry ──────────────────────────────── */}
+        <div
+          onPointerDown={holdStart}
+          onPointerUp={holdEnd}
+          onPointerLeave={holdEnd}
+          onPointerCancel={holdEnd}
+          style={{
+            position: "absolute",
+            left: `${layout.slitX}%`,
+            top: `${layout.slitY}%`,
+            transform: "translate(-50%, -50%)",
+            width: `${layout.slitW}%`,
+            height: `${layout.slitH}%`,
+            borderRadius: layout.slitR,
+            background: scheme.bg,
+            color: scheme.ink,
+            overflow: "hidden",
+            outline: guide,
+            transition: "background 300ms",
+          }}
+        >
+          <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+        </div>
+      </div>
+
+      {children}
+    </main>
+  );
+}
