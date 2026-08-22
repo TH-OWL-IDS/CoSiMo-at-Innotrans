@@ -19,12 +19,13 @@ live in [docs/](docs/).
 | [docs/console.md](docs/console.md) | The live operator console (`apps/console`) — what booth staff use during the show |
 | [docs/emulator.md](docs/emulator.md) | The browser iPad (`apps/emulator`) and `packages/seat-ui`, the seat UI shared with the kiosk |
 | [docs/logging.md](docs/logging.md) | The structured debug log: every turn, tool call and actuation — live in the console, NDJSON on disk |
+| [docs/journey.md](docs/journey.md) | The journey simulation (passengers, faults, CMS scenario) and `apps/journey`, the live line diagram |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 
 ## Repo shape
 
-pnpm monorepo. Five apps, four shared packages — **treat the apps as
+pnpm monorepo. Six apps, four shared packages — **treat the apps as
 separate systems** that only meet through `packages/shared`:
 
 - `apps/kiosk` — visitor iPad app (Vite + React + Capacitor). Thin client;
@@ -34,6 +35,9 @@ separate systems** that only meet through `packages/shared`:
 - `apps/emulator` — a browser iPad (static, `seat-cosimo.…`): the same seat
   UI, hardware replaced by a side panel. A developer tool — kept separate
   from the host console on purpose.
+- `apps/journey` — the line as a live horizontal diagram (static,
+  `journey-cosimo.…`): the cab, stops, ETAs, passengers, faults. Read-only;
+  draws the hub's journey simulation.
 - `apps/realtime` — Socket.IO hub + agent loop (Node). The live path.
 - `apps/cms` — Payload 3 + Next 15 + Postgres. **A UI for the database and
   nothing else**: admin at `/`→`/admin` plus the REST API. No live surface
@@ -54,6 +58,7 @@ docker compose up -d postgres cms      # DB + cms on :6100
 cd apps/realtime && pnpm start         # realtime on :6101 (loads root .env.local)
 pnpm --filter @cosimo/console dev         # operator console on :6102
 pnpm --filter @cosimo/emulator dev     # seat emulator on :6103
+pnpm --filter @cosimo/journey dev      # journey view on :6104
 cd apps/cms && pnpm seed               # idempotent demo content
 cd apps/cms && pnpm generate:types     # after Payload schema changes
 cd apps/kiosk && pnpm cap:sync         # rebuild native app bundle
@@ -109,11 +114,12 @@ client against :6101 works well — see the smoke pattern in git history).
 
 ## Environment facts
 
-- Ports: cms 6100, realtime 6101, console dev 6102, emulator dev 6103. The kiosk
-  has no browser dev server — it is the native app; use the emulator.
+- Ports: cms 6100, realtime 6101, console dev 6102, emulator dev 6103,
+  journey dev 6104. The kiosk has no browser dev server — it is the native
+  app; use the emulator.
 - Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
   `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,
-  `seat-cosimo.…` → emulator. The kiosk is socket-only, so it bakes the ws-
+  `seat-cosimo.…` → emulator, `journey-cosimo.…` → journey view. The kiosk is socket-only, so it bakes the ws-
   host in `serverUrl.ts`; the two static apps bake it at build
   (`VITE_REALTIME_URL`).
 - iOS builds: `ios/` is committed; `xcode-select` on this machine points at

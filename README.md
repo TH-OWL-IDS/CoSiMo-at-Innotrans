@@ -18,6 +18,7 @@ packages/seat-ui  the seat as the rider sees it (useSeat + SeatView), shared by 
 apps/kiosk        Vite + React + Capacitor — the native iPad app (the visitor-facing agent)
 apps/console         Vite + React (static)  — the live operator console (booth staff)
 apps/emulator     Vite + React (static)  — a browser iPad (seat emulator, developers)
+apps/journey      Vite + React (static)  — the line as a live diagram: cab, stops, passengers, faults
 apps/cms          Payload CMS + Next.js  — a UI for the database: admin (profiles, route,
                   operator config, recorded sessions) + REST API; nothing live
 apps/realtime     Node + Socket.IO       — agent loop (Claude or an OpenAI-compatible
@@ -48,10 +49,12 @@ pnpm install
 pnpm up                   # docker compose: postgres + cms + realtime
 pnpm --filter @cosimo/console dev      # operator console on http://localhost:6102
 pnpm --filter @cosimo/emulator dev  # seat emulator on http://localhost:6103
+pnpm --filter @cosimo/journey dev   # journey view on http://localhost:6104
 ```
 
 - Host console:          http://localhost:6102
 - Seat emulator:         http://localhost:6103
+- Journey view:          http://localhost:6104
 - CMS admin:             http://localhost:6100
 - Realtime health:       http://localhost:6101/health
 

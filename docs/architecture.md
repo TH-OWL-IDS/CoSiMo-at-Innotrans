@@ -33,10 +33,11 @@ iPad (×4)                      VPS / dev machine                cloud
   Never in the live path — the realtime service reads it on short TTLs and falls back to
   built-in defaults when it's unreachable.
 
-Two more apps are static, socket-only clients of the hub that never touch
-the CMS: **[apps/console](console.md)**, the live operator console booth staff use
-during the show, and **[apps/emulator](emulator.md)**, a browser iPad (the
-same seat UI with the hardware replaced by a side panel) for development.
+Three more apps are static, socket-only clients of the hub that never touch
+the CMS: **[apps/console](console.md)**, the live operator console booth staff
+use during the show; **[apps/emulator](emulator.md)**, a browser iPad (the
+same seat UI with the hardware replaced by a side panel) for development; and
+**[apps/journey](journey.md)**, the line as a live diagram for a booth screen.
 
 Shared packages keep the sides honest:
 

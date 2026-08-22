@@ -42,6 +42,7 @@ turn.end        ok · 2470 ms (stt 610, llm 1460, tts 380) · 1 tool · happy ·
 | `tts.done` | ElevenLabs answered | chars, bytes, duration |
 | `turn.end` | the turn settled | outcome, reply, emotion, total latency, **timings** (stt/llm/tts), tool count, error message |
 | `host.action` | an operator did something | action + args |
+| `fault.start` / `fault.end` | a journey fault began / ended ([journey.md](journey.md)) | kind, duration, by `scenario` / `host` / `elapsed` |
 
 Levels: `debug` (stt/llm/tts timing), `info` (the rest), `warn` (a failed tool
 or actuation, an unknown card, empty STT), `error` (a turn that errored).

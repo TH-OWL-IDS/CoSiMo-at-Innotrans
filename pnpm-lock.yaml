@@ -116,6 +116,37 @@ importers:
         specifier: ^6.0.5
         version: 6.4.3(@types/node@22.20.0)(sass@1.77.4)(tsx@4.22.4)
 
+  apps/journey:
+    dependencies:
+      '@cosimo/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@cosimo/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      react:
+        specifier: 19.1.2
+        version: 19.1.2
+      react-dom:
+        specifier: 19.1.2
+        version: 19.1.2(react@19.1.2)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.2
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.1.2
+        version: 19.2.3(@types/react@19.2.17)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.3(@types/node@22.20.0)(sass@1.77.4)(tsx@4.22.4))
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.3(@types/node@22.20.0)(sass@1.77.4)(tsx@4.22.4)
+
   apps/kiosk:
     dependencies:
       '@capacitor/core':

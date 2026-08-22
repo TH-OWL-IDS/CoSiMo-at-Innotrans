@@ -10,10 +10,11 @@ docker compose up -d postgres cms # DB + admin/host console (port 6100)
 cd apps/realtime && pnpm start    # agent + socket hub (port 6101)
 pnpm --filter @cosimo/console dev   # operator console (port 6102)
 pnpm --filter @cosimo/emulator dev  # a browser iPad (port 6103)
+pnpm --filter @cosimo/journey dev   # the journey view (port 6104)
 ```
 
 Ports: **6100** cms, **6101** realtime, **6102** console dev, **6103** emulator dev,
-5432 postgres. The kiosk has no dev server — it is the native app; the
+**6104** journey dev, 5432 postgres. The kiosk has no dev server — it is the native app; the
 emulator is its browser stand-in.
 
 The console and emulator dev servers proxy `/socket.io` → 6101, so the
@@ -44,7 +45,7 @@ CMS-editable at runtime via the operator-config global.
 
 The VPS is already fronted by a Cloudflare Tunnel (`cloudflared` runs with
 `--network host`, token/dashboard-managed) that maps hostnames to localhost
-ports — the same pattern every other app on the box uses. CoSiMo takes **four
+ports — the same pattern every other app on the box uses. CoSiMo takes **five
 hostnames**:
 
 - `cosimo.homannjohannes.de` → CMS (admin + REST API — nothing live)
@@ -52,7 +53,8 @@ hostnames**:
 - `console-cosimo.homannjohannes.de` → the operator console ([console.md](console.md))
 - `seat-cosimo.homannjohannes.de` → the seat emulator, a browser iPad
   ([emulator.md](emulator.md))
-  — both static bundles behind nginx
+- `journey-cosimo.homannjohannes.de` → the journey view ([journey.md](journey.md))
+  — all three static bundles behind nginx
 
 Cloudflare terminates TLS at the edge, so nothing on the box needs certs and
 nothing is published to the public internet — cms and realtime bind to
@@ -64,7 +66,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --env-file .env.prod up -d --build
 ```
 
-Then add the four public hostnames in the Cloudflare dashboard (Zero Trust →
+Then add the five public hostnames in the Cloudflare dashboard (Zero Trust →
 Networks → Tunnels → your tunnel → Public Hostnames), just like the other
 services on the box:
 
@@ -72,18 +74,18 @@ services on the box:
 - `ws-cosimo.homannjohannes.de` → `http://localhost:6221`
 - `console-cosimo.homannjohannes.de` → `http://localhost:6222`
 - `seat-cosimo.homannjohannes.de` → `http://localhost:6223`
+- `journey-cosimo.homannjohannes.de` → `http://localhost:6224`
 
 Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 
 What the prod overlay changes:
 
-- cms / realtime / host / emulator bind to `127.0.0.1:6220` / `6221` /
-  `6222` / `6223` (free ports on the box — 6100/6101 are taken by other
-  apps). Postgres publishes nothing.
-- CORS on realtime = the host console + the emulator origins +
+- cms / realtime / console / emulator / journey bind to `127.0.0.1:6220`
+  … `6224` (free ports on the box). Postgres publishes nothing.
+- CORS on realtime = the console + emulator + journey origins +
   `capacitor://localhost` (the native app). The CMS opens no sockets; the
   ws- host is the target, not an origin — neither is listed.
-- The two static apps take the realtime URL as a **build arg**
+- The static apps take the realtime URL as a **build arg**
   (`VITE_REALTIME_URL`): the URL is inlined at build — same reason
   `NEXT_PUBLIC_SERVER_URL` is a build arg for the CMS.
 - **pg-backup** sidecar: nightly `pg_dump` into `./backups`, N-day

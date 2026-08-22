@@ -12,9 +12,10 @@ the state model (see [architecture.md](architecture.md)):
 
 - **Global — the journey everyone shares:** service health (LLM, speech,
   light, network, offline-canned, server STT/TTS), live telemetry with demo
-  force buttons (pause/resume the journey, drop battery to 15 %), the
-  demo/offline toggle, **recover** (un-sticks every seat), persona for all
-  seats at once.
+  force buttons (pause/resume the journey, drop battery to 15 %), **fault
+  injection** (⚠ signal hold / door fault / slow order / low battery, and
+  *Störung beheben* — see [journey.md](journey.md)), the demo/offline
+  toggle, **recover** (un-sticks every seat), persona for all seats at once.
 - **Per seat — one card per iPad with an active visitor:** live face +
   phase, the profile (label, accommodations, stored memories), a persona
   dropdown (the manual stand-in for an NFC tap), cabin toggles (override or
