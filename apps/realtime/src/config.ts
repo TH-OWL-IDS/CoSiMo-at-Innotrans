@@ -78,10 +78,10 @@ export const config = {
     idleSleepMs: num("FACE_IDLE_SLEEP_MS", 120_000),
   },
   /** Allowed CORS origins: cms (6100), console dev (6102), emulator dev
-   *  (6103) and the native kiosk WebView. Override via
+   *  (6103), journey dev (6104) and the native kiosk WebView. Override via
    *  CORS_ORIGINS in prod. */
   corsOrigins: (
     process.env.CORS_ORIGINS ??
-    "http://localhost:6100,http://localhost:6102,http://localhost:6103,capacitor://localhost"
+    "http://localhost:6100,http://localhost:6102,http://localhost:6103,http://localhost:6104,capacitor://localhost"
   ).split(","),
 } as const;

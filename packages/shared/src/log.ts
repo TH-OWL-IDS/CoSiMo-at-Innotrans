@@ -11,7 +11,7 @@
 
 import type { CabinControlId } from "./cabin.js";
 import type { FaceEmotion } from "./emotion.js";
-import type { Locale } from "./telemetry.js";
+import type { FaultKind, Locale } from "./telemetry.js";
 import type { PersonaKey } from "./persona.js";
 import type { Modality, TurnOutcome } from "./session.js";
 
@@ -79,6 +79,8 @@ export type LogEvent = Base &
         };
       }
     | { kind: "host.action"; data: { action: string; args: Record<string, unknown> } }
+    | { kind: "fault.start"; data: { fault: FaultKind; durationSec: number; by: "scenario" | "host" } }
+    | { kind: "fault.end"; data: { fault: FaultKind; by: "elapsed" | "host" } }
     | { kind: "service.status"; data: Record<string, boolean> }
   );
 
@@ -99,5 +101,7 @@ export const LOG_KINDS: readonly LogKind[] = [
   "tts.done",
   "turn.end",
   "host.action",
+  "fault.start",
+  "fault.end",
   "service.status",
 ] as const;

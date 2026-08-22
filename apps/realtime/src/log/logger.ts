@@ -44,6 +44,8 @@ const DEFAULT_LEVEL: Record<LogEvent["kind"], LogLevel> = {
   "tts.done": "debug",
   "turn.end": "info",
   "host.action": "info",
+  "fault.start": "warn",
+  "fault.end": "info",
   "service.status": "warn",
 };
 

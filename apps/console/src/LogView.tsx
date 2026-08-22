@@ -33,6 +33,8 @@ const KIND_ICON: Record<LogKind, string> = {
   "tts.done": "🔊",
   "turn.end": "🏁",
   "host.action": "🕹",
+  "fault.start": "⚠️",
+  "fault.end": "✔",
   "service.status": "📡",
 };
 
@@ -70,6 +72,10 @@ function summarize(e: LogEvent): string {
     }
     case "host.action":
       return `${e.data.action} ${JSON.stringify(e.data.args)}`;
+    case "fault.start":
+      return `${e.data.fault} for ${e.data.durationSec}s (${e.data.by})`;
+    case "fault.end":
+      return `${e.data.fault} cleared (${e.data.by})`;
     case "service.status":
       return Object.entries(e.data).map(([k, v]) => `${k}:${v ? "up" : "down"}`).join(" ");
   }

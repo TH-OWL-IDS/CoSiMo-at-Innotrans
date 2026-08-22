@@ -878,6 +878,13 @@ export class Hub {
     return this.devices.size;
   }
 
+  /** Seats with a visitor session in progress — the real passengers. */
+  get activeSeats(): number {
+    let n = 0;
+    for (const e of this.devices.values()) if (e.role === "kiosk" && e.active) n++;
+    return n;
+  }
+
   private now(): string {
     return new Date().toISOString();
   }

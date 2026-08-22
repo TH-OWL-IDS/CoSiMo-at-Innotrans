@@ -412,7 +412,14 @@ export default function HostConsole() {
               </span>
               <span>
                 {c.telemetry.doorsOpen ? "Türen offen" : "Türen zu"} · Akku {Math.round(c.telemetry.batteryPct)} % · {c.telemetry.occupancy}/{c.telemetry.capacity} Plätze
+                {c.telemetry.seats ? ` (${c.telemetry.seats.liveSessions} echt)` : ""}
+                {c.telemetry.delayMinutes ? ` · +${c.telemetry.delayMinutes} min` : ""}
               </span>
+              {(c.telemetry.faults ?? []).map((f) => (
+                <span key={f.kind} style={{ color: "#f0883e" }}>
+                  ⚠ {f.cause.de} ({f.remainingSec}s)
+                </span>
+              ))}
             </div>
           ) : (
             <span style={{ opacity: 0.5 }}>keine Telemetrie</span>
@@ -426,6 +433,16 @@ export default function HostConsole() {
               {c.telemetry?.simPaused ? "▶ Weiterfahren" : "⏸ Fahrt anhalten"}
             </button>
             <button style={btn} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>Akku schwach</button>
+          </div>
+          {/* faults: the demo's "what if" buttons — they end on their own */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "signal-hold" } })}>⚠ Halt vor Signal</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "door-fault" } })}>⚠ Türstörung</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "slow-order" } })}>⚠ Langsamfahrt</button>
+            <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "low-battery" } })}>⚠ Akku niedrig</button>
+            {(c.telemetry?.faults?.length ?? 0) > 0 && (
+              <button style={{ ...btn, background: "#30363d" }} onClick={() => c.patchTelemetry({ clearFaults: true })}>✔ Störung beheben</button>
+            )}
           </div>
         </section>
 

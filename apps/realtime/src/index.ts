@@ -71,6 +71,8 @@ void personas.refresh().then(() => {
 // (route refreshed from the CMS on its own TTL) and broadcast the derived
 // telemetry so ETAs/speed move smoothly on every display.
 async function broadcastTelemetry(): Promise<void> {
+  // The real riders count: a seat with a live session is a passenger.
+  telemetry.setLiveSessions(hub.activeSeats);
   hub.emitTelemetry(await telemetry.refresh());
 }
 void broadcastTelemetry();

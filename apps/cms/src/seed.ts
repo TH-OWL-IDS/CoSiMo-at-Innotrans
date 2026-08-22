@@ -151,10 +151,16 @@ const route = {
   notesDe: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
   notesEn: "Step-free boarding, wheelchair space available.",
   stops: [
-    { stopId: "lemgo", nameDe: "Lemgo", nameEn: "Lemgo", travelSecondsFromPrev: 0, dwellSeconds: 90 },
-    { stopId: "doerentrup", nameDe: "Dörentrup", nameEn: "Dörentrup", travelSecondsFromPrev: 240, dwellSeconds: 45 },
-    { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", travelSecondsFromPrev: 420, dwellSeconds: 45 },
-    { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", travelSecondsFromPrev: 720, dwellSeconds: 90 },
+    { stopId: "lemgo", nameDe: "Lemgo", nameEn: "Lemgo", travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
+    { stopId: "doerentrup", nameDe: "Dörentrup", nameEn: "Dörentrup", travelSecondsFromPrev: 240, dwellSeconds: 45, demand: 1 },
+    { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", travelSecondsFromPrev: 420, dwellSeconds: 45, demand: 2 },
+    { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", travelSecondsFromPrev: 720, dwellSeconds: 90, demand: 3 },
+  ],
+  // The unattended booth loop: a signal hold now and then, a door fault
+  // rarely. One fault at a time; the host can always inject or clear.
+  faults: [
+    { kind: "signal-hold" as const, everyMinutes: 8, chancePct: 35, durationSec: 45 },
+    { kind: "door-fault" as const, everyMinutes: 15, chancePct: 20, durationSec: 30 },
   ],
 };
 

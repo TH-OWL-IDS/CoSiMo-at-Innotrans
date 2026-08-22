@@ -79,6 +79,46 @@ export const RouteConfig: GlobalConfig = {
               admin: { description: "0 beim ersten Halt (wird ignoriert)." },
             },
             { name: "dwellSeconds", type: "number", min: 5, defaultValue: 45, label: "Haltezeit (s)" },
+            {
+              name: "demand",
+              type: "number",
+              min: 0,
+              max: 5,
+              defaultValue: 2,
+              label: "Andrang (0–5)",
+              admin: { description: "Wie viele Fahrgäste hier typischerweise zusteigen (Simulation)." },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "faults",
+      type: "array",
+      label: "Störungs-Szenario",
+      admin: {
+        description:
+          "Würfelt im Betrieb automatisch Störungen (für den unbeaufsichtigten Messe-Loop). Jede Regel würfelt alle N Minuten mit der angegebenen Wahrscheinlichkeit; es läuft immer nur eine Störung gleichzeitig. Der Host kann jederzeit zusätzlich eine Störung auslösen oder alle beenden.",
+      },
+      fields: [
+        {
+          name: "kind",
+          type: "select",
+          required: true,
+          label: "Störung",
+          options: [
+            { label: "Halt vor Signal (Stopp zwischen Halten, Verspätung)", value: "signal-hold" },
+            { label: "Türstörung (Türen bleiben offen, längerer Halt)", value: "door-fault" },
+            { label: "Langsamfahrstelle (reduzierte Geschwindigkeit)", value: "slow-order" },
+            { label: "Akku niedrig (schonende Fahrt)", value: "low-battery" },
+          ],
+        },
+        {
+          type: "row",
+          fields: [
+            { name: "everyMinutes", type: "number", min: 1, defaultValue: 10, label: "Würfeln alle (min)" },
+            { name: "chancePct", type: "number", min: 0, max: 100, defaultValue: 30, label: "Wahrscheinlichkeit (%)" },
+            { name: "durationSec", type: "number", min: 5, defaultValue: 45, label: "Dauer (s)" },
           ],
         },
       ],
