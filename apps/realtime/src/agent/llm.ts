@@ -10,7 +10,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
 import { TOOL_DEFINITIONS } from "./tools.js";
-import type { OperatorConfigProvider, ResolvedOperatorConfig } from "./operatorConfig.js";
+import type { LlmProviderKind, OperatorConfigProvider } from "./operatorConfig.js";
 
 export interface LlmToolCall {
   id: string;
@@ -32,7 +32,11 @@ export interface LlmHistoryMessage {
 }
 
 export interface LlmProvider {
+  readonly kind: "anthropic" | "openai-compatible";
   readonly model: string;
+  /** Cheap reachability check (no generation). Anthropic: assumed reachable
+   *  when the network is — its API has no free probe worth the call. */
+  probe(): Promise<boolean>;
   /** `signal` aborts the streamed generation mid-turn (rider barge-in).
    *  `history` is the seat's earlier conversation (see agent.ts) — without it
    *  CoSiMo could not answer "say that again" or any follow-up. */
@@ -126,6 +130,7 @@ class AnthropicTurn implements LlmTurn {
 }
 
 class AnthropicProvider implements LlmProvider {
+  readonly kind = "anthropic" as const;
   private readonly client: Anthropic;
   constructor(
     readonly model: string,
@@ -143,6 +148,9 @@ class AnthropicProvider implements LlmProvider {
     history?: LlmHistoryMessage[],
   ): LlmTurn {
     return new AnthropicTurn(this.client, this.model, system, userText, signal, history);
+  }
+  async probe(): Promise<boolean> {
+    return true;
   }
 }
 
@@ -293,11 +301,24 @@ class OpenAiCompatTurn implements LlmTurn {
 }
 
 class OpenAiCompatProvider implements LlmProvider {
+  readonly kind = "openai-compatible" as const;
   constructor(
     readonly model: string,
     private readonly baseUrl: string,
     private readonly apiKey: string,
   ) {}
+  /** GET /models — every OpenAI-compatible server answers it, vLLM included. */
+  async probe(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl.replace(/\/+$/, "")}/models`, {
+        headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
+        signal: AbortSignal.timeout(4000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
   startTurn(
     system: string,
     userText: string,
@@ -321,6 +342,10 @@ class OpenAiCompatProvider implements LlmProvider {
 export class LlmRouter {
   private cached: LlmProvider | null = null;
   private cacheKey = "";
+  private cachedFallback: LlmProvider | null = null;
+  private fallbackKey = "";
+  /** Last probe verdict for the primary; true until a probe says otherwise. */
+  private primaryReachable = true;
 
   constructor(private readonly operatorConfig: OperatorConfigProvider) {}
 
@@ -329,17 +354,50 @@ export class LlmRouter {
     return this.build(this.operatorConfig.get().llm) !== null;
   }
 
+  /** The provider a turn should use right now: the primary, or the fallback
+   *  while the primary is unreachable, or null (→ canned). */
   async current(): Promise<LlmProvider | null> {
     const { llm } = await this.operatorConfig.refresh();
     const key = `${llm.provider}|${llm.baseUrl}|${llm.model}`;
     if (key !== this.cacheKey) {
       this.cached = this.build(llm);
       this.cacheKey = key;
+      this.primaryReachable = true; // a new endpoint gets the benefit of the doubt
     }
-    return this.cached;
+    const fb = llm.fallback;
+    const fbKey = fb ? `${fb.provider}|${fb.baseUrl}|${fb.model}` : "";
+    if (fbKey !== this.fallbackKey) {
+      this.cachedFallback = fb ? this.build(fb) : null;
+      this.fallbackKey = fbKey;
+    }
+    if (this.cached && this.primaryReachable) return this.cached;
+    return this.cachedFallback ?? this.cached;
   }
 
-  private build(llm: ResolvedOperatorConfig["llm"]): LlmProvider | null {
+  /** True while a turn would run on the fallback rather than the primary. */
+  get onFallback(): boolean {
+    return !this.primaryReachable && this.cachedFallback !== null;
+  }
+
+  /**
+   * Probe the primary (health monitor, every few seconds). Returns whether a
+   * brain is reachable at all: primary, or — if it is down — the fallback.
+   * Never throws.
+   */
+  async probe(): Promise<{ primary: boolean; reachable: boolean }> {
+    try {
+      await this.current();
+      const primary = this.cached ? await this.cached.probe() : false;
+      this.primaryReachable = primary;
+      if (primary) return { primary: true, reachable: true };
+      const fallback = this.cachedFallback ? await this.cachedFallback.probe() : false;
+      return { primary: false, reachable: fallback };
+    } catch {
+      return { primary: false, reachable: false };
+    }
+  }
+
+  private build(llm: { provider: LlmProviderKind; baseUrl: string; model: string }): LlmProvider | null {
     if (llm.provider === "openai-compatible") {
       return llm.baseUrl
         ? new OpenAiCompatProvider(llm.model, llm.baseUrl, config.llm.apiKey)

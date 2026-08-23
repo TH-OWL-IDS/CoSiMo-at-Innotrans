@@ -1,0 +1,27 @@
+// Tailscale ACL policy for the CoSiMo tailnet — paste into the admin console
+// (Access controls). Source of truth lives here; keep the two in sync.
+//
+// Principle: the brain (GX10) is reachable ONLY by the realtime container on
+// the VPS and by the developer's own devices, on the one port each needs.
+// Nothing else on the tailnet can talk to it, and it can talk to nothing.
+{
+  // Who may apply which tag. Tagged nodes have no key expiry — that is the
+  // point: nothing the demo depends on silently lapses with a person's login.
+  "tagOwners": {
+    "tag:cosimo-gx10": ["autogroup:admin"],
+    "tag:cosimo-vps":  ["autogroup:admin"],
+  },
+
+  "grants": [
+    // The VPS realtime sidecar → CoSiMo's own vLLM on the GX10.
+    { "src": ["tag:cosimo-vps"],  "dst": ["tag:cosimo-gx10"], "ip": ["tcp:8007"] },
+    // The developer's devices → the vLLM and ssh on the GX10 (admin's own login).
+    { "src": ["autogroup:admin"], "dst": ["tag:cosimo-gx10"], "ip": ["tcp:8007", "tcp:22"] },
+    // Admins reach their own devices (the default you'd otherwise lose).
+    { "src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"] },
+  ],
+
+  // Tailscale SSH stays off (RunSSH=false on the GX10); ssh goes over the
+  // grant above with the box's own sshd.
+  "ssh": [],
+}

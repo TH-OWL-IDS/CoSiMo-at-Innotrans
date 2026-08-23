@@ -15,7 +15,13 @@ export type LlmProviderKind = "anthropic" | "openai-compatible";
 export interface ResolvedOperatorConfig {
   /** Core system prompt override; empty = the built-in default in prompt.ts. */
   agent: { systemPrompt: string };
-  llm: { provider: LlmProviderKind; baseUrl: string; model: string };
+  llm: {
+    provider: LlmProviderKind;
+    baseUrl: string;
+    model: string;
+    /** Used when the primary is unreachable (probe); null = canned on outage. */
+    fallback: { provider: LlmProviderKind; baseUrl: string; model: string } | null;
+  };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; voiceId: string; model: string };
   /** Cabin lighting: where the LPU-2 lives on the cabin LAN and which
@@ -30,6 +36,7 @@ function envDefaults(): ResolvedOperatorConfig {
       provider: config.llm.provider,
       baseUrl: config.llm.baseUrl,
       model: config.anthropic.model,
+      fallback: null,
     },
     stt: {
       baseUrl: config.speech.deepgramBaseUrl,
@@ -66,7 +73,14 @@ function toMapping(rows: { control?: string | null; playback?: number | null }[]
 /** Shape of the Payload global we care about (all fields optional). */
 interface PayloadOperatorConfigDoc {
   agent?: { systemPrompt?: string | null };
-  llm?: { provider?: string; baseUrl?: string | null; model?: string | null };
+  llm?: {
+    provider?: string;
+    baseUrl?: string | null;
+    model?: string | null;
+    fallbackProvider?: string | null;
+    fallbackBaseUrl?: string | null;
+    fallbackModel?: string | null;
+  };
   stt?: { baseUrl?: string | null; model?: string | null };
   tts?: { baseUrl?: string | null; voiceId?: string | null; model?: string | null };
   cabin?: {
@@ -108,6 +122,16 @@ export class OperatorConfigProvider {
               : base.llm.provider,
           baseUrl: str(doc.llm?.baseUrl, base.llm.baseUrl),
           model: str(doc.llm?.model, base.llm.model),
+          fallback:
+            doc.llm?.fallbackProvider === "anthropic" || doc.llm?.fallbackProvider === "openai-compatible"
+              ? {
+                  provider: doc.llm.fallbackProvider,
+                  baseUrl: str(doc.llm.fallbackBaseUrl, ""),
+                  // Anthropic falls back to the env model; an OpenAI endpoint
+                  // needs its model named.
+                  model: str(doc.llm.fallbackModel, doc.llm.fallbackProvider === "anthropic" ? config.anthropic.model : ""),
+                }
+              : null,
         },
         stt: {
           baseUrl: str(doc.stt?.baseUrl, base.stt.baseUrl),

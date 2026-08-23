@@ -153,7 +153,7 @@ export class CosimoAgent {
     // the provider/endpoint from the operator-config global (TTL-cached).
     const llm = await this.llm.current();
     this.hub.setLlmConfigured(llm !== null);
-    const llmInfo = llm ? { provider: this.operatorConfig.get().llm.provider, model: llm.model } : null;
+    const llmInfo = llm ? { provider: llm.kind + (this.llm.onFallback ? " (fallback)" : ""), model: llm.model } : null;
     const canned = this.hub.isOfflineMode() || !llm;
     logger.log(
       "turn.start",

@@ -87,7 +87,7 @@ hub.onTelemetryPatch((patch) => {
 });
 
 // Watch connectivity → auto-switch to offline canned mode when the cloud drops.
-startHealthMonitor(hub);
+startHealthMonitor(hub, llm);
 
 // Memory telemetry: one line per minute. A previous session died with a 4 GB
 // heap OOM — if it ever grows again, this makes the climb (and its slope)

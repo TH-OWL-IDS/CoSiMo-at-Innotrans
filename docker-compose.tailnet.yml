@@ -18,9 +18,9 @@
 #
 # Tailscale admin, once: create an auth key tagged `tag:cosimo` (so the node
 # never inherits a person's key expiry), disable key expiry on the node after
-# it joins, and an ACL that allows tag:cosimo → the GX10 on 8006 only.
+# it joins, and the ACL in infra/tailscale/policy.hujson (tag:cosimo-vps → GX10:8007).
 # Verify from inside the namespace:
-#   docker compose exec realtime wget -qO- http://100.90.216.127:8006/health
+#   docker compose exec realtime wget -qO- http://100.90.216.127:8007/health
 
 services:
   tailscale:
@@ -33,7 +33,7 @@ services:
       TS_USERSPACE: "false"
       # Keep Docker's DNS so `cms` resolves; tailnet peers are addressed by IP.
       TS_ACCEPT_DNS: "false"
-      TS_EXTRA_ARGS: --advertise-tags=${TS_TAG:-tag:cosimo}
+      TS_EXTRA_ARGS: --advertise-tags=${TS_TAG:-tag:cosimo-vps}
     volumes:
       - tailscale-state:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun

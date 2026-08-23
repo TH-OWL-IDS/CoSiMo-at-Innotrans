@@ -98,6 +98,8 @@ What the prod overlay changes:
 
 ## Reaching the GX10 (the brain) — Tailscale, realtime only
 
+Full picture, runbook and the GX10 stack: **[tailnet.md](tailnet.md)**.
+
 The GX10 sits behind the university's eduroam VPN; its vLLM is bound to its
 Tailscale IP. The VPS runs other things, so the **host never joins the
 tailnet** — only the realtime container does, via the opt-in
@@ -111,14 +113,13 @@ IP, not MagicDNS).
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   -f docker-compose.tailnet.yml --env-file .env.prod up -d --build
-docker compose exec realtime wget -qO- http://100.90.216.127:8006/health   # "ok"
+docker compose exec realtime wget -qO- http://100.90.216.127:8007/health   # "ok"
 ```
 
 Tailscale admin, once: a **tagged** auth key (`tag:cosimo`) so the node never
 inherits a person's key expiry; disable key expiry on the node; an ACL
 allowing `tag:cosimo` → the GX10 on 8006 only. Then Operator Config → LLM:
-`openai-compatible`, `http://100.90.216.127:8006/v1`, the served model
-name; `LLM_API_KEY` in `.env.prod` = the GX10's vLLM key. The Log tab's
+`openai-compatible`, `http://100.90.216.127:8007/v1`, model `cosimo-qwen3-27b`; `LLM_API_KEY` in `.env.prod` = the GX10's vLLM key. The Log tab's
 `turn.start` shows the switch on the next turn.
 
 The kiosks, console, emulator and journey never touch the tailnet — they

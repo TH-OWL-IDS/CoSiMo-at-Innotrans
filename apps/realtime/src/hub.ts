@@ -163,6 +163,8 @@ export class Hub {
   private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
   private llmConfigured = false;
+  /** Set by the health monitor's LLM probe (primary or fallback answering). */
+  private llmReachable = true;
   private networkOk = true;
   private manualOffline = false;
 
@@ -800,6 +802,13 @@ export class Hub {
     this.recomputeStatus();
   }
 
+  /** The brain answered its probe (primary, or the fallback standing in). */
+  setLlmReachable(ok: boolean): void {
+    if (ok === this.llmReachable) return;
+    this.llmReachable = ok;
+    this.recomputeStatus();
+  }
+
   /** True when CoSiMo should serve scripted canned replies instead of the LLM. */
   isOfflineMode(): boolean {
     return this.status.offlineCanned;
@@ -807,11 +816,17 @@ export class Hub {
 
   /** Derive llm/network/offlineCanned from the inputs and broadcast once. */
   private recomputeStatus(): void {
-    this.setStatus({
-      network: this.networkOk,
-      llm: this.llmConfigured && this.networkOk,
-      offlineCanned: this.manualOffline || !this.networkOk,
-    });
+    const llm = this.llmConfigured && this.networkOk && this.llmReachable;
+    const offlineCanned = this.manualOffline || !this.networkOk || !this.llmReachable;
+    const changed = llm !== this.status.llm || offlineCanned !== this.status.offlineCanned;
+    this.setStatus({ network: this.networkOk, llm, offlineCanned });
+    if (changed) {
+      logger.log(
+        "service.status",
+        { llm, network: this.networkOk, offlineCanned },
+        { level: llm ? "info" : "warn" },
+      );
+    }
   }
 
   /** Broadcast a telemetry snapshot to the on-screen displays (and cache it). */

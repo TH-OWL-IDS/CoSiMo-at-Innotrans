@@ -1,0 +1,77 @@
+# CoSiMo's own brain on the GX10 — a dedicated vLLM serving the STOCK Qwen3
+# 27B (NVFP4), separate from any other project's container on the box.
+#
+# Deploy on the GX10 (no sudo needed — docker group):
+#   mkdir -p ~/cosimo-ai && scp infra/gx10/* GX10:~/cosimo-ai/ && ssh GX10 \
+#     'cd ~/cosimo-ai && cp -n .env.example .env && docker compose up -d'
+# Then set VLLM_API_KEY in ~/cosimo-ai/.env (the key CoSiMo's realtime uses).
+#
+# Bound to the tailnet IP only: reachable from the VPS realtime sidecar and
+# the dev Mac, never from the university network at large.
+
+services:
+  cosimo-llm:
+    image: ghcr.io/aeon-7/aeon-vllm-ultimate:2026-08-16-v0.27.1
+    container_name: cosimo-llm
+    restart: unless-stopped
+    # The image's entrypoint is a shell; the CLI is `vllm` (serve …).
+    entrypoint: ["vllm"]
+    ipc: host
+    shm_size: "1g"
+    environment:
+      VLLM_API_KEY: ${VLLM_API_KEY:?set VLLM_API_KEY in .env}
+      HF_HOME: /root/.cache/huggingface
+      TOKENIZERS_PARALLELISM: "false"
+      TORCH_CUDA_ARCH_LIST: 12.1a
+      VLLM_USE_FLASHINFER_SAMPLER: "1"
+    volumes:
+      - cosimo_llm_hf_cache:/root/.cache/huggingface
+      - cosimo_llm_kernel_cache:/root/.cache/vllm
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    # CoSiMo turns are short: a 32k window keeps the KV cache small and the
+    # first token fast. Four seats → max-num-seqs 4. Thinking off — "turn the
+    # light on" gains nothing from it and pays double first-token latency.
+    command:
+      - serve
+      - ${MODEL:-unsloth/Qwen3.8-27B-NVFP4}
+      - --served-model-name
+      - cosimo-qwen3-27b
+      - --gpu-memory-utilization
+      - ${GPU_MEM:-0.24}
+      - --max-model-len
+      - "32768"
+      - --max-num-seqs
+      - "4"
+      - --max-num-batched-tokens
+      - "8192"
+      - --enable-chunked-prefill
+      - --enable-prefix-caching
+      - --reasoning-parser
+      - qwen3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
+      - --default-chat-template-kwargs
+      - '{"enable_thinking": false}'
+      - --generation-config
+      - vllm
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    ports:
+      - "${TAILNET_IP:?set TAILNET_IP in .env (tailscale ip -4)}:8007:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 900s
+      retries: 5
+
+volumes:
+  cosimo_llm_hf_cache:
+  cosimo_llm_kernel_cache:

@@ -122,8 +122,11 @@ Two implementations:
   fragment reassembly and Anthropic→OpenAI tool-schema conversion.
 
 `LlmRouter` picks the provider per turn from the operator config and
-rebuilds clients only when routing actually changed. No usable provider →
-the agent serves canned replies.
+rebuilds clients only when routing actually changed. The health monitor
+**probes** the primary every 15 s; while it is unreachable the router hands
+turns to the **fallback provider** (Operator Config) and `status.llm` /
+`service.status` say so. No usable provider → canned replies. See
+[tailnet.md](tailnet.md).
 
 ## Config: env + operator-config
 

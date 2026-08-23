@@ -20,6 +20,7 @@ live in [docs/](docs/).
 | [docs/emulator.md](docs/emulator.md) | The browser iPad (`apps/emulator`) and `packages/seat-ui`, the seat UI shared with the kiosk |
 | [docs/logging.md](docs/logging.md) | The structured debug log: every turn, tool call and actuation — live in the console, NDJSON on disk |
 | [docs/journey.md](docs/journey.md) | The journey simulation (passengers, faults, CMS scenario) and `apps/journey`, the live line diagram |
+| [docs/tailnet.md](docs/tailnet.md) | The brain on the GX10 (`infra/gx10`), Tailscale between it and the VPS realtime container, probe + fallback provider |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
 

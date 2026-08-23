@@ -69,6 +69,28 @@ export const OperatorConfig: GlobalConfig = {
             description: "Empty = server default (ANTHROPIC_MODEL env).",
           },
         },
+        {
+          name: "fallbackProvider",
+          type: "select",
+          defaultValue: "none",
+          label: "Fallback provider",
+          admin: {
+            description:
+              "Wird automatisch genutzt, wenn der primäre Endpunkt nicht erreichbar ist (Probe alle 15 s) — z. B. Anthropic, wenn der GX10 über Tailscale wegbricht. 'Keiner' = bei Ausfall Canned-Antworten.",
+          },
+          options: [
+            { label: "Keiner (Canned-Antworten bei Ausfall)", value: "none" },
+            { label: "Anthropic (Claude API)", value: "anthropic" },
+            { label: "OpenAI-compatible", value: "openai-compatible" },
+          ],
+        },
+        {
+          type: "row",
+          fields: [
+            { name: "fallbackBaseUrl", type: "text", label: "Fallback Base URL", admin: { description: "Leer = Provider-Default." } },
+            { name: "fallbackModel", type: "text", label: "Fallback Modell", admin: { description: "Leer = Server-Default." } },
+          ],
+        },
       ],
     },
     {
