@@ -94,7 +94,7 @@ services:
       # the big model verifies them in one pass — ~30-40 % faster decoding with
       # an unchanged output distribution. Requires the head in the checkpoint.
       - --speculative-config
-      - '{"method": "mtp", "num_speculative_tokens": 2}'
+      - '{"method": "mtp", "num_speculative_tokens": 3}'
       - --default-chat-template-kwargs
       - '{"enable_thinking": false}'
       # "auto" = the checkpoint's generation_config.json (Qwen: temperature
