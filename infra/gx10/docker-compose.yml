@@ -1,19 +1,54 @@
 # CoSiMo's own brain on the GX10 — a dedicated vLLM serving the STOCK Qwen3
 # 27B (NVFP4), separate from any other project's container on the box.
 #
-# Deploy on the GX10 (no sudo needed — docker group):
+# Network: the box's host Tailscale belongs to another user's tailnet, so this
+# stack brings ITS OWN tailnet membership — a `tailscale` sidecar (joined to
+# CoSiMo's tailnet with a tagged auth key) owns a network namespace and
+# `cosimo-llm` runs inside it. The model is reachable at the sidecar's tailnet
+# IP on port 8007 and nowhere else: no host port, nothing on the university
+# LAN. No sudo needed (docker group grants /dev/net/tun + NET_ADMIN).
+#
+# Deploy on the GX10:
 #   mkdir -p ~/cosimo-ai && scp infra/gx10/* GX10:~/cosimo-ai/ && ssh GX10 \
 #     'cd ~/cosimo-ai && cp -n .env.example .env && docker compose up -d'
-# Then set VLLM_API_KEY in ~/cosimo-ai/.env (the key CoSiMo's realtime uses).
-#
-# Bound to the tailnet IP only: reachable from the VPS realtime sidecar and
-# the dev Mac, never from the university network at large.
+# .env needs VLLM_API_KEY (what CoSiMo's realtime sends) and TS_AUTHKEY (a
+# tagged tag:cosimo-gx10 key from CoSiMo's tailnet).
 
 services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: cosimo-tailscale
+    hostname: ${TS_HOSTNAME:-cosimo-gx10}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY (tagged tag:cosimo-gx10) in .env}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+      TS_ACCEPT_DNS: "false"
+      TS_EXTRA_ARGS: --advertise-tags=${TS_TAG:-tag:cosimo-gx10}
+    volumes:
+      - cosimo_tailscale_state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    # Healthy = on the tailnet. (The model's own health is its own check.)
+    healthcheck:
+      test: ["CMD-SHELL", "tailscale status --peers=false >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
   cosimo-llm:
     image: ghcr.io/aeon-7/aeon-vllm-ultimate:2026-08-16-v0.27.1
     container_name: cosimo-llm
     restart: unless-stopped
+    # Lives in the sidecar's namespace: reachable on the tailnet IP only.
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
     # The image's entrypoint is a shell; the CLI is `vllm` (serve …).
     entrypoint: ["vllm"]
     ipc: host
@@ -62,16 +97,15 @@ services:
       - --host
       - 0.0.0.0
       - --port
-      - "8000"
-    ports:
-      - "${TAILNET_IP:?set TAILNET_IP in .env (tailscale ip -4)}:8007:8000"
+      - "8007"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8007/health || exit 1"]
       interval: 30s
       timeout: 10s
       start_period: 900s
       retries: 5
 
 volumes:
+  cosimo_tailscale_state:
   cosimo_llm_hf_cache:
   cosimo_llm_kernel_cache:

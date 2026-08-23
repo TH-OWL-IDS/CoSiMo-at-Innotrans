@@ -15,8 +15,9 @@
   "grants": [
     // The VPS realtime sidecar → CoSiMo's own vLLM on the GX10.
     { "src": ["tag:cosimo-vps"],  "dst": ["tag:cosimo-gx10"], "ip": ["tcp:8007"] },
-    // The developer's devices → the vLLM and ssh on the GX10 (admin's own login).
-    { "src": ["autogroup:admin"], "dst": ["tag:cosimo-gx10"], "ip": ["tcp:8007", "tcp:22"] },
+    // The developer's own devices → the vLLM (only if a local hub should use it).
+    // No ssh grant: the GX10 sidecar has no sshd; ssh goes to the host, not here.
+    { "src": ["autogroup:admin"], "dst": ["tag:cosimo-gx10"], "ip": ["tcp:8007"] },
     // Admins reach their own devices (the default you'd otherwise lose).
     { "src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["*"] },
   ],

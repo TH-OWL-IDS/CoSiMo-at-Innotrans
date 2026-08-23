@@ -31,7 +31,8 @@ services:
       TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY (a tagged auth key) in .env.prod}
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"
-      # Keep Docker's DNS so `cms` resolves; tailnet peers are addressed by IP.
+      # Keep Docker's DNS so `cms` resolves; tailnet peers are addressed by IP
+      # (the GX10 *sidecar's* IP — see infra/gx10 and docs/tailnet.md).
       TS_ACCEPT_DNS: "false"
       TS_EXTRA_ARGS: --advertise-tags=${TS_TAG:-tag:cosimo-vps}
     volumes:
