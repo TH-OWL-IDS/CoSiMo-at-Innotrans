@@ -8,6 +8,7 @@
  */
 
 import {
+  CABIN_CONTROLS,
   type ExpressiveEmotion,
   type Locale,
   type Modality,
@@ -75,6 +76,57 @@ function historyActions(actions: TurnAction[] | undefined, turnIndex: number): L
 
 /** Below this, a tool-less reply is a degenerate sample, not an answer. */
 const DEGENERATE_CHARS = 4;
+
+/**
+ * Tools whose spoken confirmation does not depend on their result: when the
+ * model says the sentence in the same message as the call ("speak while
+ * acting") and every call succeeded, the result round-trip is skipped —
+ * that second generation was 1–2 s of every action turn. get_telemetry is
+ * NOT here: an answer about the journey needs the data first. A failed tool
+ * still gets the extra round so the model can correct itself.
+ */
+const SPEAK_WHILE_ACTING = new Set([
+  "set_cabin_control",
+  "set_presentation",
+  "set_emotion",
+  "request_stop",
+  "remember",
+  "forget",
+]);
+
+/**
+ * The spoken confirmation for a result-independent action, templated
+ * server-side. The Qwen3-Coder template never says text in the same message
+ * as a tool call (measured 1/9), so asking the model costs a whole second
+ * generation just to hear "das Licht ist an" — a sentence the server already
+ * knows. Model text is preferred whenever the model does produce it.
+ */
+function templatedConfirmation(actions: TurnAction[], lang: Locale): string {
+  const de = lang === "de";
+  const parts: string[] = [];
+  for (const a of actions) {
+    if (a.tool === "set_cabin_control" && a.control) {
+      const def = CABIN_CONTROLS.find((c) => c.id === a.control);
+      const label = def?.label[lang] ?? a.control;
+      const args = a.args ?? {};
+      if (typeof args.level === "number") {
+        parts.push(de ? `${label} ist jetzt auf ${args.level} Prozent.` : `${label} is now at ${args.level} percent.`);
+      } else {
+        const on = args.on !== false;
+        parts.push(de ? `${on ? "Gern, " : "Okay, "}${on ? "das" : "das"} ${label} ist jetzt ${on ? "an" : "aus"}.` : `${on ? "Sure, " : "Okay, "}the ${label.toLowerCase()} is now ${on ? "on" : "off"}.`);
+      }
+    } else if (a.tool === "set_presentation") {
+      parts.push(de ? "Erledigt, ich habe das angepasst." : "Done, I have adjusted that.");
+    } else if (a.tool === "request_stop") {
+      parts.push(de ? "Dein Haltewunsch ist registriert." : "Your stop request is registered.");
+    } else if (a.tool === "remember") {
+      parts.push(de ? "Das habe ich mir gemerkt." : "I will remember that.");
+    } else if (a.tool === "forget") {
+      parts.push(de ? "Erledigt, das habe ich vergessen." : "Done, I have forgotten that.");
+    }
+  }
+  return parts.slice(0, 2).join(" ") || (de ? "Erledigt." : "Done.");
+}
 
 export class CosimoAgent {
   private readonly llm: LlmRouter;
@@ -289,6 +341,7 @@ export class CosimoAgent {
         // A barge-in does NOT abort a running tool (never leave the cabin in a
         // half-applied state); we stop before the next generation step instead.
         const results: { id: string; text: string }[] = [];
+        let stepToolFailed = false;
         for (const call of toolCalls) {
           const t0 = Date.now();
           const res = await executeTool(call.name, call.input, {
@@ -305,6 +358,7 @@ export class CosimoAgent {
           });
           const durationMs = Date.now() - t0;
           const ok = !res.text.startsWith("error");
+          if (!ok) stepToolFailed = true;
           logger.log(
             "tool.call",
             { tool: call.name, input: call.input, result: res.text, ok, durationMs },
@@ -321,6 +375,22 @@ export class CosimoAgent {
           results.push({ id: call.id, text: res.text });
         }
         if (ctrl.signal.aborted) break;
+        // Result-independent actions that succeeded need no second
+        // generation: use the model's same-message text if it gave any,
+        // else the server's templated confirmation — either way the turn
+        // ends here, saving the 1–2 s the confirmation round used to cost.
+        if (!stepToolFailed && toolCalls.every((c) => SPEAK_WHILE_ACTING.has(c.name))) {
+          if (stepText.trim().length < DEGENERATE_CHARS) {
+            const confirmation = templatedConfirmation(actions, lang);
+            if (!startedSpeaking) {
+              startedSpeaking = true;
+              this.hub.emitPhase("speaking", sessionId, turnNo);
+            }
+            assistantText = confirmation;
+            this.hub.emitChatDelta(sessionId, confirmation, false, turnNo);
+          }
+          break;
+        }
         turn.addToolResults(results);
       }
     } catch (err) {
