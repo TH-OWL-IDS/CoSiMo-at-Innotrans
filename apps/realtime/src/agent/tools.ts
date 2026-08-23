@@ -85,7 +85,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "set_presentation",
     description:
-      "Change ONE accessible presentation setting for this rider, when they ask (e.g. 'make the text bigger', 'read that aloud', 'show me the text', 'calmer face', 'darker colours'). Applies immediately; for a registered rider it is remembered next time. For a bigger change (e.g. they can no longer see) decide which specific settings that rider needs and call this once per setting.",
+      "Change ONE accessible presentation setting for this rider, when they ask (e.g. 'make the text bigger', 'read that aloud', 'show me the text', 'calmer face', 'darker colours'). Applies immediately; for a registered rider it is remembered next time. For a bigger change (e.g. they can no longer see) decide which specific settings that rider needs and call this once per setting. IMPORTANT: 'show me the text' / 'Text anzeigen' = showText:true — this ADDS the on-screen transcript and keeps speech on. Never turn audioOutput off unless the rider explicitly says they do not want to hear you.",
     input_schema: {
       type: "object",
       properties: {
@@ -97,7 +97,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. audioOutput/showText/reduceMotion: true|false. speechRate: 0.5–1.5. language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
+            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
         },
       },
       required: ["setting", "value"],

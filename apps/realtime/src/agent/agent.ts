@@ -52,6 +52,16 @@ export interface AgentTurnInput {
  */
 const HISTORY_MESSAGES = 12;
 
+/** A CoSiMo turn worth replaying: a real sentence from a successful turn. */
+function isReplayable(text: string, outcome: string | undefined): boolean {
+  if (outcome === "error" || outcome === "not_understood") return false;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length >= 3;
+}
+
+/** Below this, a tool-less reply is a degenerate sample, not an answer. */
+const DEGENERATE_CHARS = 4;
+
 export class CosimoAgent {
   private readonly llm: LlmRouter;
   private readonly operatorConfig: OperatorConfigProvider;
@@ -209,11 +219,14 @@ export class CosimoAgent {
 
     try {
       // Manual tool-use loop: iterate until the model stops calling tools.
+      let retried = false;
       for (let guard = 0; guard < 6; guard++) {
         const stepStarted = Date.now();
         let stepChars = 0;
-        const { toolCalls } = await turn.step((delta) => {
+        let stepText = "";
+        const { toolCalls, finish } = await turn.step((delta) => {
           stepChars += delta.length;
+          stepText += delta;
           if (ctrl.signal.aborted) return; // barged-in — swallow late chunks
           if (!startedSpeaking) {
             startedSpeaking = true;
@@ -228,10 +241,35 @@ export class CosimoAgent {
 
         logger.log(
           "llm.step",
-          { step: guard, chars: stepChars, toolCalls: toolCalls.map((c) => c.name), durationMs: Date.now() - stepStarted },
-          ctx,
+          {
+            step: guard,
+            chars: stepChars,
+            toolCalls: toolCalls.map((c) => c.name),
+            durationMs: Date.now() - stepStarted,
+            ...(finish ? { finish } : {}),
+          },
+          { ...ctx, level: finish === "length" ? "warn" : "debug" },
         );
-        if (toolCalls.length === 0 || ctrl.signal.aborted) break;
+        if (ctrl.signal.aborted) break;
+        // A one-token "answer" with no tool call is a bad sample ("II",
+        // "Kein"). Retry the step once before the rider hears it.
+        if (
+          toolCalls.length === 0 &&
+          !retried &&
+          stepText.trim().length < DEGENERATE_CHARS &&
+          assistantText.trim().length < DEGENERATE_CHARS
+        ) {
+          retried = true;
+          logger.log(
+            "llm.step",
+            { step: guard, chars: stepChars, toolCalls: [], durationMs: 0, finish: "degenerate→retry" },
+            { ...ctx, level: "warn" },
+          );
+          assistantText = "";
+          turn.retractLastAssistant();
+          continue;
+        }
+        if (toolCalls.length === 0) break;
 
         // Execute every tool call, then feed all results back in one batch.
         // A barge-in does NOT abort a running tool (never leave the cabin in a
@@ -361,13 +399,19 @@ export class CosimoAgent {
     const from =
       mark && mark.persona === persona && mark.from <= current ? mark.from : current;
     this.historyStart.set(deviceId, { persona, from });
-    return turns
-      .slice(from, -1)
-      .slice(-HISTORY_MESSAGES)
-      .map((t) => ({
-        role: t.role === "user" ? ("user" as const) : ("assistant" as const),
-        text: t.transcript,
-      }));
+    return (
+      turns
+        .slice(from, -1)
+        // A degenerate CoSiMo turn ("II", one word, an error reply) must not be
+        // replayed: the model imitates its own history and the whole
+        // conversation collapses into one-token answers (seen in prod).
+        .filter((t) => t.role === "user" || isReplayable(t.transcript, t.outcome))
+        .slice(-HISTORY_MESSAGES)
+        .map((t) => ({
+          role: t.role === "user" ? ("user" as const) : ("assistant" as const),
+          text: t.transcript,
+        }))
+    );
   }
 
   /**

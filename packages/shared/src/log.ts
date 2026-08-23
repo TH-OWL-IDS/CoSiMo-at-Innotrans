@@ -51,7 +51,7 @@ export type LogEvent = Base &
         };
       }
     | { kind: "stt.result"; data: { chars: number; durationMs: number; mime: string; bytes: number } }
-    | { kind: "llm.step"; data: { step: number; chars: number; toolCalls: string[]; durationMs: number } }
+    | { kind: "llm.step"; data: { step: number; chars: number; toolCalls: string[]; durationMs: number; finish?: string } }
     | {
         kind: "tool.call";
         data: {

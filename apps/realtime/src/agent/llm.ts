@@ -19,10 +19,13 @@ export interface LlmToolCall {
 }
 
 export interface LlmTurn {
-  /** Run one assistant step, streaming text deltas. Empty toolCalls = done. */
-  step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[] }>;
+  /** Run one assistant step, streaming text deltas. Empty toolCalls = done.
+   *  `finish` is the provider's stop reason (logged; "length" = truncated). */
+  step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }>;
   /** Feed the executed tool results back before the next step. */
   addToolResults(results: { id: string; text: string }[]): void;
+  /** Drop the last assistant message (a degenerate sample being retried). */
+  retractLastAssistant(): void;
 }
 
 /** One earlier message of this seat's conversation, replayed for context. */
@@ -88,7 +91,7 @@ class AnthropicTurn implements LlmTurn {
     ];
   }
 
-  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[] }> {
+  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
     const stream = this.client.messages.stream(
       {
         model: this.model,
@@ -104,7 +107,7 @@ class AnthropicTurn implements LlmTurn {
     stream.on("text", onText);
     const message = await stream.finalMessage();
     this.messages.push({ role: "assistant", content: message.content });
-    if (message.stop_reason !== "tool_use") return { toolCalls: [] };
+    if (message.stop_reason !== "tool_use") return { toolCalls: [], finish: message.stop_reason ?? undefined };
     const toolCalls: LlmToolCall[] = [];
     for (const block of message.content) {
       if (block.type !== "tool_use") continue;
@@ -114,7 +117,12 @@ class AnthropicTurn implements LlmTurn {
         input: (block.input ?? {}) as Record<string, unknown>,
       });
     }
-    return { toolCalls };
+    return { toolCalls, finish: "tool_use" };
+  }
+
+  retractLastAssistant(): void {
+    const last = this.messages[this.messages.length - 1];
+    if (last?.role === "assistant") this.messages.pop();
   }
 
   addToolResults(results: { id: string; text: string }[]): void {
@@ -198,7 +206,7 @@ class OpenAiCompatTurn implements LlmTurn {
     ];
   }
 
-  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[] }> {
+  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
     const res = await fetch(`${this.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
@@ -217,9 +225,15 @@ class OpenAiCompatTurn implements LlmTurn {
         ? AbortSignal.any([AbortSignal.timeout(60_000), this.signal])
         : AbortSignal.timeout(60_000),
     });
-    if (!res.ok || !res.body) throw new Error(`llm ${res.status}`);
+    if (!res.ok || !res.body) {
+      // The body says WHY (a rejected message shape, a bad tool call…) —
+      // "llm 400" alone cost an evening once.
+      const body = await res.text().catch(() => "");
+      throw new Error(`llm ${res.status}: ${body.slice(0, 300)}`);
+    }
 
     let content = "";
+    let finish: string | undefined;
     // Streamed tool calls arrive as fragments keyed by index.
     const calls = new Map<number, { id: string; name: string; args: string }>();
 
@@ -238,6 +252,7 @@ class OpenAiCompatTurn implements LlmTurn {
         if (!data || data === "[DONE]") continue;
         let chunk: {
           choices?: {
+            finish_reason?: string | null;
             delta?: {
               content?: string | null;
               tool_calls?: {
@@ -253,7 +268,9 @@ class OpenAiCompatTurn implements LlmTurn {
         } catch {
           continue; // tolerate keep-alives / partial junk
         }
-        const delta = chunk.choices?.[0]?.delta;
+        const choice = chunk.choices?.[0];
+        if (choice?.finish_reason) finish = choice.finish_reason;
+        const delta = choice?.delta;
         if (!delta) continue;
         if (delta.content) {
           content += delta.content;
@@ -290,13 +307,18 @@ class OpenAiCompatTurn implements LlmTurn {
       }
     }
     this.messages.push(assistant);
-    return { toolCalls };
+    return { toolCalls, finish };
   }
 
   addToolResults(results: { id: string; text: string }[]): void {
     for (const r of results) {
       this.messages.push({ role: "tool", tool_call_id: r.id, content: r.text });
     }
+  }
+
+  retractLastAssistant(): void {
+    const last = this.messages[this.messages.length - 1];
+    if (last?.role === "assistant") this.messages.pop();
   }
 }
 
