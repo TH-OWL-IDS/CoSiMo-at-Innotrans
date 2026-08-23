@@ -34,12 +34,21 @@ services:
       # NEXT_PUBLIC_* must be inlined at build time (see apps/cms/Dockerfile).
       args:
         NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
+    # `--env-file .env.prod` only feeds compose interpolation; the CONTAINER
+    # gets its secrets from env_file. The base file names .env.local (dev),
+    # which does not exist on the VPS — so here the prod file is the one.
+    env_file:
+      - path: .env.prod
+        required: true
     ports: !override
       - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:6100"
     environment:
       NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
 
   realtime:
+    env_file:
+      - path: .env.prod
+        required: true
     ports: !override
       - "127.0.0.1:${COSIMO_RT_PORT:-6221}:6101"
     environment:
