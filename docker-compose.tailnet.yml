@@ -1,0 +1,57 @@
+# Optional overlay: put ONLY the realtime service on the Tailscale tailnet, so
+# it can reach the GX10's vLLM (the brain) without joining the whole VPS host
+# to the tailnet. The VPS runs other things; they stay off it.
+#
+# How: a `tailscale` sidecar owns a network namespace; `realtime` runs inside
+# that namespace (network_mode: service:tailscale). Consequences:
+#   - realtime's published port moves to the sidecar (ports live with the
+#     namespace) — cloudflared → 127.0.0.1:6221 keeps working unchanged;
+#   - realtime still reaches `cms` by name: the sidecar sits on the compose
+#     network, and TS_ACCEPT_DNS=false keeps Docker's resolver in charge
+#     (MagicDNS would replace it and break `cms`) — so address the GX10 by
+#     its tailnet IP, not its MagicDNS name;
+#   - nothing else on the box is on the tailnet.
+#
+# Run (after docker-compose.prod.yml):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.tailnet.yml --env-file .env.prod up -d --build
+#
+# Tailscale admin, once: create an auth key tagged `tag:cosimo` (so the node
+# never inherits a person's key expiry), disable key expiry on the node after
+# it joins, and an ACL that allows tag:cosimo → the GX10 on 8006 only.
+# Verify from inside the namespace:
+#   docker compose exec realtime wget -qO- http://100.90.216.127:8006/health
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: ${TS_HOSTNAME:-cosimo-vps}
+    restart: unless-stopped
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?set TS_AUTHKEY (a tagged auth key) in .env.prod}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+      # Keep Docker's DNS so `cms` resolves; tailnet peers are addressed by IP.
+      TS_ACCEPT_DNS: "false"
+      TS_EXTRA_ARGS: --advertise-tags=${TS_TAG:-tag:cosimo}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    # The namespace's published ports: realtime's, now on the sidecar.
+    ports:
+      - "127.0.0.1:${COSIMO_RT_PORT:-6221}:6101"
+
+  realtime:
+    network_mode: service:tailscale
+    ports: !override []
+    depends_on:
+      tailscale:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+volumes:
+  tailscale-state:
