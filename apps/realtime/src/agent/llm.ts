@@ -28,10 +28,25 @@ export interface LlmTurn {
   retractLastAssistant(): void;
 }
 
-/** One earlier message of this seat's conversation, replayed for context. */
+/** A tool call CoSiMo made in an earlier turn, replayed as it happened. */
+export interface LlmHistoryAction {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+}
+
+/**
+ * One earlier message of this seat's conversation, replayed for context.
+ * Assistant turns carry the tool calls they made: replaying only the text
+ * ("Erledigt, das Licht ist an.") teaches the model that actions are done
+ * by *saying* so — measured on the GX10: tool call rate 1/18 with text-only
+ * history vs 18/18 with the calls included.
+ */
 export interface LlmHistoryMessage {
   role: "user" | "assistant";
   text: string;
+  actions?: LlmHistoryAction[];
 }
 
 export interface LlmProvider {
@@ -61,12 +76,31 @@ export function normalizeHistory(history: LlmHistoryMessage[]): LlmHistoryMessag
   const out: LlmHistoryMessage[] = [];
   for (const m of history) {
     const text = m.text.trim();
-    if (!text) continue;
+    const actions = m.actions?.length ? m.actions : undefined;
+    if (!text && !actions) continue;
     const last = out[out.length - 1];
-    if (last && last.role === m.role) last.text = `${last.text}\n${text}`;
-    else out.push({ role: m.role, text });
+    // Plain text of the same role merges; a turn with tool calls stays whole.
+    if (last && last.role === m.role && !last.actions && !actions) last.text = `${last.text}\n${text}`;
+    else out.push({ role: m.role, text, ...(actions ? { actions } : {}) });
   }
   while (out.length && out[0]!.role !== "user") out.shift();
+  return out;
+}
+
+/** Anthropic: a history entry → its message(s), tool_use/tool_result included. */
+function toAnthropicMessages(m: LlmHistoryMessage): Anthropic.MessageParam[] {
+  if (m.role === "user" || !m.actions) return [{ role: m.role, content: m.text }];
+  const out: Anthropic.MessageParam[] = [
+    {
+      role: "assistant",
+      content: m.actions.map((a) => ({ type: "tool_use" as const, id: a.id, name: a.name, input: a.args })),
+    },
+    {
+      role: "user",
+      content: m.actions.map((a) => ({ type: "tool_result" as const, tool_use_id: a.id, content: a.result })),
+    },
+  ];
+  if (m.text) out.push({ role: "assistant", content: m.text });
   return out;
 }
 
@@ -83,10 +117,7 @@ class AnthropicTurn implements LlmTurn {
     history: LlmHistoryMessage[] = [],
   ) {
     this.messages = [
-      ...normalizeHistory(history).map((m) => ({
-        role: m.role,
-        content: m.text,
-      })),
+      ...normalizeHistory(history).flatMap(toAnthropicMessages),
       { role: "user", content: userText },
     ];
   }
@@ -175,6 +206,25 @@ interface OpenAiMessage {
   tool_call_id?: string;
 }
 
+/** OpenAI-compatible: a history entry → its message(s), tool calls + results included. */
+function toOpenAiMessages(m: LlmHistoryMessage): OpenAiMessage[] {
+  if (m.role === "user" || !m.actions) return [{ role: m.role, content: m.text }];
+  const out: OpenAiMessage[] = [
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: m.actions.map((a) => ({
+        id: a.id,
+        type: "function" as const,
+        function: { name: a.name, arguments: JSON.stringify(a.args) },
+      })),
+    },
+    ...m.actions.map((a) => ({ role: "tool" as const, tool_call_id: a.id, content: a.result })),
+  ];
+  if (m.text) out.push({ role: "assistant", content: m.text });
+  return out;
+}
+
 /** Anthropic tool defs → OpenAI function-calling schema. */
 const OPENAI_TOOLS = TOOL_DEFINITIONS.map((t) => ({
   type: "function" as const,
@@ -198,10 +248,7 @@ class OpenAiCompatTurn implements LlmTurn {
   ) {
     this.messages = [
       { role: "system", content: system },
-      ...normalizeHistory(history).map((m) => ({
-        role: m.role,
-        content: m.text,
-      })),
+      ...normalizeHistory(history).flatMap(toOpenAiMessages),
       { role: "user", content: userText },
     ];
   }

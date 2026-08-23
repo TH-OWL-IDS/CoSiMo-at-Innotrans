@@ -18,7 +18,7 @@ import {
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt } from "./prompt.js";
-import type { LlmHistoryMessage, LlmRouter } from "./llm.js";
+import type { LlmHistoryAction, LlmHistoryMessage, LlmRouter } from "./llm.js";
 import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
 import { SessionRecorder } from "./recorder.js";
@@ -52,11 +52,25 @@ export interface AgentTurnInput {
  */
 const HISTORY_MESSAGES = 12;
 
-/** A CoSiMo turn worth replaying: a real sentence from a successful turn. */
-function isReplayable(text: string, outcome: string | undefined): boolean {
+/** A CoSiMo turn worth replaying: a real sentence from a successful turn,
+ *  or any turn that did something (its tool calls are the useful part). */
+function isReplayable(text: string, outcome: string | undefined, actions: number): boolean {
   if (outcome === "error" || outcome === "not_understood") return false;
+  if (actions > 0) return true;
   const words = text.trim().split(/\s+/).filter(Boolean);
   return words.length >= 3;
+}
+
+/** The tool calls of a recorded turn, as the model should see them again. */
+function historyActions(actions: TurnAction[] | undefined, turnIndex: number): LlmHistoryAction[] | undefined {
+  if (!actions?.length) return undefined;
+  return actions.map((a, j) => ({
+    id: `hist-${turnIndex}-${j}`,
+    name: a.tool,
+    // The recorder keeps `control` beside `args`; the model saw them as one object.
+    args: { ...(a.control ? { control: a.control } : {}), ...(a.args ?? {}) },
+    result: a.result ?? (a.ok === false ? "error" : "ok"),
+  }));
 }
 
 /** Below this, a tool-less reply is a degenerate sample, not an answer. */
@@ -405,11 +419,13 @@ export class CosimoAgent {
         // A degenerate CoSiMo turn ("II", one word, an error reply) must not be
         // replayed: the model imitates its own history and the whole
         // conversation collapses into one-token answers (seen in prod).
-        .filter((t) => t.role === "user" || isReplayable(t.transcript, t.outcome))
+        .map((t, i) => ({ t, i: from + i }))
+        .filter(({ t }) => t.role === "user" || isReplayable(t.transcript, t.outcome, t.actions?.length ?? 0))
         .slice(-HISTORY_MESSAGES)
-        .map((t) => ({
+        .map(({ t, i }) => ({
           role: t.role === "user" ? ("user" as const) : ("assistant" as const),
           text: t.transcript,
+          ...(t.role === "cosimo" ? { actions: historyActions(t.actions, i) } : {}),
         }))
     );
   }
