@@ -127,6 +127,15 @@ only talk to the hub.
 
 ## Deployment gotchas learned the hard way
 
+- **`--env-file .env.prod` does not reach the containers.** It only feeds
+  compose's `${…}` interpolation. The containers get secrets from
+  `env_file:` — the base file names `.env.local` (dev); the prod overlay
+  adds `.env.prod` to cms and realtime. Without it realtime runs keyless
+  and every turn is canned (seen 2026-08-23).
+- **An empty variable is not an unset one.** `ELEVENLABS_MODEL=` (empty)
+  overrides the code default with `""` → ElevenLabs `400`. Either set a
+  value or delete the line; never leave `KEY=` blank in `.env.prod`.
+
 - The cms Dockerfile copies workspace packages **explicitly** — adding a
   new `packages/*` dependency requires adding it to the COPY list, or the
   image builds successfully with stale code.
