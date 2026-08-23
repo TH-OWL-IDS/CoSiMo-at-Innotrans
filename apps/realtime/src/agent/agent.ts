@@ -101,21 +101,35 @@ const SPEAK_WHILE_ACTING = new Set([
  * generation just to hear "das Licht ist an" — a sentence the server already
  * knows. Model text is preferred whenever the model does produce it.
  */
+/** German articles per control — "die Leselampe", not "das Leselampe". */
+const DE_ARTICLE: Record<string, string> = {
+  "interior-light": "das",
+  "reading-lamp": "die",
+  ventilation: "die",
+  "window-tint": "die",
+  "ambient-sound": "die",
+};
+
 function templatedConfirmation(actions: TurnAction[], lang: Locale): string {
   const de = lang === "de";
   const parts: string[] = [];
-  for (const a of actions) {
-    if (a.tool === "set_cabin_control" && a.control) {
+  const cabin = actions.filter((a) => a.tool === "set_cabin_control" && a.control);
+  if (cabin.length) {
+    const bits = cabin.map((a) => {
       const def = CABIN_CONTROLS.find((c) => c.id === a.control);
-      const label = def?.label[lang] ?? a.control;
+      const label = def?.label[lang] ?? a.control!;
       const args = a.args ?? {};
       if (typeof args.level === "number") {
-        parts.push(de ? `${label} ist jetzt auf ${args.level} Prozent.` : `${label} is now at ${args.level} percent.`);
-      } else {
-        const on = args.on !== false;
-        parts.push(de ? `${on ? "Gern, " : "Okay, "}${on ? "das" : "das"} ${label} ist jetzt ${on ? "an" : "aus"}.` : `${on ? "Sure, " : "Okay, "}the ${label.toLowerCase()} is now ${on ? "on" : "off"}.`);
+        return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} auf ${args.level} Prozent` : `the ${label.toLowerCase()} at ${args.level} percent`;
       }
-    } else if (a.tool === "set_presentation") {
+      const on = args.on !== false;
+      return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} ${on ? "an" : "aus"}` : `the ${label.toLowerCase()} ${on ? "on" : "off"}`;
+    });
+    const list = bits.length > 1 ? bits.slice(0, -1).join(", ") + (de ? " und " : " and ") + bits[bits.length - 1] : bits[0]!;
+    parts.push(de ? `Gern, ${list}.` : `Sure, ${list}.`);
+  }
+  for (const a of actions) {
+    if (a.tool === "set_presentation") {
       parts.push(de ? "Erledigt, ich habe das angepasst." : "Done, I have adjusted that.");
     } else if (a.tool === "request_stop") {
       parts.push(de ? "Dein Haltewunsch ist registriert." : "Your stop request is registered.");
