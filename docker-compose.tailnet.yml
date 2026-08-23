@@ -43,13 +43,23 @@ services:
     # The namespace's published ports: realtime's, now on the sidecar.
     ports:
       - "127.0.0.1:${COSIMO_RT_PORT:-6221}:6101"
+    # Healthy = on the tailnet AND the brain answers. A wedged sidecar is
+    # restarted by Docker (and realtime with it — it lives in this namespace).
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - tailscale status --peers=false >/dev/null 2>&1 && wget -qO- --timeout=4 http://${GX10_TAILNET_IP:-100.90.216.127}:8007/health >/dev/null 2>&1
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
 
   realtime:
     network_mode: service:tailscale
     ports: !override []
     depends_on:
       tailscale:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
 

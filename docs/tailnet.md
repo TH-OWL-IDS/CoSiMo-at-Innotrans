@@ -8,13 +8,14 @@ third party in the clear (the reason Tailscale beat a Cloudflare Tunnel).
 ```
 iPad ──wss──▶ Cloudflare ──▶ VPS: [ tailscale sidecar ns ]══ tailnet ══▶ GX10 :8007  cosimo-llm
                                    └─ realtime (same ns)                    (vLLM, stock Qwen3 27B NVFP4)
-dev Mac ─────────────────────────────────── tailnet ══▶ GX10 :8007
+(dev Mac, only if the LOCAL realtime should use the GX10) ── tailnet ══▶ GX10 :8007
 ```
 
-**Who is on the tailnet:** the GX10, the realtime *container* on the VPS
-(not the host — it runs other things), and the developer's devices. **Who
-is not:** the kiosks, console, emulator, journey — they only talk to the
-hub. The CMS never talks to the brain at all.
+**Who is on the tailnet:** the GX10 and the realtime *container* on the VPS
+(not the host — it runs other things). A developer's Mac joins only to run
+a *local* hub against the GX10; testing through the VPS needs nothing on the
+Mac. **Who is never on it:** the kiosks, console, emulator, journey — they
+only talk to the hub. The CMS never talks to the brain at all.
 
 ## The GX10 side (`infra/gx10/`)
 
@@ -75,6 +76,14 @@ canned. The primary is retried every probe and takes over again by itself.
    in the admin console?). `ok` → the hub's probe will flip back within 15 s.
 3. On the GX10: `tail ~/cosimo-ai/check.log`; `docker logs cosimo-llm`.
 4. Tailnet admin: both nodes tagged, key expiry disabled, the ACL unchanged.
+
+## Measured (2026-08-23, stock Qwen3 27B NVFP4 on the GX10)
+
+Tool-call turn ("Mach bitte das Licht an" → `set_cabin_control`): 3.8–4.0 s;
+four seats at once: all four in 4.4 s (batched); streaming first byte 70 ms.
+The other tenant's container does the same in 2.8 s thanks to MTP speculative
+decoding — worth trying `--speculative-config {"method":"mtp",…}` if the
+checkpoint carries MTP weights.
 
 ## Known limits
 
