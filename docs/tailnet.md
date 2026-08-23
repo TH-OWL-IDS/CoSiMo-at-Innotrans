@@ -97,13 +97,15 @@ canned. The primary is retried every probe and takes over again by itself.
    in `.env`, `docker compose up -d`); `docker logs cosimo-llm`.
 4. Tailnet admin: both machines present and tagged, the ACL unchanged.
 
-## Measured (2026-08-23, stock Qwen3 27B NVFP4 on the GX10)
+## Measured (2026-08-23/24, stock Qwen3 27B NVFP4 on the GX10)
 
-Tool-call turn ("Mach bitte das Licht an" → `set_cabin_control`): 3.8–4.0 s;
-four seats at once: all four in 4.4 s (batched); streaming first byte 70 ms.
-The other tenant's container does the same in 2.8 s thanks to MTP speculative
-decoding — worth trying `--speculative-config {"method":"mtp",…}` if the
-checkpoint carries MTP weights.
+After the latency work (MTP speculation depth 3 — 99/99 draft acceptance on
+tool syntax; one-generation action turns with server-templated
+confirmations): action turn ("mach bitte das Licht an") **2.4 s** + ~0.2 s
+TTS; telemetry turn (two rounds by nature) **3.4 s**. Before: 5–7 s. Four
+seats at once batch within ~0.5 s of a single seat. The remaining floor is
+the model emitting the tool-call syntax itself; the next cut is perceived
+latency via sentence-streamed TTS and live STT.
 
 ## Known limits
 
