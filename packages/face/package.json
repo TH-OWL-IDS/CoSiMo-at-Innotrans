@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cosimo/shared": "workspace:*"
+    "@cosimo/shared": "workspace:*",
+    "gsap": "^3.15.0"
   },
   "peerDependencies": {
     "react": ">=18"

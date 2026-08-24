@@ -10,3 +10,13 @@ export {
   type ScribbleEntityProps,
 } from "./shared.js";
 export { schemes, schemeById, defaultSchemeId, type ColorScheme } from "./schemes.js";
+export {
+  computeScribbleFrame,
+  faceAmbient,
+  mouthPath,
+  restIdle,
+  scribblePack,
+  type FacePack,
+  type Idle,
+  type ScribbleFrame,
+} from "./scribbleRig.js";
