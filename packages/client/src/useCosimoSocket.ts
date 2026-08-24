@@ -22,6 +22,7 @@ import type {
   SeatInspection,
   SeatSummary,
   ServerToClientEvents,
+  SeatCard,
 } from "@cosimo/shared";
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -32,6 +33,10 @@ export interface CosimoState {
   phase: PipelinePhase;
   /** The streaming reply text for the current/last CoSiMo turn. */
   reply: string;
+  /** CoSiMo's option/info card for this seat (null = none). */
+  card: SeatCard | null;
+  /** Dismiss the card locally (e.g. after a tap already sent the answer). */
+  clearCard: () => void;
   /** True while CoSiMo's reply is still streaming. */
   replying: boolean;
   /** Running conversation history (rider + CoSiMo), for the text-first layout. */
@@ -148,6 +153,8 @@ export function useCosimoSocket(
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [cabin, setCabin] = useState<CabinControlState[]>([]);
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
+  /** CoSiMo's option/info card for this seat (null = none). */
+  const [card, setCard] = useState<SeatCard | null>(null);
   /** Live playback volume for TTS clips — a ref, because the tts:audio
    *  handler lives inside the socket-setup effect and must not go stale. */
   const volumeRef = useRef(1);
@@ -245,6 +252,7 @@ export function useCosimoSocket(
       setHeard("");
       setReplying(false);
       setTranscript([]);
+      setCard(null);
       setResetNonce((n) => n + 1);
     });
 
@@ -266,6 +274,10 @@ export function useCosimoSocket(
           error: err instanceof Error ? err.message : String(err),
         }))
         .then((result) => socket.emit("cabin:actuate:result", result));
+    });
+    socket.on("seat:card", ({ card: c, turn }) => {
+      if (turn !== -1 && turn < turnRef.current) return; // stale turn's card
+      setCard(c);
     });
     socket.on("persona:active", (p) => {
       setPersonaState(p);
@@ -336,7 +348,10 @@ export function useCosimoSocket(
     };
   }, [realtimeUrl, deviceId, role]);
 
+  const clearCard = () => setCard(null);
+
   const send = (text: string, lang: Locale, modality: Modality = "text") => {
+    setCard(null); // any user turn answers/invalidates the card
     const socket = sockRef.current;
     if (!socket) return;
     stopPlayback(); // new input supersedes whatever CoSiMo was saying
@@ -446,7 +461,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard,
     telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection,

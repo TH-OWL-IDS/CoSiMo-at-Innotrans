@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import type { Locale, PipelinePhase } from "@cosimo/shared";
-import { CosimoFaceAnimated } from "@cosimo/face";
+import type { Locale, PipelinePhase, SeatCard } from "@cosimo/shared";
+import { CosimoFaceAnimated, schemes, type ColorScheme } from "@cosimo/face";
 import TelemetryStrip from "./TelemetryStrip.js";
 import ConsentOverlay from "./ConsentOverlay.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
@@ -83,6 +83,108 @@ const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
   thinking: { de: "Denkt nach …", en: "Thinking …" },
   speaking: { de: "", en: "" },
 };
+
+/**
+ * CoSiMo's option card, shown low in the circle: the spoken question as a
+ * caption plus tappable chips (kind "list") or the theme palette as swatches
+ * (kind "themes"). Voice remains the primary answer channel — a tap simply
+ * sends the chosen label as the rider's next message. This is the ONE spot
+ * where the otherwise touch-dead circle accepts input, and only while a card
+ * is up.
+ */
+function CardOverlay({
+  card,
+  scheme,
+  textScale,
+  onPick,
+}: {
+  card: SeatCard;
+  scheme: ColorScheme;
+  textScale: number;
+  onPick: (label: string) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={card.question}
+      style={{
+        position: "absolute",
+        left: "50%",
+        bottom: "7%",
+        transform: "translateX(-50%)",
+        width: "84%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 10,
+        zIndex: 5,
+      }}
+    >
+      <div
+        style={{
+          fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
+          textAlign: "center",
+          opacity: 0.9,
+          color: scheme.ink,
+        }}
+      >
+        {card.question}
+      </div>
+      {card.kind === "themes" ? (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          {schemes.map((sch) => (
+            <button
+              key={sch.id}
+              onClick={() => onPick(sch.label)}
+              aria-label={sch.label}
+              style={{
+                appearance: "none",
+                width: "clamp(34px, 9cqw, 52px)",
+                height: "clamp(34px, 9cqw, 52px)",
+                borderRadius: "50%",
+                border: `2.5px solid ${sch.ink}`,
+                background: sch.bg,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: sch.ink,
+                fontWeight: 700,
+                fontSize: "clamp(9px, 1.8cqw, 11px)",
+                padding: 0,
+              }}
+            >
+              {sch.label.slice(0, 2)}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {card.options.map((label) => (
+            <button
+              key={label}
+              onClick={() => onPick(label)}
+              style={{
+                appearance: "none",
+                border: `2px solid ${scheme.ink}`,
+                background: "transparent",
+                color: scheme.ink,
+                borderRadius: 999,
+                padding: "0.5em 1.1em",
+                fontFamily: "inherit",
+                fontWeight: 600,
+                fontSize: `clamp(13px, ${3 * textScale}cqw, ${19 * textScale}px)`,
+                cursor: "pointer",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * The seat as the rider sees it: a black stage with two cutouts — a circle
@@ -209,6 +311,15 @@ export default function SeatView({
             />
           </div>
 
+          {cosimo.card && (
+            <CardOverlay
+              card={cosimo.card}
+              scheme={scheme}
+              textScale={textScale}
+              onPick={(label) => cosimo.send(label, lang, "tap")}
+            />
+          )}
+
           {/* Reply text is progressive disclosure: face-and-voice-first by
               default (only a short phase hint); a running transcript when the
               rider needs to read (showText, e.g. a deaf rider). */}
@@ -221,7 +332,7 @@ export default function SeatView({
               textScale={textScale}
               bold={highContrast}
             />
-          ) : (
+          ) : cosimo.card ? null : (
             <div
               role="status"
               aria-live="polite"

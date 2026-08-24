@@ -39,6 +39,7 @@ const DEFAULT_LEVEL: Record<LogEvent["kind"], LogLevel> = {
   "stt.result": "debug",
   "llm.step": "debug",
   "tool.call": "info",
+  "card.show": "info",
   "cabin.actuate": "info",
   "cabin.result": "info",
   "tts.done": "debug",

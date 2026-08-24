@@ -4,6 +4,7 @@ import {
   IdCard, Joystick, Lightbulb, MessageSquare, Mic, Pause, Play, Plug, RadioTower,
   RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
   type LucideIcon,
+  ListTodo,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 
@@ -36,6 +37,7 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "tool.call": Wrench,
   "cabin.actuate": Lightbulb,
   "cabin.result": CornerDownLeft,
+  "card.show": ListTodo,
   "tts.done": Volume2,
   "turn.end": FlagTriangleRight,
   "host.action": Joystick,
@@ -70,6 +72,8 @@ function summarize(e: LogEvent): string {
       return `profile → ${e.data.persona} (${e.data.by})`;
     case "turn.start":
       return `${e.data.modality} · ${e.data.lang} · ${e.data.llm ? `${e.data.llm.provider}/${e.data.llm.model}` : "canned"} · “${e.data.text}”`;
+    case "card.show":
+      return `${e.data.kind} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
     case "stt.result":
       return `${e.data.chars} chars in ${e.data.durationMs} ms (${Math.round(e.data.bytes / 1024)} kB ${e.data.mime})`;
     case "llm.step":

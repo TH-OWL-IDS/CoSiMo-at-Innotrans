@@ -16,7 +16,7 @@ import type {
   CabinControlId,
 } from "./cabin.js";
 import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
-import type { Modality, Turn } from "./session.js";
+import type { Modality, Turn, SeatCard } from "./session.js";
 import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
@@ -106,6 +106,9 @@ export interface ServerToClientEvents {
   /** Synthesized speech to play (server TTS). When absent, clients speak locally.
    *  Carries the turn number — stale clips (barged-in turns) are dropped. */
   "tts:audio": (payload: { sessionId: string; audioBase64: string; mime: string; turn: number }) => void;
+
+  /** Show (or clear, card=null) the seat's option/info card. */
+  "seat:card": (payload: { sessionId: string; card: SeatCard | null; turn: number }) => void;
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */

@@ -217,6 +217,9 @@ export class CosimoAgent {
     const { sessionId, deviceId, text, lang, persona, modality, consent, sttMs } = input;
     const startedAt = Date.now();
     const ctx = { deviceId, sessionId, turn: -1 };
+    // A new turn invalidates any option card still on screen — the rider
+    // either answered it (this turn) or moved on.
+    this.hub.showCard(sessionId, null, -1);
 
     // A new input supersedes whatever this seat was still generating.
     this.interrupt(deviceId);

@@ -9,7 +9,24 @@ import type { PersonaKey } from "./persona.js";
 import type { CabinControlId } from "./cabin.js";
 import type { Locale } from "./telemetry.js";
 
-export type Modality = "voice" | "text";
+export type Modality = "voice" | "text" | "tap";
+
+/**
+ * A card CoSiMo can show in the seat circle: tappable options for a
+ * clarification ("which light?") or a visual answer (the theme palette).
+ * Always paired with the SPOKEN question — voice stays the primary channel;
+ * a tap simply sends the chosen label back as a normal user turn. One card
+ * per seat; a new turn (or a tap) clears it.
+ */
+export interface SeatCard {
+  /** "list": generic options. "themes": the client renders its own scheme
+   *  swatches (it owns the palette) — `options` is ignored. */
+  kind: "list" | "themes";
+  /** The question, as spoken — shown as the card caption. */
+  question: string;
+  /** 2–4 short labels for kind "list". Tapping sends the label as a turn. */
+  options: string[];
+}
 export type TurnRole = "user" | "cosimo";
 export type TurnOutcome =
   | "ok"

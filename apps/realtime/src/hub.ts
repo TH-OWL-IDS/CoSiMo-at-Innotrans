@@ -28,6 +28,7 @@ import {
   type PersonaBroadcast,
   type PersonaKey,
   type PipelinePhase,
+  type SeatCard,
   type SeatInspection,
   type SeatSummary,
   type ServerToClientEvents,
@@ -729,6 +730,22 @@ export class Hub {
     entry.socket.emit("persona:active", entry.persona);
     this.pushSeats();
     return accommodations;
+  }
+
+  /** Show (or clear) a seat's option card. Stale turns are dropped like
+   *  chat deltas — a barged-in turn's card must not stomp the live one. */
+  showCard(sessionId: string, card: SeatCard | null, turn: number): void {
+    const entry = this.entryOf(sessionId);
+    if (!entry) return;
+    if (turn !== -1 && turn < entry.turn) return;
+    entry.socket.emit("seat:card", { sessionId, card, turn });
+    if (card) {
+      logger.log(
+        "card.show",
+        { kind: card.kind, question: card.question, options: card.options },
+        { sessionId, turn },
+      );
+    }
   }
 
   /** The seat's LIVE accommodations (what the rider sees/hears right now).

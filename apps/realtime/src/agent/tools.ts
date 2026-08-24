@@ -108,6 +108,27 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "show_choices",
+    description:
+      "Show tappable options in the rider's view — ONLY when their request is genuinely ambiguous (e.g. 'mach eine Lampe an' and two lamps qualify) or when they ask to SEE something visual (colours/themes → kind 'themes'). Speak the question in the same reply; the rider answers by voice OR tap, both arrive as their next message. Never use this as a habit — when the request is clear, just act.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "The short question, exactly as you speak it (e.g. 'Das Innenlicht oder die Leselampe?')." },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 2,
+          maxItems: 4,
+          description: "2–4 short tappable labels, in the rider's language. Omit for kind 'themes'.",
+        },
+        kind: { type: "string", enum: ["list", "themes"], description: "'themes' shows the colour palette as swatches (no options needed). Default 'list'." },
+      },
+      required: ["question"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "remember",
     description:
       "Remember a short fact or preference the rider EXPLICITLY asks you to remember about them (their name, that they prefer short answers, a need). Only works for a registered rider who agreed to being remembered — otherwise say you can't.",
@@ -288,6 +309,24 @@ export async function executeTool(
       if (!acc) return { text: "error: no active seat", action: { tool: name } };
       persistAccommodations(ctx, acc);
       return { text: `ok: ${setting} is now ${String(input.value)}`, action: { tool: name, args: { setting, value: input.value } } };
+    }
+
+    case "show_choices": {
+      const question = String(input.question ?? "").trim();
+      const kind = input.kind === "themes" ? ("themes" as const) : ("list" as const);
+      const options =
+        kind === "themes"
+          ? []
+          : (Array.isArray(input.options) ? input.options : []).map((o) => String(o).trim()).filter(Boolean).slice(0, 4);
+      if (!question) return { text: "error: question is required", action: { tool: name } };
+      if (kind === "list" && options.length < 2) {
+        return { text: "error: kind 'list' needs 2–4 options", action: { tool: name } };
+      }
+      ctx.hub.showCard(ctx.sessionId, { kind, question, options }, ctx.turn);
+      return {
+        text: "ok: options are on screen. Ask the question aloud in this same reply and END your turn — the rider's choice arrives as their next message.",
+        action: { tool: name, args: { kind, question, options } },
+      };
     }
 
     case "remember": {
