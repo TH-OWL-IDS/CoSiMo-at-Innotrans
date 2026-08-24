@@ -1,38 +1,29 @@
 # apps/console — the live operator console
 
-What booth staff have open on a phone or spare iPad during the show. Its own
-static service (Vite bundle, nginx in prod) — `console-cosimo.…` on the VPS,
-`:6102` locally — deliberately **not** part of the CMS: the CMS is a UI for
-the database and plays no role during the show, while this is the one page
-that must stay up *during* it. A socket-only client of the realtime hub; it
-never calls the CMS (not even for the persona list).
+What booth staff have open on a phone or spare iPad during the show. One
+header — the MonoCab logo and the word **Konsole**, separated from the
+content by a hairline — and four views (the active tab survives a reload
+via the URL hash):
 
-What booth staff have open on a phone or spare iPad. Two levels, mirroring
-the state model (see [architecture.md](architecture.md)):
-
-- **Global — the journey everyone shares:** service health (LLM, speech,
-  light, network, offline-canned, server STT/TTS), live telemetry with demo
-  force buttons (pause/resume the journey, drop battery to 15 %), **fault
-  injection** (⚠ signal hold / door fault / slow order / low battery, and
-  *Störung beheben* — see [journey.md](journey.md)), the demo/offline
-  toggle, **recover** (un-sticks every seat), persona for all seats at once.
-- **Per seat — one card per iPad with an active visitor:** live face +
-  phase, the profile (label, accommodations, stored memories), a persona
-  dropdown (the manual stand-in for an NFC tap), cabin toggles (override or
-  test the light path), the last utterance/reply, **reset** for the next
-  visitor, and **inspect** 🔍 — the exact system prompt that seat would use
-  right now plus its full turn log with tool actions, outcomes and
-  latencies (the "why did CoSiMo say that?" tool).
-
-- **The Log tab** — the structured debug stream: every turn of every seat
-  with its tool calls (input + result), cabin actuations and what the seat
-  reported back, STT/LLM/TTS timings, errors. Live tail with pause, filters
-  by seat / session / kind / level / text, raw JSON per row, NDJSON export.
-  Replayed from the hub's buffer on connect, so it has history from the
-  first click. `#log` in the URL opens it directly. See
-  [logging.md](logging.md).
-
-Idle connected seats show as small chips. The persona pickers are built from
+- **Übersicht** — every dependency as a row with a status dot and a detail
+  sentence: hub connection (+ device counts), LLM (provider · model, and
+  "Fallback aktiv" when the probe switched brains), STT, TTS, light,
+  network, and the mode (Live vs Demo). The operations that belong next to
+  a red dot live here too: recover, the demo/offline toggle, persona for
+  all seats. The tab label carries a red dot whenever something is down.
+- **Fahrzeug** — the MonoCab itself: the CI line drawing centred, live
+  speed above it, destination/direction beneath, a fault banner with cause
+  and countdown when a disruption is active, and stat tiles (position,
+  next stop + ETA, delay, battery bar, doors, passengers as seat glyphs —
+  red = live CoSiMo seat, ink = simulated, hollow = free). Below: the
+  journey controls (pause/resume, weak battery) and the ⚠ fault buttons.
+- **Sessions** — one card per active seat: live face + phase, persona
+  picker (the manual stand-in for an NFC tap), accommodation chips, stored
+  memories, cabin toggles, the last exchange, reset, and **inspect** 🔍 —
+  the exact system prompt that seat would use right now plus its full turn
+  log with tool calls, results and latencies. Idle seats appear as chips;
+  the tab label shows the active-seat count.
+- **Logs** — the structured debug stream (see below). The persona pickers are built from
 `host:personas`, pushed by the hub — no CMS query. **Unauthenticated**: anyone
 who connects as `role: "host"` can reset seats, wherever the page is served
 from, so the fix is a host token checked by the hub on `hello`, not a login
