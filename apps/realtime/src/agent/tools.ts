@@ -48,13 +48,12 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "set_cabin_control",
     description:
-      "Turn a cabin function on/off or set its level. Use this when the rider asks to change the cabin (light, reading lamp, ventilation, window tint, ambient sound). 'interior-light' is real hardware; the others are simulated.",
+      "Turn a cabin light on/off. Use this when the rider asks to change the lighting: 'interior-light' (the main cabin light, real hardware) or 'reading-lamp'.",
     input_schema: {
       type: "object",
       properties: {
         control: { type: "string", enum: CONTROL_IDS, description: "Which cabin control to change." },
-        on: { type: "boolean", description: "On/off for toggle controls (interior-light, reading-lamp, ambient-sound)." },
-        level: { type: "integer", minimum: 0, maximum: 100, description: "0–100 for level controls (ventilation, window-tint)." },
+        on: { type: "boolean", description: "On/off." },
       },
       required: ["control"],
       additionalProperties: false,
@@ -273,7 +272,6 @@ export async function executeTool(
       }
       const change: { on?: boolean; level?: number } = {};
       if (typeof input.on === "boolean") change.on = input.on;
-      if (typeof input.level === "number") change.level = input.level;
       const state = await ctx.hub.applyCabinControl(ctx.deviceId, control, change);
       return {
         text: `ok: ${control} is now ${JSON.stringify({ on: state.on, level: state.level })}`,

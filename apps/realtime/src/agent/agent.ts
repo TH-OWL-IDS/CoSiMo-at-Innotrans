@@ -105,9 +105,6 @@ const SPEAK_WHILE_ACTING = new Set([
 const DE_ARTICLE: Record<string, string> = {
   "interior-light": "das",
   "reading-lamp": "die",
-  ventilation: "die",
-  "window-tint": "die",
-  "ambient-sound": "die",
 };
 
 function templatedConfirmation(actions: TurnAction[], lang: Locale): string {

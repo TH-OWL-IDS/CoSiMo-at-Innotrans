@@ -228,9 +228,6 @@ export const OperatorConfig: GlobalConfig = {
               options: [
                 { label: "Innenlicht", value: "interior-light" },
                 { label: "Leselampe", value: "reading-lamp" },
-                { label: "Belüftung", value: "ventilation" },
-                { label: "Fenstertönung", value: "window-tint" },
-                { label: "Klangkulisse", value: "ambient-sound" },
               ],
             },
             {

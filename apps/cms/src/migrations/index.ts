@@ -1,6 +1,7 @@
 import * as migration_20260824_083431_initial from './20260824_083431_initial';
 import * as migration_20260824_085755_persona_voice from './20260824_085755_persona_voice';
 import * as migration_20260824_092230_voice_catalog from './20260824_092230_voice_catalog';
+import * as migration_20260824_101152_cabin_controls_trim from './20260824_101152_cabin_controls_trim';
 
 export const migrations = [
   {
@@ -16,6 +17,11 @@ export const migrations = [
   {
     up: migration_20260824_092230_voice_catalog.up,
     down: migration_20260824_092230_voice_catalog.down,
-    name: '20260824_092230_voice_catalog'
+    name: '20260824_092230_voice_catalog',
+  },
+  {
+    up: migration_20260824_101152_cabin_controls_trim.up,
+    down: migration_20260824_101152_cabin_controls_trim.down,
+    name: '20260824_101152_cabin_controls_trim'
   },
 ];

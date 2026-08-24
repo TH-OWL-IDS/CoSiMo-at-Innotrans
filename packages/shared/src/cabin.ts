@@ -7,11 +7,8 @@
 import type { Locale } from "./telemetry.js";
 
 export type CabinControlId =
-  | "interior-light" // real (Shelly relay)
-  | "reading-lamp"
-  | "ventilation"
-  | "window-tint"
-  | "ambient-sound";
+  | "interior-light" // real (LPU-2 light)
+  | "reading-lamp";
 
 export interface CabinControlDef {
   id: CabinControlId;
@@ -62,7 +59,4 @@ export interface CabinActuationResult {
 export const CABIN_CONTROLS: CabinControlDef[] = [
   { id: "interior-light", label: { de: "Innenlicht", en: "Interior light" }, real: true, kind: "toggle" },
   { id: "reading-lamp", label: { de: "Leselampe", en: "Reading lamp" }, real: false, kind: "toggle" },
-  { id: "ventilation", label: { de: "Belüftung", en: "Ventilation" }, real: false, kind: "level" },
-  { id: "window-tint", label: { de: "Fenstertönung", en: "Window tint" }, real: false, kind: "level" },
-  { id: "ambient-sound", label: { de: "Klangkulisse", en: "Ambient sound" }, real: false, kind: "toggle" },
 ];

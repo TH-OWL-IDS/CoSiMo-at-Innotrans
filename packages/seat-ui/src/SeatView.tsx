@@ -85,12 +85,11 @@ const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
 };
 
 /**
- * CoSiMo's option card, shown low in the circle: the spoken question as a
- * caption plus tappable chips (kind "list") or the theme palette as swatches
- * (kind "themes"). Voice remains the primary answer channel — a tap simply
- * sends the chosen label as the rider's next message. This is the ONE spot
- * where the otherwise touch-dead circle accepts input, and only while a card
- * is up.
+ * CoSiMo's option card, shown IN THE SLIT (the physical interaction strip —
+ * the circle stays the face, and stays touch-dead): the spoken question plus
+ * tappable chips (kind "list") or the theme palette as swatches (kind
+ * "themes"), one horizontal row. Voice remains the primary answer channel —
+ * a tap simply sends the chosen label as the rider's next message.
  */
 function CardOverlay({
   card,
@@ -108,83 +107,76 @@ function CardOverlay({
       role="group"
       aria-label={card.question}
       style={{
-        position: "absolute",
-        left: "50%",
-        bottom: "7%",
-        transform: "translateX(-50%)",
-        width: "84%",
+        width: "100%",
+        height: "100%",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        gap: 10,
-        zIndex: 5,
+        gap: 12,
+        padding: "0 3%",
+        overflow: "hidden",
+        color: scheme.ink,
       }}
     >
-      <div
+      <span
         style={{
-          fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
-          textAlign: "center",
-          opacity: 0.9,
-          color: scheme.ink,
+          fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          flexShrink: 1,
+          minWidth: 0,
         }}
       >
         {card.question}
-      </div>
-      {card.kind === "themes" ? (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-          {schemes.map((sch) => (
-            <button
-              key={sch.id}
-              onClick={() => onPick(sch.label)}
-              aria-label={sch.label}
-              style={{
-                appearance: "none",
-                width: "clamp(34px, 9cqw, 52px)",
-                height: "clamp(34px, 9cqw, 52px)",
-                borderRadius: "50%",
-                border: `2.5px solid ${sch.ink}`,
-                background: sch.bg,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: sch.ink,
-                fontWeight: 700,
-                fontSize: "clamp(9px, 1.8cqw, 11px)",
-                padding: 0,
-              }}
-            >
-              {sch.label.slice(0, 2)}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-          {card.options.map((label) => (
-            <button
-              key={label}
-              onClick={() => onPick(label)}
-              style={{
-                appearance: "none",
-                border: `2px solid ${scheme.ink}`,
-                background: "transparent",
-                color: scheme.ink,
-                borderRadius: 999,
-                padding: "0.5em 1.1em",
-                fontFamily: "inherit",
-                fontWeight: 600,
-                fontSize: `clamp(13px, ${3 * textScale}cqw, ${19 * textScale}px)`,
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      </span>
+      <span style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexShrink: 0 }}>
+        {card.kind === "themes"
+          ? schemes.map((sch) => (
+              <button
+                key={sch.id}
+                onClick={() => onPick(sch.label)}
+                aria-label={sch.label}
+                title={sch.label}
+                style={{
+                  appearance: "none",
+                  width: "clamp(22px, 5.5cqw, 34px)",
+                  height: "clamp(22px, 5.5cqw, 34px)",
+                  borderRadius: "50%",
+                  border: `2px solid ${sch.ink}`,
+                  background: sch.bg,
+                  cursor: "pointer",
+                  padding: 0,
+                  flexShrink: 0,
+                }}
+              />
+            ))
+          : card.options.map((label) => (
+              <button
+                key={label}
+                onClick={() => onPick(label)}
+                style={{
+                  appearance: "none",
+                  border: `1.5px solid ${scheme.ink}`,
+                  background: "transparent",
+                  color: scheme.ink,
+                  borderRadius: 999,
+                  padding: "0.3em 0.9em",
+                  fontFamily: "inherit",
+                  fontWeight: 600,
+                  fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+      </span>
     </div>
   );
 }
+
 
 /**
  * The seat as the rider sees it: a black stage with two cutouts — a circle
@@ -311,15 +303,6 @@ export default function SeatView({
             />
           </div>
 
-          {cosimo.card && (
-            <CardOverlay
-              card={cosimo.card}
-              scheme={scheme}
-              textScale={textScale}
-              onPick={(label) => cosimo.send(label, lang, "tap")}
-            />
-          )}
-
           {/* Reply text is progressive disclosure: face-and-voice-first by
               default (only a short phase hint); a running transcript when the
               rider needs to read (showText, e.g. a deaf rider). */}
@@ -332,7 +315,7 @@ export default function SeatView({
               textScale={textScale}
               bold={highContrast}
             />
-          ) : cosimo.card ? null : (
+          ) : (
             <div
               role="status"
               aria-live="polite"
@@ -411,7 +394,16 @@ export default function SeatView({
             transition: "background 300ms",
           }}
         >
-          <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+          {cosimo.card ? (
+            <CardOverlay
+              card={cosimo.card}
+              scheme={scheme}
+              textScale={textScale}
+              onPick={(label) => cosimo.send(label, lang, "tap")}
+            />
+          ) : (
+            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+          )}
         </div>
       </div>
 
