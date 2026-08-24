@@ -148,6 +148,9 @@ export function useCosimoSocket(
   const [status, setStatus] = useState<ConnectionStatus | null>(null);
   const [cabin, setCabin] = useState<CabinControlState[]>([]);
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
+  /** Live playback volume for TTS clips — a ref, because the tts:audio
+   *  handler lives inside the socket-setup effect and must not go stale. */
+  const volumeRef = useRef(1);
   const [heard, setHeard] = useState("");
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
@@ -264,7 +267,10 @@ export function useCosimoSocket(
         }))
         .then((result) => socket.emit("cabin:actuate:result", result));
     });
-    socket.on("persona:active", (p) => setPersonaState(p));
+    socket.on("persona:active", (p) => {
+      setPersonaState(p);
+      volumeRef.current = Math.max(0, Math.min(1, p.accommodations.volume ?? 1));
+    });
     socket.on("voice:transcript", ({ text }) => {
       setHeard(text);
       // Server-STT path: the rider's words arrive here (browser-STT goes via send()).
@@ -278,6 +284,7 @@ export function useCosimoSocket(
         audioRef.current?.pause();
         analysingRef.current = false;
         const audio = new Audio(`data:${mime};base64,${audioBase64}`);
+        audio.volume = volumeRef.current; // "leiser bitte" — playback-side, instant
         audioRef.current = audio;
         // Route the clip through the analyser so the mouth can follow the
         // actual voice. Only when the context is unlocked ("running") — a

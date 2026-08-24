@@ -81,7 +81,25 @@ export interface Accommodations {
   reduceMotion: boolean;
   /** Which input channel to emphasise. */
   input: "voice" | "text" | "both";
+  /** Playback volume 0–1 (applied on the kiosk — volume is not a TTS-vendor
+   *  concept, so it works identically for server and browser speech). */
+  volume?: number;
+  /** Which configured voice speaks. "male" falls back to the default voice
+   *  when no male voice id is configured (logged, never an error). */
+  voiceGender?: "female" | "male";
+  /** Voice character preset — mapped to ElevenLabs `stability` server-side. */
+  voiceTone?: VoiceTone;
 }
+
+/** Voice character presets → ElevenLabs stability (low = expressive, high = even). */
+export const VOICE_TONES = ["neutral", "warm", "ruhig", "lebhaft"] as const;
+export type VoiceTone = (typeof VOICE_TONES)[number];
+export const VOICE_TONE_STABILITY: Record<VoiceTone, number> = {
+  neutral: 0.5,
+  warm: 0.35,
+  ruhig: 0.75,
+  lebhaft: 0.3,
+};
 
 /** A note CoSiMo remembered about a user (explicit `remember`, consent-gated). */
 export interface PersonaMemory {

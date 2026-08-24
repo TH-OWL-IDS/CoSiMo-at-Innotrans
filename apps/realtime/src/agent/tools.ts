@@ -11,6 +11,7 @@ import {
   CABIN_CONTROLS,
   EXPRESSIVE_EMOTIONS,
   SCHEME_IDS,
+  VOICE_TONES,
   isFaceEmotion,
   type Accommodations,
   type CabinControlId,
@@ -18,6 +19,7 @@ import {
   type Locale,
   type PersonaKey,
   type TurnAction,
+  type VoiceTone,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import type { PersonaProvider } from "./personas.js";
@@ -91,13 +93,13 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       properties: {
         setting: {
           type: "string",
-          enum: ["textSize", "contrast", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "theme", "language"],
+          enum: ["textSize", "contrast", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "theme", "language", "volume", "voice", "tone"],
           description: "Which setting to change.",
         },
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
+            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male — which voice speaks. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
         },
       },
       required: ["setting", "value"],
@@ -180,6 +182,24 @@ function presentationPatch(setting: string, value: unknown): PresPatch {
       return (SCHEME_IDS as readonly string[]).includes(id)
         ? { patch: { theme: id } }
         : { error: `theme must be one of: ${SCHEME_IDS.join("|")}` };
+    }
+    case "volume": {
+      let n = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(n)) return { error: "volume must be a number 0–1" };
+      if (n > 1 && n <= 100) n = n / 100; // the model sometimes says 50 for 50%
+      return n >= 0 && n <= 1 ? { patch: { volume: n } } : { error: "volume must be 0–1" };
+    }
+    case "voice": {
+      const g = String(value).trim().toLowerCase();
+      return g === "female" || g === "male"
+        ? { patch: { voiceGender: g } }
+        : { error: "voice must be female|male" };
+    }
+    case "tone": {
+      const t = String(value).trim().toLowerCase();
+      return (VOICE_TONES as readonly string[]).includes(t)
+        ? { patch: { voiceTone: t as VoiceTone } }
+        : { error: `tone must be one of: ${VOICE_TONES.join("|")}` };
     }
     case "language":
       return value === "de" || value === "en"

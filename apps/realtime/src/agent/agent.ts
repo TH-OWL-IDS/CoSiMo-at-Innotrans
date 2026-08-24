@@ -575,10 +575,17 @@ export class CosimoAgent {
     signal?: AbortSignal,
   ): Promise<number | undefined> {
     if (!this.tts.available || !text.trim()) return undefined;
-    if (!this.personas.get(persona).accommodations.audioOutput) return undefined;
+    const acc = this.personas.get(persona).accommodations;
+    if (!acc.audioOutput) return undefined;
     const t0 = Date.now();
     try {
-      const audio = await this.tts.synthesize(text, lang);
+      // Live accommodations at synth time — "sprich langsamer" already
+      // applies to the confirmation sentence of the very same turn.
+      const audio = await this.tts.synthesize(text, lang, {
+        rate: acc.speechRate ?? 1,
+        gender: acc.voiceGender ?? "female",
+        tone: acc.voiceTone ?? "neutral",
+      });
       const durationMs = Date.now() - t0;
       if (audio) {
         logger.log(

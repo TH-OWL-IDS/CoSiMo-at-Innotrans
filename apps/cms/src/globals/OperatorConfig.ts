@@ -143,6 +143,15 @@ export const OperatorConfig: GlobalConfig = {
           admin: { description: "Empty = server default (ELEVENLABS_VOICE_ID env)." },
         },
         {
+          name: "voiceIdMale",
+          type: "text",
+          label: "Voice ID (männlich)",
+          admin: {
+            description:
+              "Stimme für „männliche Stimme bitte“ (set_presentation voice=male). Leer = ELEVENLABS_VOICE_ID_MALE env; auch leer → Standardstimme bleibt.",
+          },
+        },
+        {
           name: "model",
           type: "text",
           admin: { description: "Empty = server default (ELEVENLABS_MODEL env)." },

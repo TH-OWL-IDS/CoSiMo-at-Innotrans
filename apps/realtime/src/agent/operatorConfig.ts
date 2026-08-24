@@ -23,7 +23,7 @@ export interface ResolvedOperatorConfig {
     fallback: { provider: LlmProviderKind; baseUrl: string; model: string } | null;
   };
   stt: { baseUrl: string; model: string };
-  tts: { baseUrl: string; voiceId: string; model: string };
+  tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string };
   /** Cabin lighting: where the LPU-2 lives on the cabin LAN and which
    *  playback drives which control. Unmapped controls stay simulated. */
   cabin: { lpu2BaseUrl: string; lpu2Mapping: Lpu2Mapping; lpu2TimeoutMs: number };
@@ -45,6 +45,7 @@ function envDefaults(): ResolvedOperatorConfig {
     tts: {
       baseUrl: config.speech.elevenLabsBaseUrl,
       voiceId: config.speech.elevenLabsVoiceId,
+      voiceIdMale: config.speech.elevenLabsVoiceIdMale,
       model: config.speech.elevenLabsModel,
     },
     cabin: {
@@ -82,7 +83,7 @@ interface PayloadOperatorConfigDoc {
     fallbackModel?: string | null;
   };
   stt?: { baseUrl?: string | null; model?: string | null };
-  tts?: { baseUrl?: string | null; voiceId?: string | null; model?: string | null };
+  tts?: { baseUrl?: string | null; voiceId?: string | null; voiceIdMale?: string | null; model?: string | null };
   cabin?: {
     lpu2BaseUrl?: string | null;
     lpu2Playbacks?: { control?: string | null; playback?: number | null }[] | null;
@@ -140,6 +141,7 @@ export class OperatorConfigProvider {
         tts: {
           baseUrl: str(doc.tts?.baseUrl, base.tts.baseUrl),
           voiceId: str(doc.tts?.voiceId, base.tts.voiceId),
+          voiceIdMale: str(doc.tts?.voiceIdMale, base.tts.voiceIdMale),
           model: str(doc.tts?.model, base.tts.model),
         },
         cabin: {

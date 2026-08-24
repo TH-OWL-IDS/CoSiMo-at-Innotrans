@@ -5,7 +5,7 @@
  * synthesis. The interface keeps the vendor swappable.
  */
 
-import type { Locale } from "@cosimo/shared";
+import { VOICE_TONE_STABILITY, type Locale, type VoiceTone } from "@cosimo/shared";
 import { config } from "../config.js";
 import type { OperatorConfigProvider } from "../agent/operatorConfig.js";
 
@@ -14,10 +14,18 @@ export interface SynthResult {
   mime: string;
 }
 
+/** Per-utterance voice adaptation, from the seat's accommodations. */
+export interface VoiceOptions {
+  /** speechRate 0.5–1.5; ElevenLabs supports 0.7–1.2 (clamped). */
+  rate: number;
+  gender: "female" | "male";
+  tone: VoiceTone;
+}
+
 export interface TtsProvider {
   readonly available: boolean;
   /** Synthesize speech, or null if unavailable (client speaks locally). */
-  synthesize(text: string, lang: Locale): Promise<SynthResult | null>;
+  synthesize(text: string, lang: Locale, voice?: VoiceOptions): Promise<SynthResult | null>;
 }
 
 /** No server TTS — clients speak with the browser. */
@@ -33,21 +41,31 @@ export class ElevenLabsTts implements TtsProvider {
   readonly available = true;
   private readonly key: string;
   /** Endpoint details resolve per call so operator-config edits apply live. */
-  private readonly endpoint: () => { baseUrl: string; voiceId: string; model: string };
+  private readonly endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string };
 
-  constructor(key: string, endpoint: () => { baseUrl: string; voiceId: string; model: string }) {
+  constructor(key: string, endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string }) {
     this.key = key;
     this.endpoint = endpoint;
   }
 
-  async synthesize(text: string, _lang: Locale): Promise<SynthResult | null> {
+  async synthesize(text: string, _lang: Locale, voice?: VoiceOptions): Promise<SynthResult | null> {
     if (!text.trim()) return null;
-    const { baseUrl, voiceId, model } = this.endpoint();
-    const url = `${baseUrl.replace(/\/+$/, "")}/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
+    const { baseUrl, voiceId, voiceIdMale, model } = this.endpoint();
+    // Gender = a different voice id on the same endpoint — zero latency cost.
+    // No male voice configured → stay on the default voice rather than fail.
+    const id = voice?.gender === "male" && voiceIdMale ? voiceIdMale : voiceId;
+    const url = `${baseUrl.replace(/\/+$/, "")}/v1/text-to-speech/${id}?output_format=mp3_44100_128`;
+    // speed + stability are free; `style` > 0 and speaker boost would add
+    // latency, so tone maps onto stability only (see VOICE_TONE_STABILITY).
+    const voice_settings = {
+      speed: Math.min(1.2, Math.max(0.7, voice?.rate ?? 1)),
+      stability: VOICE_TONE_STABILITY[voice?.tone ?? "neutral"],
+      similarity_boost: 0.75,
+    };
     const res = await fetch(url, {
       method: "POST",
       headers: { "xi-api-key": this.key, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: model }),
+      body: JSON.stringify({ text, model_id: model, voice_settings }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) throw new Error(`elevenlabs ${res.status}`);

@@ -30,6 +30,9 @@ function accommodations(over: Partial<Accommodations> = {}): Accommodations {
     showText: false,
     reduceMotion: false,
     input: "both",
+    volume: 1,
+    voiceGender: "female",
+    voiceTone: "neutral",
     ...over,
   };
 }

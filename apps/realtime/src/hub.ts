@@ -55,6 +55,9 @@ const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
     showText: false,
     reduceMotion: false,
     input: "both",
+    volume: 1,
+    voiceGender: "female",
+    voiceTone: "neutral",
   },
 };
 

@@ -63,6 +63,8 @@ export function useSeat(serverUrl: string): Seat {
   const showText = acc?.showText ?? false;
   const speakAloud = acc?.audioOutput ?? true;
   const speechRate = acc?.speechRate ?? 1;
+  const volume = acc?.volume ?? 1;
+  const voiceGender = acc?.voiceGender ?? "female";
   const reduceMotion = acc?.reduceMotion ?? false;
   const serverStt = cosimo.status?.serverStt ?? false;
   const serverTts = cosimo.status?.serverTts ?? false;
@@ -95,6 +97,8 @@ export function useSeat(serverUrl: string): Seat {
     pttActive: ptt.active,
     lang,
     rate: speechRate,
+    volume,
+    gender: voiceGender,
     setSpeaking: cosimo.setSpeaking,
   });
 

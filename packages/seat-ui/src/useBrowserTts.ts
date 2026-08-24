@@ -17,6 +17,8 @@ export function useBrowserTts({
   pttActive,
   lang,
   rate,
+  volume,
+  gender,
   setSpeaking,
 }: {
   /** False when server TTS plays the reply or the profile wants no audio. */
@@ -26,6 +28,10 @@ export function useBrowserTts({
   pttActive: boolean;
   lang: Locale;
   rate: number;
+  /** Playback volume 0–1. */
+  volume: number;
+  /** Preferred voice gender — best-effort against the installed system voices. */
+  gender: "female" | "male";
   setSpeaking: (on: boolean) => void;
 }): void {
   const spokenRef = useRef("");
@@ -42,10 +48,20 @@ export function useBrowserTts({
     const u = new SpeechSynthesisUtterance(text);
     u.lang = lang === "de" ? "de-DE" : "en-US";
     u.rate = rate;
+    u.volume = Math.max(0, Math.min(1, volume));
+    // Best-effort gender: system voice names are the only signal the Web
+    // Speech API offers. No match → the default voice speaks (never silent).
+    if (gender === "male") {
+      const wanted = lang === "de" ? "de" : "en";
+      const male = window.speechSynthesis
+        .getVoices()
+        .find((v) => v.lang.toLowerCase().startsWith(wanted) && /male|man|männlich|daniel|markus|stefan|fred|yannick/i.test(v.name) && !/female|woman|weiblich/i.test(v.name));
+      if (male) u.voice = male;
+    }
     u.onstart = () => setSpeaking(true);
     u.onend = () => setSpeaking(false);
     u.onerror = () => setSpeaking(false);
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
-  }, [enabled, replying, reply, pttActive, lang, rate, setSpeaking]);
+  }, [enabled, replying, reply, pttActive, lang, rate, volume, gender, setSpeaking]);
 }

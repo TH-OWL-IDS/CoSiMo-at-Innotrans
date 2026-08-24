@@ -26,8 +26,12 @@ richness of "who this rider is" lives in the brief.
 
 `language` (de/en — the rider's preferred language), `theme`, `textSize`
 (s/m/l/xl), `contrast` (normal/high), `audioOutput`, `speechRate`, `showText`,
-`reduceMotion`, `input` (voice/text/both). All are deterministic,
-client-applied, and **voice-mutable** (see Tools).
+`reduceMotion`, `input` (voice/text/both), plus the voice itself: `volume`
+(0–1, playback-side — „leiser bitte"), `voiceGender` (female/male — a second
+ElevenLabs voice id, `voiceIdMale` in operator-config), `voiceTone`
+(neutral/warm/ruhig/lebhaft — mapped to ElevenLabs `stability`;
+„freundlicher" → warm). All are deterministic, client-applied, and
+**voice-mutable** (see Tools).
 
 Language note: **personal profiles have *a* language; shared non-personal
 content stays bilingual** (`Record<Locale, …>` for telemetry, cabin labels,
@@ -104,8 +108,11 @@ Accommodations reach the kiosk over `persona:active`
   riders). No replay button; re-requests stay conversational ("say that
   again").
 - `textSize` scales the type, `contrast: high` bolds it, `speechRate` drives
-  browser TTS, `reduceMotion` stills the face's idle life (`idle={false}`),
-  `language` sets the seat's UI default.
+  both TTS paths (ElevenLabs `speed`, clamped 0.7–1.2, and browser `rate`),
+  `volume` the clip playback, `reduceMotion` stills the face's idle life
+  (`idle={false}`), `language` sets the seat's UI default. Voice settings ride
+  the one existing TTS request — no latency cost (`style` stays 0, no speaker
+  boost).
 
 The host console (`apps/cms/src/components/HostConsole.tsx`) builds its persona
 pickers from the live CMS set (`host:personas`) and shows each seat's label.

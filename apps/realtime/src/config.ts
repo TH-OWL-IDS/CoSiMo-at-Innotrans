@@ -45,6 +45,7 @@ export const config = {
     deepgramBaseUrl: process.env.DEEPGRAM_BASE_URL ?? "https://api.deepgram.com",
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
     elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID ?? "",
+    elevenLabsVoiceIdMale: process.env.ELEVENLABS_VOICE_ID_MALE ?? "",
     elevenLabsBaseUrl: process.env.ELEVENLABS_BASE_URL ?? "https://api.elevenlabs.io",
     // Low-latency model by default; eleven_turbo_v2_5 trades a little speed for
     // quality, eleven_multilingual_v2 is highest quality but slow.
