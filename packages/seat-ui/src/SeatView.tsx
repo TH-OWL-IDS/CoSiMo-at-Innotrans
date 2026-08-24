@@ -193,7 +193,7 @@ export default function SeatView({
             style={{
               position: "absolute",
               left: "50%",
-              top: showText ? "18%" : "44%",
+              top: showText ? "18%" : "48%",
               transform: "translate(-50%, -50%)",
               width: showText ? "44%" : "88%",
               transition: "top 300ms, width 300ms",
