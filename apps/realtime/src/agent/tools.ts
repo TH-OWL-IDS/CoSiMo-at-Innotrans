@@ -326,8 +326,11 @@ export async function executeTool(
 }
 
 /** Persist accommodations for a card-bound rider (card-basis; no consent gate).
- *  The shared `default` clean plate is never written back. */
+ *  The shared `default` clean plate is never written back — a walk-up seat's
+ *  changes live only in the seat state and die with the session. (Writing it
+ *  unconditionally once leaked one seat's "leiser bitte" to every kiosk.) */
 function persistAccommodations(ctx: ToolContext, accommodations: Accommodations): void {
+  if (!ctx.personas.isPersistable(ctx.persona)) return;
   ctx.personas.setAccommodationsLocal(ctx.persona, accommodations);
-  if (ctx.personas.isPersistable(ctx.persona)) void ctx.profiles.saveAccommodations(ctx.persona, accommodations);
+  void ctx.profiles.saveAccommodations(ctx.persona, accommodations);
 }
