@@ -209,6 +209,41 @@ export const Personas: CollectionConfig = {
             },
           ],
         },
+        {
+          type: "row",
+          fields: [
+            {
+              name: "volume",
+              type: "number",
+              min: 0,
+              max: 1,
+              defaultValue: 1,
+              admin: { description: "Wiedergabe-Lautstärke (0–1), am Kiosk angewendet." },
+            },
+            {
+              name: "voiceGender",
+              type: "select",
+              defaultValue: "female",
+              admin: { description: "Welche der konfigurierten Stimmen spricht (Voice-IDs: Operator-Config → TTS)." },
+              options: [
+                { label: "Weiblich", value: "female" },
+                { label: "Männlich", value: "male" },
+              ],
+            },
+            {
+              name: "voiceTone",
+              type: "select",
+              defaultValue: "neutral",
+              admin: { description: "Stimm-Charakter („freundlicher“ → warm); serverseitig auf ElevenLabs-stability gemappt." },
+              options: [
+                { label: "Neutral", value: "neutral" },
+                { label: "Warm", value: "warm" },
+                { label: "Ruhig", value: "ruhig" },
+                { label: "Lebhaft", value: "lebhaft" },
+              ],
+            },
+          ],
+        },
       ],
     },
     {

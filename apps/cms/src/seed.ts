@@ -25,6 +25,9 @@ type ProfileSeed = {
     textSize: "s" | "m" | "l" | "xl";
     contrast: "normal" | "high";
     input: "voice" | "text" | "both";
+    volume?: number;
+    voiceGender?: "female" | "male";
+    voiceTone?: "neutral" | "warm" | "ruhig" | "lebhaft";
     audioOutput: boolean;
     speechRate: number;
     showText: boolean;
@@ -45,6 +48,7 @@ const personas: ProfileSeed[] = [
     accommodations: {
       language: "de", theme: "classic", textSize: "m", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
+      volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
   },
 ];
