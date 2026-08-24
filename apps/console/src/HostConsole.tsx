@@ -26,12 +26,12 @@ import cabUrl from "./assets/monocab-base.svg";
 /**
  * Die Konsole — the live operator surface, four views behind one header:
  *
- *  ÜBERSICHT  every service the demo depends on, with a detail line and the
- *             operations that belong next to a red dot (recover, demo mode).
+ *  ÜBERSICHT  every service the demo depends on, with a detail line.
  *  FAHRZEUG   the MonoCab itself: the CI line drawing, live state around it,
  *             and the journey/fault controls.
- *  SESSIONS   one card per active seat (persona, accommodations, cabin,
- *             conversation, inspector), idle seats as chips.
+ *  SESSIONS   the Betrieb card (recover, demo mode, all-seat persona, reset
+ *             all — "seats" = every kiosk-role client, the emulator too),
+ *             then one card per active seat, idle seats as chips.
  *  LOGS       the structured debug stream (LogView).
  *
  * Served by apps/console (its own static service, not the CMS) so it stays
@@ -217,51 +217,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
         )}
       </section>
 
-      <section style={card}>
-        <p style={h}>Betrieb</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-          <button style={{ ...btn, background: "#f0f0f0", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.recover()}>
-            <LifeBuoy size={15} /> Hängende Unterhaltung lösen
-          </button>
-          <button
-            style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }}
-            title="Alle Sitze zurück zum Consent-Screen (aufgezeichnete Sessions bleiben im CMS)"
-            onClick={() => {
-              // The morning reset: every seat back to the consent screen and
-              // the default profile. Recorded sessions in the CMS stay.
-              if (window.confirm("Alle Sitze zurücksetzen? Laufende Unterhaltungen enden; gespeicherte Sessions bleiben erhalten.")) {
-                c.resetSession("*");
-              }
-            }}
-          >
-            <RotateCw size={15} /> Alle Sitze zurücksetzen
-          </button>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={Boolean(st?.offlineCanned)}
-              onChange={(e) => c.toggleOffline(e.target.checked)}
-            />
-            Demo- / Offline-Modus
-          </label>
-          <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-            <span style={{ color: MUTE }}>Alle Sitze:</span>
-            <select
-              defaultValue=""
-              onChange={(e) => {
-                if (e.target.value) c.setPersona(e.target.value);
-                e.target.value = "";
-              }}
-              style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
-            >
-              <option value="" disabled>Persona wählen…</option>
-              {personaOptions(c.personas).map((p) => (
-                <option key={p.key} value={p.key}>{p.label}</option>
-              ))}
-            </select>
-          </span>
-        </div>
-      </section>
     </div>
   );
 }
@@ -690,6 +645,51 @@ function SessionsTab({ c }: { c: CosimoState }) {
         {activeSeats.length} aktiv{idleSeats.length ? ` · ${idleSeats.length} frei` : ""}
         {c.seats.length === 0 ? " · keine iPads verbunden" : ""}
       </p>
+      <section style={card}>
+        <p style={h}>Betrieb</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <button style={{ ...btn, background: "#f0f0f0", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.recover()}>
+            <LifeBuoy size={15} /> Hängende Unterhaltung lösen
+          </button>
+          <button
+            style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }}
+            title="Alle Sitze zurück zum Consent-Screen (aufgezeichnete Sessions bleiben im CMS)"
+            onClick={() => {
+              // The morning reset: every seat back to the consent screen and
+              // the default profile. Recorded sessions in the CMS stay.
+              if (window.confirm("Alle Sitze zurücksetzen? Laufende Unterhaltungen enden; gespeicherte Sessions bleiben erhalten.")) {
+                c.resetSession("*");
+              }
+            }}
+          >
+            <RotateCw size={15} /> Alle Sitze zurücksetzen
+          </button>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={Boolean(st?.offlineCanned)}
+              onChange={(e) => c.toggleOffline(e.target.checked)}
+            />
+            Demo- / Offline-Modus
+          </label>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <span style={{ color: MUTE }}>Alle Sitze:</span>
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) c.setPersona(e.target.value);
+                e.target.value = "";
+              }}
+              style={{ ...btn, padding: "6px 10px", fontSize: 13 }}
+            >
+              <option value="" disabled>Persona wählen…</option>
+              {personaOptions(c.personas).map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </span>
+        </div>
+      </section>
       {activeSeats.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           {activeSeats.map((seat) => (
