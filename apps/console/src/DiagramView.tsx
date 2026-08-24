@@ -217,7 +217,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
               ["Consent", seat.consent ? <Check size={14} color={OK} aria-label="ja" /> : <X size={14} color={ACCENT} aria-label="nein" />],
               ["Farben", `${seat.accommodations.theme}${seat.accommodations.contrast === "high" ? " · hoher Kontrast" : ""}`],
               ["Schriftgröße", seat.accommodations.textSize.toUpperCase()],
-              ["Stimme", `${seat.accommodations.voiceGender === "male" ? "männlich" : "weiblich"} · ${seat.accommodations.voiceTone ?? "neutral"}`],
+              ["Stimme", `${seat.accommodations.voice || (seat.accommodations.voiceGender === "male" ? "männlich" : "weiblich")} · ${seat.accommodations.voiceTone ?? "neutral"}`],
               ["Lautstärke", `${Math.round((seat.accommodations.volume ?? 1) * 100)} %`],
               ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
             ]

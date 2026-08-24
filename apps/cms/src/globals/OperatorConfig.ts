@@ -156,6 +156,40 @@ export const OperatorConfig: GlobalConfig = {
           type: "text",
           admin: { description: "Empty = server default (ELEVENLABS_MODEL env)." },
         },
+        {
+          name: "voices",
+          type: "array",
+          label: "Stimmen",
+          admin: {
+            description:
+              "Stimm-Katalog: CoSiMo wählt per set_presentation voice=<key> anhand der Beschreibung („eine tiefere Stimme bitte“). Leer = nur Standard + männliche Stimme (env).",
+          },
+          fields: [
+            {
+              type: "row",
+              fields: [
+                { name: "key", type: "text", required: true, admin: { description: "Kurzer Slug (z. B. charlotte)." } },
+                { name: "label", type: "text" },
+                {
+                  name: "gender",
+                  type: "select",
+                  defaultValue: "female",
+                  options: [
+                    { label: "Weiblich", value: "female" },
+                    { label: "Männlich", value: "male" },
+                  ],
+                },
+              ],
+            },
+            { name: "voiceId", type: "text", required: true, label: "Voice ID", admin: { description: "ElevenLabs Voice-ID." } },
+            {
+              name: "description",
+              type: "text",
+              required: true,
+              admin: { description: "Eine kurze deutsche Zeile, wie die Stimme klingt — danach wählt das LLM." },
+            },
+          ],
+        },
       ],
     },
     {

@@ -38,7 +38,7 @@ export const DEFAULT_CORE_PROMPT = [
   "- too fast / slow down → speechRate (0.8); faster → 1.2",
   "- quieter / leiser → volume (0.5); louder / lauter → volume 1",
   "- friendlier / warmer → tone warm; ruhiger/sanfter → tone ruhig; lebhafter → tone lebhaft; normal → tone neutral",
-  "- male voice / männliche Stimme → voice male; weibliche Stimme → voice female",
+  "- a different voice (männlich/weiblich/tiefer/heller/jünger …) → voice <key>: pick the best match from the ## Stimmen list by its description; female|male still work as shortcuts for the gender default",
   "- calmer face / too much movement → reduceMotion true",
   "- colours / darker / brighter → theme",
   "When something bigger changes (\"I can't see anymore\"), choose the settings this rider needs and set each one. remember / forget only for registered riders who agreed; if it doesn't work, say so plainly.",

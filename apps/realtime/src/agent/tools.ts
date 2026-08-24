@@ -19,6 +19,7 @@ import {
   type Locale,
   type PersonaKey,
   type TurnAction,
+  type VoiceCatalogEntry,
   type VoiceTone,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
@@ -99,7 +100,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male — which voice speaks. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
+            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
         },
       },
       required: ["setting", "value"],
@@ -143,7 +144,7 @@ function toBool(value: unknown): boolean | undefined {
 type PresPatch = { patch: Partial<Accommodations> } | { error: string };
 
 /** Validate a set_presentation (setting, value) into an accommodation patch. */
-function presentationPatch(setting: string, value: unknown): PresPatch {
+function presentationPatch(setting: string, value: unknown, voices: VoiceCatalogEntry[]): PresPatch {
   switch (setting) {
     case "textSize":
       return ["s", "m", "l", "xl"].includes(String(value))
@@ -191,9 +192,11 @@ function presentationPatch(setting: string, value: unknown): PresPatch {
     }
     case "voice": {
       const g = String(value).trim().toLowerCase();
-      return g === "female" || g === "male"
-        ? { patch: { voiceGender: g } }
-        : { error: "voice must be female|male" };
+      if (g === "female" || g === "male") return { patch: { voiceGender: g, voice: "" } };
+      const entry = voices.find((v) => v.key === g);
+      if (entry) return { patch: { voice: entry.key, voiceGender: entry.gender } };
+      const keys = voices.map((v) => v.key).join("|");
+      return { error: `voice must be female|male${keys ? `|${keys}` : ""}` };
     }
     case "tone": {
       const t = String(value).trim().toLowerCase();
@@ -225,6 +228,8 @@ export interface ToolContext {
   persona: PersonaKey;
   /** Whether the visitor consented to being remembered (gates `remember`). */
   consent: boolean;
+  /** The operator's voice catalog (validates set_presentation voice=<key>). */
+  voices: VoiceCatalogEntry[];
 }
 
 /** Execute a tool call and return the result for Claude + the turn record. */
@@ -277,7 +282,7 @@ export async function executeTool(
 
     case "set_presentation": {
       const setting = String(input.setting ?? "");
-      const result = presentationPatch(setting, input.value);
+      const result = presentationPatch(setting, input.value, ctx.voices);
       if ("error" in result) return { text: `error: ${result.error}`, action: { tool: name } };
       const acc = ctx.hub.patchSeatAccommodations(ctx.deviceId, result.patch);
       if (!acc) return { text: "error: no active seat", action: { tool: name } };

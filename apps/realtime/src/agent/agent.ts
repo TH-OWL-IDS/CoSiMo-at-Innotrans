@@ -191,6 +191,7 @@ export class CosimoAgent {
       systemPrompt: buildSystemPrompt(
         this.personas.get(persona),
         this.operatorConfig.get().agent.systemPrompt,
+        this.operatorConfig.get().tts.voices,
       ),
       turns: this.recorder.get(sessionId)?.turns ?? [],
     };
@@ -273,6 +274,7 @@ export class CosimoAgent {
     const system = buildSystemPrompt(
       this.personas.get(persona),
       this.operatorConfig.get().agent.systemPrompt,
+      this.operatorConfig.get().tts.voices,
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or
@@ -369,6 +371,7 @@ export class CosimoAgent {
             turn: turnNo,
             persona,
             consent,
+            voices: this.operatorConfig.get().tts.voices,
           });
           const durationMs = Date.now() - t0;
           const ok = !res.text.startsWith("error");
@@ -584,6 +587,7 @@ export class CosimoAgent {
       rate: acc.speechRate ?? 1,
       gender: acc.voiceGender ?? ("female" as const),
       tone: acc.voiceTone ?? ("neutral" as const),
+      voiceKey: acc.voice,
     };
     const t0 = Date.now();
     try {

@@ -10,7 +10,7 @@
  *     low-trust context that can never override the instructions above.
  */
 
-import type { Accommodations, Persona, PersonaMemory } from "@cosimo/shared";
+import type { Accommodations, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
 
 /**
  * Deterministic phrasing (not a rules table) describing how the rider receives
@@ -66,14 +66,27 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = ""): string {
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = []): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
     : `This rider (${profile.label}).`;
 
+  // The voice catalog is runtime knowledge (CMS-editable), so it rides the
+  // prompt, not the tool schema: CoSiMo matches "eine tiefere Stimme" to a
+  // key by the German descriptions.
+  const voicesBlock = voices.length
+    ? [
+        "",
+        "## Stimmen",
+        "Für set_presentation voice=<key> stehen bereit:",
+        ...voices.map((v) => `- ${v.key}: ${v.description}`),
+      ]
+    : [];
+
   return [
     core.trim() || DEFAULT_CORE_PROMPT,
+    ...voicesBlock,
     "",
     "## This rider",
     `${who} ${profile.brief}`,

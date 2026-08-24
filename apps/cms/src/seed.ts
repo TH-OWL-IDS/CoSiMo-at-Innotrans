@@ -27,6 +27,7 @@ type ProfileSeed = {
     input: "voice" | "text" | "both";
     volume?: number;
     voiceGender?: "female" | "male";
+    voice?: string;
     voiceTone?: "neutral" | "warm" | "ruhig" | "lebhaft";
     audioOutput: boolean;
     speechRate: number;
@@ -204,6 +205,31 @@ async function seed(): Promise<void> {
       data: { agent: { systemPrompt: DEFAULT_CORE_PROMPT } },
     });
     console.log("[seed] core prompt seeded into operator-config");
+  }
+
+  // Voice catalog: 10 ElevenLabs premade voices (multilingual, fast, natural
+  // — nothing cartoonish). Only when empty — an operator-edited list stays.
+  const VOICES = [
+    { key: "charlotte", label: "Charlotte", gender: "female" as const, voiceId: "XB0fDUnXU5powFXDhCwa", description: "warm, weiblich, angenehm ruhig (Standard)" },
+    { key: "rachel", label: "Rachel", gender: "female" as const, voiceId: "21m00Tcm4TlvDq8ikWAM", description: "klar, weiblich, sachlich-freundlich" },
+    { key: "lily", label: "Lily", gender: "female" as const, voiceId: "pFZP5JQG7iQjIQuC4Bku", description: "weich, weiblich, warm, leicht britisch" },
+    { key: "matilda", label: "Matilda", gender: "female" as const, voiceId: "XrExE9yKIg1WjnnlVkGX", description: "hell, weiblich, freundlich, jung" },
+    { key: "sarah", label: "Sarah", gender: "female" as const, voiceId: "EXAVITQu4vr4xnSDxMaL", description: "sanft, weiblich, professionell" },
+    { key: "daniel", label: "Daniel", gender: "male" as const, voiceId: "onwK4e9ZLuTAKqWW03F9", description: "tief, männlich, ruhig, seriös" },
+    { key: "george", label: "George", gender: "male" as const, voiceId: "JBFqnCBsd6RMkjVDRZzb", description: "warm, männlich, erzählend" },
+    { key: "brian", label: "Brian", gender: "male" as const, voiceId: "nPczCjzI2devNBz1zQrb", description: "tief, männlich, gelassen" },
+    { key: "eric", label: "Eric", gender: "male" as const, voiceId: "cjVigY5qzO86Huf0OWal", description: "freundlich, männlich, mittleres Alter" },
+    { key: "will", label: "Will", gender: "male" as const, voiceId: "bIHbv24MWmeRgasZH58o", description: "jung, männlich, entspannt-freundlich" },
+  ];
+  const opConfig2 = await payload.findGlobal({ slug: "operator-config" });
+  if (opConfig2?.tts?.voices?.length) {
+    console.log("[seed] voice catalog exists: keeping the operator's voices");
+  } else {
+    await payload.updateGlobal({
+      slug: "operator-config",
+      data: { tts: { ...(opConfig2?.tts ?? {}), voices: VOICES } },
+    });
+    console.log(`[seed] voice catalog seeded (${VOICES.length} voices)`);
   }
 
   process.exit(0);

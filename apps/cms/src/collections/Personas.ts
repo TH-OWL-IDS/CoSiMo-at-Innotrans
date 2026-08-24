@@ -231,6 +231,11 @@ export const Personas: CollectionConfig = {
               ],
             },
             {
+              name: "voice",
+              type: "text",
+              admin: { description: "Stimm-Key aus dem Katalog (Operator-Config → TTS → Stimmen); leer = Gender-Standard." },
+            },
+            {
               name: "voiceTone",
               type: "select",
               defaultValue: "neutral",

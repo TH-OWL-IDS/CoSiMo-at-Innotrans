@@ -89,6 +89,21 @@ export interface Accommodations {
   voiceGender?: "female" | "male";
   /** Voice character preset — mapped to ElevenLabs `stability` server-side. */
   voiceTone?: VoiceTone;
+  /** A specific voice from the operator's catalog (operator-config → TTS →
+   *  Stimmen), by key. Empty → the gender default speaks. */
+  voice?: string;
+}
+
+/** One voice in the operator's catalog (CMS-editable, injected into the
+ *  system prompt so CoSiMo can match "eine tiefere Stimme bitte" to a key). */
+export interface VoiceCatalogEntry {
+  key: string;
+  label: string;
+  /** Vendor voice id (ElevenLabs). */
+  voiceId: string;
+  gender: "female" | "male";
+  /** One short German line on how it sounds — this is what the LLM matches. */
+  description: string;
 }
 
 /** Voice character presets → ElevenLabs stability (low = expressive, high = even). */

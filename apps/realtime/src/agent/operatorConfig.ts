@@ -8,7 +8,7 @@
 
 import { config } from "../config.js";
 import type { Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, type CabinControlId } from "@cosimo/shared";
+import { CABIN_CONTROLS, type CabinControlId, type VoiceCatalogEntry } from "@cosimo/shared";
 
 export type LlmProviderKind = "anthropic" | "openai-compatible";
 
@@ -23,7 +23,7 @@ export interface ResolvedOperatorConfig {
     fallback: { provider: LlmProviderKind; baseUrl: string; model: string } | null;
   };
   stt: { baseUrl: string; model: string };
-  tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string };
+  tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] };
   /** Cabin lighting: where the LPU-2 lives on the cabin LAN and which
    *  playback drives which control. Unmapped controls stay simulated. */
   cabin: { lpu2BaseUrl: string; lpu2Mapping: Lpu2Mapping; lpu2TimeoutMs: number };
@@ -47,6 +47,7 @@ function envDefaults(): ResolvedOperatorConfig {
       voiceId: config.speech.elevenLabsVoiceId,
       voiceIdMale: config.speech.elevenLabsVoiceIdMale,
       model: config.speech.elevenLabsModel,
+      voices: [],
     },
     cabin: {
       lpu2BaseUrl: config.lpu2.baseUrl,
@@ -83,7 +84,13 @@ interface PayloadOperatorConfigDoc {
     fallbackModel?: string | null;
   };
   stt?: { baseUrl?: string | null; model?: string | null };
-  tts?: { baseUrl?: string | null; voiceId?: string | null; voiceIdMale?: string | null; model?: string | null };
+  tts?: {
+    baseUrl?: string | null;
+    voiceId?: string | null;
+    voiceIdMale?: string | null;
+    model?: string | null;
+    voices?: { key?: string | null; label?: string | null; voiceId?: string | null; gender?: string | null; description?: string | null }[] | null;
+  };
   cabin?: {
     lpu2BaseUrl?: string | null;
     lpu2Playbacks?: { control?: string | null; playback?: number | null }[] | null;
@@ -143,6 +150,15 @@ export class OperatorConfigProvider {
           voiceId: str(doc.tts?.voiceId, base.tts.voiceId),
           voiceIdMale: str(doc.tts?.voiceIdMale, base.tts.voiceIdMale),
           model: str(doc.tts?.model, base.tts.model),
+          voices: (doc.tts?.voices ?? [])
+            .map((v) => ({
+              key: str(v.key, "").toLowerCase(),
+              label: str(v.label, str(v.key, "")),
+              voiceId: str(v.voiceId, ""),
+              gender: v.gender === "male" ? ("male" as const) : ("female" as const),
+              description: str(v.description, ""),
+            }))
+            .filter((v) => v.key && v.voiceId),
         },
         cabin: {
           lpu2BaseUrl: str(doc.cabin?.lpu2BaseUrl, base.cabin.lpu2BaseUrl),

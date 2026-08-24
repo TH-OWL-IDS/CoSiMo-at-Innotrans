@@ -5,7 +5,7 @@
  * synthesis. The interface keeps the vendor swappable.
  */
 
-import { VOICE_TONE_STABILITY, type Locale, type VoiceTone } from "@cosimo/shared";
+import { VOICE_TONE_STABILITY, type Locale, type VoiceCatalogEntry, type VoiceTone } from "@cosimo/shared";
 import { config } from "../config.js";
 import type { OperatorConfigProvider } from "../agent/operatorConfig.js";
 
@@ -20,6 +20,8 @@ export interface VoiceOptions {
   rate: number;
   gender: "female" | "male";
   tone: VoiceTone;
+  /** A specific catalog voice (accommodations.voice); wins over gender. */
+  voiceKey?: string;
 }
 
 export interface TtsProvider {
@@ -41,19 +43,25 @@ export class ElevenLabsTts implements TtsProvider {
   readonly available = true;
   private readonly key: string;
   /** Endpoint details resolve per call so operator-config edits apply live. */
-  private readonly endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string };
+  private readonly endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] };
 
-  constructor(key: string, endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string }) {
+  constructor(key: string, endpoint: () => { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] }) {
     this.key = key;
     this.endpoint = endpoint;
   }
 
   async synthesize(text: string, _lang: Locale, voice?: VoiceOptions): Promise<SynthResult | null> {
     if (!text.trim()) return null;
-    const { baseUrl, voiceId, voiceIdMale, model } = this.endpoint();
-    // Gender = a different voice id on the same endpoint — zero latency cost.
-    // No male voice configured → stay on the default voice rather than fail.
-    const id = voice?.gender === "male" && voiceIdMale ? voiceIdMale : voiceId;
+    const { baseUrl, voiceId, voiceIdMale, model, voices } = this.endpoint();
+    // Voice = a different voice id on the same endpoint — zero latency cost.
+    // Precedence: catalog key → gender (catalog first, then the env pair) →
+    // default. Anything unresolvable stays on the default voice, never fails.
+    const byKey = voice?.voiceKey ? voices.find((v) => v.key === voice.voiceKey)?.voiceId : undefined;
+    const byGender =
+      voice?.gender === "male"
+        ? voices.find((v) => v.gender === "male")?.voiceId || voiceIdMale
+        : undefined;
+    const id = byKey || byGender || voiceId;
     const url = `${baseUrl.replace(/\/+$/, "")}/v1/text-to-speech/${id}?output_format=mp3_44100_128`;
     // speed + stability are free; `style` > 0 and speaker boost would add
     // latency, so tone maps onto stability only (see VOICE_TONE_STABILITY).
