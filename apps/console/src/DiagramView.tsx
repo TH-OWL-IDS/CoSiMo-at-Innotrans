@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Brain, Cloud, CloudCog, Database, Keyboard, Lightbulb, MonitorSmartphone,
-  RotateCcw, TabletSmartphone, Volume2, Waypoints, X, type LucideIcon,
+  Brain, CloudCog, Database, MonitorSmartphone, RotateCcw,
+  TabletSmartphone, TramFront, Volume2, Waypoints, X, type LucideIcon,
 } from "lucide-react";
-import type { ConnectionStatus, LogEvent, MonoCabTelemetry } from "@cosimo/shared";
+import type { ConnectionStatus, LogEvent, MonoCabTelemetry, SeatSummary } from "@cosimo/shared";
 import type { CosimoState } from "@cosimo/client";
 
 /**
- * The system, live and touchable: the Systembild's topology as draggable
- * bubbles (icon + title, Miro-style — the layout persists per browser),
- * edges that follow, and a click on any node opens a popup with everything
- * the console knows about it right now. Drag = move, click = inspect;
- * the two are told apart by a 5-px movement threshold.
+ * The system, live and touchable: draggable bubbles (Miro-style, the layout
+ * persists per browser), edges that follow, click opens a popup with
+ * everything the console knows about that node.
+ *
+ * The Fahrzeug is a CONTAINER node: every connected kiosk appears inside it
+ * as its own node the moment it connects, and disappears when it drops —
+ * the diagram literally shows who is sitting in the cab. Clicking a kiosk
+ * opens its live seat state (profile, phase, consent, last exchange).
  */
 
 const INK = "#181817";
@@ -21,23 +24,21 @@ const ACCENT = "#e40041";
 const OK = "#1a7f37";
 const WARN = "#b45309";
 
-type NodeId =
-  | "kiosks" | "esp32" | "licht" | "edge" | "hub" | "cms" | "apps" | "llm" | "claude" | "tts";
+type NodeId = "vehicle" | "hub" | "cms" | "apps" | "llm" | "claude" | "tts";
+/** A popup target: a fixed node, or one kiosk inside the vehicle. */
+type OpenId = NodeId | `kiosk:${string}`;
 
 const DEFAULT_POS: Record<NodeId, [number, number]> = {
-  kiosks: [130, 110],
-  esp32: [130, 260],
-  licht: [130, 440],
-  edge: [370, 110],
-  hub: [590, 110],
-  cms: [590, 280],
-  apps: [590, 440],
-  llm: [820, 110],
-  claude: [820, 280],
-  tts: [820, 440],
+  vehicle: [170, 240],
+  hub: [560, 110],
+  cms: [620, 280],
+  apps: [620, 440],
+  llm: [850, 110],
+  claude: [850, 280],
+  tts: [850, 440],
 };
 
-const POS_KEY = "cosimo.console.diagram.pos.v1";
+const POS_KEY = "cosimo.console.diagram.pos.v3";
 
 function loadPos(): Record<NodeId, [number, number]> {
   try {
@@ -57,11 +58,7 @@ interface NodeDef {
 }
 
 const NODES: NodeDef[] = [
-  { id: "kiosks", icon: TabletSmartphone, title: "Kiosks", w: 168 },
-  { id: "esp32", icon: Keyboard, title: "ESP32 + NFC", w: 168 },
-  { id: "licht", icon: Lightbulb, title: "LPU-2 · Licht", w: 168 },
-  { id: "edge", icon: Cloud, title: "Cloudflare", w: 158 },
-  { id: "hub", icon: Waypoints, title: "Hub · Agent", w: 190 },
+  { id: "hub", icon: Waypoints, title: "Hub · Agent", w: 170 },
   { id: "cms", icon: Database, title: "CMS + Postgres", w: 190 },
   { id: "apps", icon: MonitorSmartphone, title: "Konsole · Emulator · Fahrt", w: 236 },
   { id: "llm", icon: Brain, title: "GX10 · vLLM", w: 172 },
@@ -70,10 +67,7 @@ const NODES: NodeDef[] = [
 ];
 
 const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?: boolean; width?: number }[] = [
-  { from: "kiosks", to: "edge", label: "wss" },
-  { from: "edge", to: "hub" },
-  { from: "esp32", to: "kiosks", label: "BLE" },
-  { from: "kiosks", to: "licht", label: "GET /ajax/pbXX", dashed: true },
+  { from: "vehicle", to: "hub", label: "wss · via Cloudflare" },
   { from: "hub", to: "llm", label: "WireGuard", color: ACCENT, width: 2.2 },
   { from: "hub", to: "claude", label: "Fallback", color: WARN, dashed: true },
   { from: "hub", to: "cms", label: "REST · TTL" },
@@ -82,24 +76,37 @@ const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?
 ];
 
 const BUBBLE_H = 58;
+const VEHICLE_W = 240;
+const KIOSK_ROW_H = 44;
 
-/** Trim a centre-to-centre line so it starts/ends at the bubble borders. */
-function trim(from: [number, number], to: [number, number], wFrom: number, wTo: number): [number, number, number, number] {
+/** The vehicle container's height grows with the kiosks inside it. */
+function vehicleH(kioskCount: number): number {
+  return 52 + Math.max(kioskCount, 1) * KIOSK_ROW_H + 10;
+}
+
+/** Trim a centre-to-centre line so it starts/ends at the node borders. */
+function trim(
+  from: [number, number], to: [number, number],
+  wFrom: number, hFrom: number, wTo: number, hTo: number,
+): [number, number, number, number] {
   const dx = to[0] - from[0];
   const dy = to[1] - from[1];
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  const rFrom = Math.min(wFrom / 2 / Math.max(Math.abs(ux), 0.001), BUBBLE_H / 2 / Math.max(Math.abs(uy), 0.001)) + 4;
-  const rTo = Math.min(wTo / 2 / Math.max(Math.abs(ux), 0.001), BUBBLE_H / 2 / Math.max(Math.abs(uy), 0.001)) + 8;
+  const rFrom = Math.min(wFrom / 2 / Math.max(Math.abs(ux), 0.001), hFrom / 2 / Math.max(Math.abs(uy), 0.001)) + 4;
+  const rTo = Math.min(wTo / 2 / Math.max(Math.abs(ux), 0.001), hTo / 2 / Math.max(Math.abs(uy), 0.001)) + 8;
   return [from[0] + ux * rFrom, from[1] + uy * rFrom, to[0] - ux * rTo, to[1] - uy * rTo];
 }
 
 type State = "ok" | "warn" | "down" | "none";
 
+const dotColor = (s: State) => (s === "ok" ? OK : s === "warn" ? WARN : s === "down" ? ACCENT : undefined);
+const borderColor = (s: State) => (s === "down" ? ACCENT : s === "warn" ? WARN : LINE);
+
 export default function DiagramView({ c, st, t }: { c: CosimoState; st: ConnectionStatus | null; t: MonoCabTelemetry | null }) {
   const [pos, setPos] = useState<Record<NodeId, [number, number]>>(loadPos);
-  const [open, setOpen] = useState<NodeId | null>(null);
+  const [open, setOpen] = useState<OpenId | null>(null);
   const drag = useRef<{ id: NodeId; startX: number; startY: number; origin: [number, number]; moved: boolean } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -117,8 +124,8 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
     }
   }, []);
 
-  const onPointerDown = (id: NodeId) => (e: React.PointerEvent) => {
-    (e.target as HTMLElement).closest("[data-bubble]")?.setPointerCapture?.(e.pointerId);
+  const startDrag = (id: NodeId) => (e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     drag.current = { id, startX: e.clientX, startY: e.clientY, origin: pos[id], moved: false };
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -133,19 +140,20 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
       ...p,
       [d.id]: [
         Math.max(90, Math.min(maxX, d.origin[0] + dx)),
-        Math.max(40, Math.min(520, d.origin[1] + dy)),
+        Math.max(40, Math.min(540, d.origin[1] + dy)),
       ],
     }));
   };
-  const onPointerUp = () => {
+  const endDrag = (clickTarget: OpenId | null) => () => {
     const d = drag.current;
     drag.current = null;
     if (!d) return;
     if (d.moved) setPos((p) => (save(p), p));
-    else setOpen(d.id);
+    else if (clickTarget) setOpen(clickTarget);
   };
 
   const kioskDevices = c.devices.filter((d) => d.role === "kiosk");
+  const seatOf = (deviceId: string): SeatSummary | undefined => c.seats.find((s) => s.deviceId === deviceId);
   const fault = t?.faults?.[0];
   const lastTurnLlm = [...c.logs].reverse().find((e) => e.kind === "turn.start" && e.data.llm !== null);
   const llmName = lastTurnLlm?.kind === "turn.start" && lastTurnLlm.data.llm
@@ -156,10 +164,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
   const fallbackActive = Boolean(lastSvc && "llmFallbackActive" in lastSvc.data && lastSvc.data.llmFallbackActive);
 
   const stateOf: Record<NodeId, State> = {
-    kiosks: kioskDevices.length > 0 ? "ok" : "down",
-    esp32: "none",
-    licht: st?.light ? "ok" : "warn",
-    edge: "none",
+    vehicle: kioskDevices.length > 0 ? "ok" : "down",
     hub: c.connected ? (fault ? "warn" : "ok") : "down",
     cms: st?.cms ? "ok" : "warn",
     apps: "none",
@@ -168,65 +173,47 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
     tts: st?.serverTts ? "ok" : "warn",
   };
 
-  const subOf: Record<NodeId, string> = {
-    kiosks: `${kioskDevices.length} verbunden · dual-homed`,
-    esp32: "Taster · Karten",
-    licht: st?.light ? "Treiber bereit" : "kein Treiber",
-    edge: "Tunnel · TLS",
-    hub: fault ? `Störung: ${fault.kind}` : "realtime · Fahrt-Sim",
-    cms: st?.cms ? "Profile · Route · Sessions" : "Defaults aktiv",
-    apps: "statisch, socket-only",
-    llm: st?.llm ? "Qwen3 27B · :8007" : "nicht erreichbar",
-    claude: fallbackActive ? "übernimmt gerade" : "automatischer Fallback",
-    tts: st?.serverTts ? "TTS bereit" : "Browser-Synthese",
-  };
-
   /** Everything the console knows about a node, for the popup. */
-  const detailsOf = (id: NodeId): { rows: [string, string][]; links?: [string, string][] } => {
-    switch (id) {
-      case "kiosks":
+  const detailsOf = (id: OpenId): { title: string; icon: LucideIcon; rows: [string, string][]; links?: [string, string][] } => {
+    if (id.startsWith("kiosk:")) {
+      const deviceId = id.slice(6);
+      const seat = seatOf(deviceId);
+      return {
+        title: deviceId,
+        icon: TabletSmartphone,
+        rows: seat
+          ? [
+              ["Session", seat.active ? "aktiv" : "wartet"],
+              ["Profil", `${seat.personaLabel} (${seat.persona})`],
+              ["Phase", seat.phase],
+              ["Gesicht", seat.emotion],
+              ["Consent", seat.consent ? "ja — Session wird aufgezeichnet" : "nein"],
+              ["Darstellung", `Text ${seat.accommodations.textSize.toUpperCase()} · ${seat.accommodations.theme}${seat.accommodations.showText ? " · Text sichtbar" : ""}${seat.accommodations.audioOutput ? "" : " · stumm"}`],
+              ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
+              ["Gast", seat.lastUser || "—"],
+              ["CoSiMo", seat.lastReply || "—"],
+            ]
+          : [["Session", "verbunden, noch keine Sitzdaten"]],
+      };
+    }
+    switch (id as NodeId) {
+      case "vehicle":
         return {
+          title: "MonoCab · Fahrzeug",
+          icon: TramFront,
           rows: [
-            ["Geräte", kioskDevices.length ? kioskDevices.map((d) => d.deviceId).join(", ") : "keine verbunden"],
+            ["Kiosks", kioskDevices.length ? `${kioskDevices.length} verbunden` : "keine verbunden"],
             ["Aktive Sessions", String(c.seats.filter((s) => s.active).length)],
-            ["App", "apps/kiosk (Capacitor, nativ) — Face, Consent, Push-to-talk"],
-            ["Netz", "WLAN → Hub (wss) · USB-C-Ethernet → Kabinen-LAN (ohne Default-Route)"],
-            ["Rolle", "dumm: Eingabe rauf, Bedeutung im Hub; einziger Aktor im Kabinen-LAN"],
-          ],
-        };
-      case "esp32":
-        return {
-          rows: [
-            ["Protokoll", "BLE-HID-Tastatur, 1:1 pro iPad"],
-            ["Sprechtaste", "„s“ — key down = Aufnahme, key up = senden"],
-            ["Infotaste", "„i“ — eine Frage an CoSiMo"],
-            ["NFC", "„[“ + Chip-ID + Enter — Karte = Profil"],
-            ["Testen", "ohne Hardware: einfach auf einer Tastatur tippen"],
-          ],
-        };
-      case "licht":
-        return {
-          rows: [
-            ["Controller", "Visual Productions Cuety LPU-2 · HTTP Port 80"],
-            ["Befehle", "pbXX/in=0..100 (an/Stufe) · pbXX/re (Release → Standalone-Szene)"],
-            ["Mapping", "CMS → Operator-Config → Kabine (Playback je Funktion)"],
-            ["Status", st?.light ? "Treiber verbunden" : "kein Treiber aktiv"],
-            ["Weg", "Hub baut URLs → iPad feuert im Kabinen-LAN → meldet ok/degraded"],
-          ],
-        };
-      case "edge":
-        return {
-          rows: [["TLS", "endet bei Cloudflare; Dienste binden nur 127.0.0.1"]],
-          links: [
-            ["ws-cosimo (Hub)", "https://ws-cosimo.homannjohannes.de/health"],
-            ["cosimo (CMS)", "https://cosimo.homannjohannes.de"],
-            ["console-cosimo", "https://console-cosimo.homannjohannes.de"],
-            ["seat-cosimo (Emulator)", "https://seat-cosimo.homannjohannes.de"],
-            ["journey-cosimo (Fahrt)", "https://journey-cosimo.homannjohannes.de"],
+            ["Fahrt", t ? `${t.location.de} · ${Math.round(t.speedKmh)} km/h${t.simPaused ? " · pausiert" : ""}` : "—"],
+            ["Fahrgäste", t ? `${t.occupancy}/${t.capacity} (${t.seats?.liveSessions ?? 0} echt)` : "—"],
+            ["Netz", "iPads dual-homed: WLAN → Hub · USB-C → Kabinen-LAN (Licht)"],
+            ["Rolle", "Kiosks bleiben dumm — Eingabe rauf, Bedeutung im Hub"],
           ],
         };
       case "hub":
         return {
+          title: "Hub · Agent",
+          icon: Waypoints,
           rows: [
             ["Verbindung", c.connected ? "verbunden" : "getrennt"],
             ["Geräte", `${c.devices.length} (${kioskDevices.length} Kiosk)`],
@@ -235,10 +222,20 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
             ["Verspätung", t?.delayMinutes ? `+${t.delayMinutes} min` : "pünktlich"],
             ["Modus", st?.offlineCanned ? "Demo (Skript)" : "Live (Agent)"],
             ["Log", "Ring-Puffer + NDJSON täglich — Tab „Logs“"],
+            ["TLS", "endet bei Cloudflare; alle Dienste binden nur 127.0.0.1"],
+          ],
+          links: [
+            ["ws-cosimo (Hub)", "https://ws-cosimo.homannjohannes.de/health"],
+            ["cosimo (CMS)", "https://cosimo.homannjohannes.de"],
+            ["console-cosimo", "https://console-cosimo.homannjohannes.de"],
+            ["seat-cosimo (Emulator)", "https://seat-cosimo.homannjohannes.de"],
+            ["journey-cosimo (Fahrt)", "https://journey-cosimo.homannjohannes.de"],
           ],
         };
       case "cms":
         return {
+          title: "CMS + Postgres",
+          icon: Database,
           rows: [
             ["Erreichbar", st?.cms ? "ja (Probe alle 15 s)" : "nein — eingebaute Defaults aktiv"],
             ["Hält", "Profile (NFC-Karten), Route + Störungs-Szenario, Operator-Config, Sessions"],
@@ -248,6 +245,8 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
         };
       case "apps":
         return {
+          title: "Konsole · Emulator · Fahrt",
+          icon: MonitorSmartphone,
           rows: [["Gemeinsam", "socket-only — keine App spricht mit dem CMS"]],
           links: [
             ["Konsole (:6102)", "https://console-cosimo.homannjohannes.de"],
@@ -257,6 +256,8 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
         };
       case "llm":
         return {
+          title: "GX10 · vLLM",
+          icon: Brain,
           rows: [
             ["Modell", llmName],
             ["Erreichbar", st?.llm ? (fallbackActive ? "Fallback aktiv" : "ja") : "nein"],
@@ -267,14 +268,18 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
         };
       case "claude":
         return {
+          title: "Claude",
+          icon: CloudCog,
           rows: [
             ["Rolle", "automatischer Fallback (Operator-Config → LLM)"],
             ["Aktiv", fallbackActive ? "JA — Turns laufen gerade über Claude" : "nein — GX10 antwortet"],
             ["Wechsel", "Probe alle 15 s; zurück zum GX10, sobald es antwortet"],
           ],
         };
-      case "tts":
+      default:
         return {
+          title: "ElevenLabs",
+          icon: Volume2,
           rows: [
             ["Server-TTS", st?.serverTts ? "ElevenLabs aktiv (eleven_flash_v2_5)" : "aus — Browser-Synthese"],
             ["STT", st?.serverStt ? "Deepgram aktiv" : "kein Server-STT (geplant: Deepgram / GX10-Whisper)"],
@@ -284,12 +289,17 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
     }
   };
 
-  const openNode = open ? NODES.find((n) => n.id === open)! : null;
-  const openDetails = open ? detailsOf(open) : null;
+  const vh = vehicleH(kioskDevices.length);
+  const details = open ? detailsOf(open) : null;
+  const popupAnchor: [number, number] = open
+    ? open.startsWith("kiosk:") || open === "vehicle"
+      ? pos.vehicle
+      : pos[open as NodeId]
+    : [0, 0];
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: 560 }}>
+      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: 580 }}>
         {/* edges beneath in raw pixel space, following the live positions */}
         <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} role="img" aria-label="Live-Topologie als verschiebbare Knoten mit Verbindungen.">
           <defs>
@@ -303,15 +313,11 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
               <path d="M0 0 L10 5 L0 10 z" fill={WARN} />
             </marker>
           </defs>
-          {/* air-gap zone follows the light bubble */}
-          <rect x={pos.licht[0] - 108} y={pos.licht[1] - 56} width={216} height={112} rx={14} fill="none" stroke={WARN} strokeDasharray="6 4" />
-          <text x={pos.licht[0] - 94} y={pos.licht[1] - 64} fontSize={10.5} fill={WARN} fontFamily="inherit">
-            Kabinen-LAN — kein Uplink
-          </text>
           {EDGES.map((e, i) => {
-            const nFrom = NODES.find((n) => n.id === e.from)!;
+            const wFrom = e.from === "vehicle" ? VEHICLE_W : NODES.find((n) => n.id === e.from)!.w;
+            const hFrom = e.from === "vehicle" ? vh : BUBBLE_H;
             const nTo = NODES.find((n) => n.id === e.to)!;
-            const [x1, y1, x2, y2] = trim(pos[e.from], pos[e.to], nFrom.w, nTo.w);
+            const [x1, y1, x2, y2] = trim(pos[e.from], pos[e.to], wFrom, hFrom, nTo.w, BUBBLE_H);
             const color = e.color ?? INK;
             return (
               <g key={i}>
@@ -332,20 +338,88 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
           })}
         </svg>
 
-        {/* draggable bubbles */}
+        {/* ── the vehicle: a container whose kiosks are nodes of their own ── */}
+        <div
+          onPointerDown={startDrag("vehicle")}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag("vehicle")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen("vehicle")}
+          style={{
+            position: "absolute",
+            left: pos.vehicle[0] - VEHICLE_W / 2,
+            top: pos.vehicle[1] - vh / 2,
+            width: VEHICLE_W,
+            background: "#fff",
+            border: `1.5px solid ${borderColor(stateOf.vehicle)}`,
+            borderRadius: 18,
+            boxShadow: "0 1px 3px rgba(24,24,23,0.08)",
+            cursor: "grab",
+            userSelect: "none",
+            touchAction: "none",
+            padding: "12px 12px 10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 4px" }}>
+            <TramFront size={20} color={INK} />
+            <div style={{ fontSize: 13, fontWeight: 700, color: INK, display: "flex", alignItems: "center", gap: 6 }}>
+              MonoCab
+              {dotColor(stateOf.vehicle) && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(stateOf.vehicle) }} />}
+            </div>
+          </div>
+
+          {kioskDevices.map((d) => {
+            const seat = seatOf(d.deviceId);
+            const active = Boolean(seat?.active);
+            return (
+              <div
+                key={d.deviceId}
+                onPointerDown={(e) => {
+                  // A kiosk press is a click target of its own; the container
+                  // still drags when the press turns into a move.
+                  e.stopPropagation();
+                  startDrag("vehicle")(e);
+                }}
+                onPointerMove={onPointerMove}
+                onPointerUp={endDrag(`kiosk:${d.deviceId}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(`kiosk:${d.deviceId}`)}
+                style={{
+                  border: `1.5px solid ${active ? ACCENT : LINE}`,
+                  borderRadius: 999,
+                  padding: "8px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 9,
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                <TabletSmartphone size={16} color={INK} style={{ flexShrink: 0 }} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {d.deviceId}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── the fixed bubbles ── */}
         {NODES.map((n) => {
           const s = stateOf[n.id];
-          const border = s === "down" ? ACCENT : s === "warn" ? WARN : LINE;
-          const dot = s === "ok" ? OK : s === "warn" ? WARN : s === "down" ? ACCENT : undefined;
           const Icon = n.icon;
           const [x, y] = pos[n.id];
           return (
             <div
               key={n.id}
-              data-bubble
-              onPointerDown={onPointerDown(n.id)}
+              onPointerDown={startDrag(n.id)}
               onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
+              onPointerUp={endDrag(n.id)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(n.id)}
@@ -355,7 +429,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
                 top: y - BUBBLE_H / 2,
                 width: n.w,
                 background: "#fff",
-                border: `1.5px solid ${border}`,
+                border: `1.5px solid ${borderColor(s)}`,
                 borderRadius: 999,
                 padding: "10px 16px",
                 display: "flex",
@@ -368,14 +442,9 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
               }}
             >
               <Icon size={20} color={INK} style={{ flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: INK, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                  {n.title}
-                  {dot && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot, flexShrink: 0 }} />}
-                </div>
-                <div style={{ fontSize: 10.5, color: MUTE, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {subOf[n.id]}
-                </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: INK, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                {n.title}
+                {dotColor(s) && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(s), flexShrink: 0 }} />}
               </div>
             </div>
           );
@@ -399,14 +468,14 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
         </button>
 
         {/* node popup */}
-        {openNode && openDetails && (
+        {open && details && (
           <div
             role="dialog"
-            aria-label={openNode.title}
+            aria-label={details.title}
             style={{
               position: "absolute",
-              left: Math.min(Math.max(pos[openNode.id][0] - 170, 12), 588),
-              top: Math.min(pos[openNode.id][1] + 44, 320),
+              left: Math.min(Math.max(popupAnchor[0] - 170, 12), (canvasRef.current?.clientWidth ?? 940) - 352),
+              top: Math.min(popupAnchor[1] + 44, 330),
               width: 340,
               background: "#fff",
               border: `1px solid ${LINE}`,
@@ -421,7 +490,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14 }}>
-                <openNode.icon size={17} /> {openNode.title}
+                <details.icon size={17} /> {details.title}
               </span>
               <button
                 onClick={() => setOpen(null)}
@@ -432,16 +501,16 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {openDetails.rows.map(([k, v]) => (
+              {details.rows.map(([k, v]) => (
                 <div key={k} style={{ display: "flex", gap: 10, fontSize: 12, lineHeight: 1.45 }}>
                   <span style={{ color: MUTE, width: 96, flexShrink: 0 }}>{k}</span>
                   <span style={{ color: INK }}>{v}</span>
                 </div>
               ))}
             </div>
-            {openDetails.links && (
+            {details.links && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid #f0f0f0`, paddingTop: 8 }}>
-                {openDetails.links.map(([label, href]) => (
+                {details.links.map(([label, href]) => (
                   <a key={href} href={href} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: ACCENT, textDecoration: "none" }}>
                     {label} ↗
                   </a>
@@ -451,7 +520,6 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
           </div>
         )}
       </div>
-
     </div>
   );
 }
