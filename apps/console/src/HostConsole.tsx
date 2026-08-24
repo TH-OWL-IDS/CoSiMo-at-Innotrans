@@ -4,7 +4,7 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  Users, Volume2, X, Zap, type LucideIcon,
+  Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -20,6 +20,7 @@ import {
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { resolveServerUrl } from "./serverUrl";
 import LogView from "./LogView";
+import DiagramView from "./DiagramView";
 import logoUrl from "./assets/monocab-logo.svg";
 import cabUrl from "./assets/monocab-base.svg";
 
@@ -725,11 +726,12 @@ function SessionsTab({ c }: { c: CosimoState }) {
  * Shell — header with the four tabs
  * ──────────────────────────────────────────────────────────────── */
 
-type Tab = "uebersicht" | "fahrzeug" | "sessions" | "logs";
+type Tab = "uebersicht" | "fahrzeug" | "sessions" | "diagramm" | "logs";
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "uebersicht", label: "Übersicht", icon: LayoutDashboard },
   { id: "fahrzeug", label: "Fahrzeug", icon: TramFront },
   { id: "sessions", label: "Sessions", icon: Armchair },
+  { id: "diagramm", label: "Diagramm", icon: Waypoints },
   { id: "logs", label: "Logs", icon: ScrollText },
 ];
 
@@ -882,6 +884,7 @@ export default function HostConsole() {
         {tab === "uebersicht" && <OverviewTab c={c} st={st} />}
         {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
         {tab === "sessions" && <SessionsTab c={c} />}
+        {tab === "diagramm" && <DiagramView c={c} st={st} t={c.telemetry} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} />}
       </div>
 
