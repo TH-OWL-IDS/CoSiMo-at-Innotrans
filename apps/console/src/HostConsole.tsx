@@ -667,7 +667,7 @@ function SessionsTab({ c }: { c: CosimoState }) {
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
             <input
               type="checkbox"
-              checked={Boolean(st?.offlineCanned)}
+              checked={Boolean(c.status?.offlineCanned)}
               onChange={(e) => c.toggleOffline(e.target.checked)}
             />
             Demo- / Offline-Modus
