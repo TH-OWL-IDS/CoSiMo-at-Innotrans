@@ -575,22 +575,26 @@ export class CosimoAgent {
     signal?: AbortSignal,
   ): Promise<number | undefined> {
     if (!this.tts.available || !text.trim()) return undefined;
-    const acc = this.personas.get(persona).accommodations;
+    // The SEAT's live accommodations, not the profile: a walk-up's
+    // set_presentation changes exist only on the seat (the profile is the
+    // shared clean plate and stays untouched). Same source the client renders.
+    const acc = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
     if (!acc.audioOutput) return undefined;
+    const voice = {
+      rate: acc.speechRate ?? 1,
+      gender: acc.voiceGender ?? ("female" as const),
+      tone: acc.voiceTone ?? ("neutral" as const),
+    };
     const t0 = Date.now();
     try {
-      // Live accommodations at synth time — "sprich langsamer" already
-      // applies to the confirmation sentence of the very same turn.
-      const audio = await this.tts.synthesize(text, lang, {
-        rate: acc.speechRate ?? 1,
-        gender: acc.voiceGender ?? "female",
-        tone: acc.voiceTone ?? "neutral",
-      });
+      // Live at synth time — "sprich langsamer" already applies to the
+      // confirmation sentence of the very same turn.
+      const audio = await this.tts.synthesize(text, lang, voice);
       const durationMs = Date.now() - t0;
       if (audio) {
         logger.log(
           "tts.done",
-          { chars: text.length, bytes: Math.floor((audio.audioBase64.length * 3) / 4), durationMs },
+          { chars: text.length, bytes: Math.floor((audio.audioBase64.length * 3) / 4), durationMs, voice },
           { sessionId, turn: turnNo },
         );
       }

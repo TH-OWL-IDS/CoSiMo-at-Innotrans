@@ -65,7 +65,7 @@ export type LogEvent = Base &
       }
     | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
     | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
-    | { kind: "tts.done"; data: { chars: number; bytes: number; durationMs: number } }
+    | { kind: "tts.done"; data: { chars: number; bytes: number; durationMs: number; voice?: { gender: string; tone: string; rate: number } } }
     | {
         kind: "turn.end";
         data: {

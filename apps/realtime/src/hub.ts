@@ -731,6 +731,13 @@ export class Hub {
     return accommodations;
   }
 
+  /** The seat's LIVE accommodations (what the rider sees/hears right now).
+   *  This — not the profile — is the truth for a running session: a walk-up's
+   *  set_presentation changes live only here. */
+  accommodationsOf(sessionId: string): Accommodations | undefined {
+    return this.entryOf(sessionId)?.persona.accommodations;
+  }
+
   /** Conversation phase → drives the thinking UI and mechanical Face emotion. */
   emitPhase(phase: PipelinePhase, sessionId: string, turn?: number): void {
     const entry = this.entryOf(sessionId);
