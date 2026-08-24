@@ -192,7 +192,9 @@ export default function SeatView({
           <div
             style={{
               position: "absolute",
-              left: "50%",
+              // 52%: the artwork's visual mass (eyes mid 125, mouth 104) sits
+              // left of its viewBox centre (130) — this optically centres it.
+              left: "52%",
               top: showText ? "18%" : "48%",
               transform: "translate(-50%, -50%)",
               width: showText ? "44%" : "88%",
