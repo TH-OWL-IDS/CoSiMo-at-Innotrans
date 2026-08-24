@@ -10,6 +10,8 @@ import {
 import { useCosimoSocket } from "@cosimo/client";
 import { resolveServerUrl } from "./serverUrl";
 import LogView from "./LogView";
+import logoUrl from "./assets/monocab-logo.svg";
+import cabUrl from "./assets/monocab-base.svg";
 
 /**
  * Live operator console (/host). Two levels, mirroring the architecture:
@@ -53,10 +55,11 @@ const EMOTION_ICON: Record<string, string> = {
 };
 
 const card: React.CSSProperties = {
-  border: "1px solid #2a2f3a",
+  border: "1px solid #e4e4e4",
   borderRadius: 12,
   padding: 16,
-  background: "#181b22",
+  background: "#ffffff",
+  boxShadow: "0 1px 2px rgba(24, 24, 23, 0.04)",
   display: "flex",
   flexDirection: "column",
   gap: 10,
@@ -64,9 +67,9 @@ const card: React.CSSProperties = {
 const btn: React.CSSProperties = {
   padding: "8px 14px",
   borderRadius: 10,
-  border: "1px solid #3a4150",
-  background: "#222732",
-  color: "#e8eaed",
+  border: "1px solid #d9d9d9",
+  background: "#ffffff",
+  color: "#181817",
   cursor: "pointer",
   fontSize: 14,
 };
@@ -87,7 +90,7 @@ function accommodationChips(a: Accommodations): string[] {
 
 function Dot({ ok }: { ok: boolean }) {
   return (
-    <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: ok ? "#3fb950" : "#6e7681", marginRight: 6 }} />
+    <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: ok ? "#1a7f37" : "#8a8a8a", marginRight: 6 }} />
   );
 }
 
@@ -110,7 +113,7 @@ function InspectorDrawer({
     return () => clearInterval(t);
   }, [onRefresh]);
 
-  const roleColor = (r: string) => (r === "user" ? "#7ee1a2" : "#8ab8ff");
+  const roleColor = (r: string) => (r === "user" ? "#1a7f37" : "#0969da");
   return (
     <aside
       style={{
@@ -119,8 +122,8 @@ function InspectorDrawer({
         right: 0,
         bottom: 0,
         width: "min(520px, 92vw)",
-        background: "#11141a",
-        borderLeft: "1px solid #2a2f3a",
+        background: "#ffffff",
+        borderLeft: "1px solid #e4e4e4",
         zIndex: 200,
         display: "flex",
         flexDirection: "column",
@@ -149,8 +152,8 @@ function InspectorDrawer({
               whiteSpace: "pre-wrap",
               fontSize: 11.5,
               lineHeight: 1.45,
-              background: "#0b0e13",
-              border: "1px solid #2a2f3a",
+              background: "#f6f6f6",
+              border: "1px solid #e4e4e4",
               borderRadius: 10,
               padding: 10,
               margin: "8px 0 0",
@@ -173,7 +176,7 @@ function InspectorDrawer({
             <div
               key={i}
               style={{
-                border: "1px solid #232936",
+                border: "1px solid #e9e9e9",
                 borderRadius: 10,
                 padding: "8px 10px",
                 fontSize: 13,
@@ -200,10 +203,10 @@ function InspectorDrawer({
                   style={{
                     fontSize: 11,
                     opacity: 0.85,
-                    background: "#0b0e13",
+                    background: "#f6f6f6",
                     borderRadius: 6,
                     padding: "3px 6px",
-                    borderLeft: `2px solid ${a.ok === false ? "#f85149" : "#2a2f3a"}`,
+                    borderLeft: `2px solid ${a.ok === false ? "#e40041" : "#e4e4e4"}`,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
                   }}
@@ -216,7 +219,7 @@ function InspectorDrawer({
                 </code>
               ))}
               {t.error && (
-                <code style={{ fontSize: 11, color: "#f85149", background: "#0b0e13", borderRadius: 6, padding: "3px 6px", whiteSpace: "pre-wrap" }}>
+                <code style={{ fontSize: 11, color: "#e40041", background: "#f6f6f6", borderRadius: 6, padding: "3px 6px", whiteSpace: "pre-wrap" }}>
                   ✖ {t.error}
                 </code>
               )}
@@ -244,7 +247,7 @@ function SeatCard({
   onInspect: () => void;
 }) {
   return (
-    <section style={{ ...card, borderColor: seat.phase !== "idle" ? "#1f6feb" : "#2a2f3a" }}>
+    <section style={{ ...card, borderColor: seat.phase !== "idle" ? "#e40041" : "#e4e4e4" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 15, fontWeight: 600 }}>
           {EMOTION_ICON[seat.emotion] ?? "·"} <code style={{ fontSize: 12, opacity: 0.7 }}>{seat.deviceId}</code>
@@ -275,7 +278,7 @@ function SeatCard({
         {accommodationChips(seat.accommodations).map((c) => (
           <span
             key={c}
-            style={{ fontSize: 11, opacity: 0.7, border: "1px solid #2a2f3a", borderRadius: 999, padding: "2px 8px" }}
+            style={{ fontSize: 11, opacity: 0.7, border: "1px solid #e4e4e4", borderRadius: 999, padding: "2px 8px" }}
           >
             {c}
           </span>
@@ -300,7 +303,7 @@ function SeatCard({
           return (
             <button
               key={def.id}
-              style={{ ...btn, fontSize: 12, padding: "5px 10px", background: on ? "#238636" : btn.background }}
+              style={{ ...btn, fontSize: 12, padding: "5px 10px", background: on ? "#1a7f37" : btn.background }}
               onClick={() => onLight(def.id, !on)}
               title={def.real ? "real hardware" : "simulated"}
             >
@@ -352,10 +355,11 @@ export default function HostConsole() {
   const warns = c.logs.filter((e) => e.level === "warn").length;
 
   return (
-    <main style={{ minHeight: "100vh", background: "#0d1117", color: "#e8eaed", padding: 24, fontFamily: "system-ui, sans-serif" }}>
+    <main style={{ minHeight: "100vh", background: "#ffffff", color: "#181817", padding: 24 }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <h1 style={{ fontSize: 22, margin: 0 }}>CoSiMo · {tab === "log" ? "Log" : "Operator"}</h1>
+          <img src={logoUrl} alt="MonoCab" width={44} height={44} style={{ display: "block", border: "1px solid #e4e4e4", borderRadius: 10 }} />
+          <h1 style={{ fontSize: 20, margin: 0, fontWeight: 600 }}>CoSiMo · {tab === "log" ? "Log" : "Operator"}</h1>
           <nav style={{ display: "flex", gap: 4 }}>
             {(["operator", "log"] as Tab[]).map((t) => (
               <button
@@ -364,8 +368,9 @@ export default function HostConsole() {
                 style={{
                   ...btn,
                   padding: "4px 12px",
-                  background: tab === t ? "#1f6feb" : "#161b22",
-                  borderColor: tab === t ? "#1f6feb" : "#2a2f3a",
+                  background: tab === t ? "#e40041" : "#ffffff",
+                  color: tab === t ? "#ffffff" : "#181817",
+                  borderColor: tab === t ? "#e40041" : "#e4e4e4",
                 }}
               >
                 {t === "log" ? `Log (${c.logs.length}${errors ? ` · ${errors} ✖` : ""}${warns ? ` · ${warns} ⚠` : ""})` : "Operator"}
@@ -380,7 +385,11 @@ export default function HostConsole() {
       {tab === "operator" && (<>
 
       {/* ── GLOBALS: the journey everyone shares ─────────────────── */}
-      <p style={{ ...h, marginBottom: 10 }}>Fahrt (global)</p>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+        <p style={{ ...h, marginBottom: 10 }}>Fahrt (global)</p>
+        {/* the vehicle itself — the CI line drawing */}
+        <img src={cabUrl} alt="" aria-hidden width={128} style={{ display: "block", opacity: 0.85 }} />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginBottom: 28 }}>
         <section style={card}>
           <p style={h}>Services</p>
@@ -416,7 +425,7 @@ export default function HostConsole() {
                 {c.telemetry.delayMinutes ? ` · +${c.telemetry.delayMinutes} min` : ""}
               </span>
               {(c.telemetry.faults ?? []).map((f) => (
-                <span key={f.kind} style={{ color: "#f0883e" }}>
+                <span key={f.kind} style={{ color: "#b45309" }}>
                   ⚠ {f.cause.de} ({f.remainingSec}s)
                 </span>
               ))}
@@ -441,14 +450,14 @@ export default function HostConsole() {
             <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "slow-order" } })}>⚠ Langsamfahrt</button>
             <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "low-battery" } })}>⚠ Akku niedrig</button>
             {(c.telemetry?.faults?.length ?? 0) > 0 && (
-              <button style={{ ...btn, background: "#30363d" }} onClick={() => c.patchTelemetry({ clearFaults: true })}>✔ Störung beheben</button>
+              <button style={{ ...btn, background: "#f0f0f0" }} onClick={() => c.patchTelemetry({ clearFaults: true })}>✔ Störung beheben</button>
             )}
           </div>
         </section>
 
         <section style={card}>
           <p style={h}>Betrieb</p>
-          <button style={{ ...btn, background: "#30363d" }} onClick={() => c.recover()}>
+          <button style={{ ...btn, background: "#f0f0f0" }} onClick={() => c.recover()}>
             Hängende Unterhaltung lösen
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
@@ -512,7 +521,7 @@ export default function HostConsole() {
           {idleSeats.map((seat) => (
             <span
               key={seat.deviceId}
-              style={{ fontSize: 12, opacity: 0.55, border: "1px solid #2a2f3a", borderRadius: 999, padding: "5px 12px" }}
+              style={{ fontSize: 12, opacity: 0.55, border: "1px solid #e4e4e4", borderRadius: 999, padding: "5px 12px" }}
             >
               {EMOTION_ICON[seat.emotion] ?? "·"} <code>{seat.deviceId}</code> · wartet
             </span>

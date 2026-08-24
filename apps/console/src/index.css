@@ -1,6 +1,10 @@
 :root {
+  /* MonoCab / CoSiMo CI: white ground, near-black ink, red accent. */
   --bg: #ffffff;
-  --ink: #141414;
+  --ink: #181817;
+  --mute: #6b6b6b;
+  --line: #e4e4e4;
+  --accent: #e40041;
 }
 
 * {
@@ -15,6 +19,17 @@ body,
   min-height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Source Code Pro", ui-monospace, "SF Mono", Menlo, monospace;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }

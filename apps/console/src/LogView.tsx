@@ -12,10 +12,10 @@ import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/s
  */
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
-  debug: "#6e7681",
-  info: "#c9d1d9",
-  warn: "#f0883e",
-  error: "#f85149",
+  debug: "#8a8a8a",
+  info: "#181817",
+  warn: "#b45309",
+  error: "#e40041",
 };
 
 const KIND_ICON: Record<LogKind, string> = {
@@ -89,13 +89,13 @@ function time(ts: string): string {
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
-const mono = 'ui-monospace, "SF Mono", Menlo, monospace';
+const mono = '"Source Code Pro", ui-monospace, "SF Mono", Menlo, monospace';
 /** One template for the header and every row — the columns can never drift. */
 const GRID = "92px 110px 96px 60px 150px 1fr";
 const input: React.CSSProperties = {
-  background: "#0b0e13",
-  color: "#c9d1d9",
-  border: "1px solid #2a2f3a",
+  background: "#f6f6f6",
+  color: "#181817",
+  border: "1px solid #e4e4e4",
   borderRadius: 8,
   padding: "6px 8px",
   fontSize: 12,
@@ -192,7 +192,7 @@ export default function LogView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button style={{ ...btn, borderColor: paused ? "#f0883e" : "#2a2f3a" }} onClick={() => setPaused((p) => !p)}>
+        <button style={{ ...btn, borderColor: paused ? "#b45309" : "#e4e4e4" }} onClick={() => setPaused((p) => !p)}>
           {paused ? "▶ resume" : "⏸ pause"}
         </button>
         <button style={btn} onClick={onReplay} title="re-request the hub's buffer">↻ replay</button>
@@ -211,7 +211,7 @@ export default function LogView({
               padding: "2px 8px",
               fontSize: 11,
               opacity: kinds.has(k) ? 1 : 0.35,
-              borderColor: kinds.has(k) ? "#3b4252" : "#2a2f3a",
+              borderColor: kinds.has(k) ? "#c9c9c9" : "#e4e4e4",
             }}
           >
             {KIND_ICON[k]} {k}
@@ -229,8 +229,8 @@ export default function LogView({
         style={{
           flex: 1,
           overflowY: "auto",
-          background: "#0b0e13",
-          border: "1px solid #2a2f3a",
+          background: "#f6f6f6",
+          border: "1px solid #e4e4e4",
           borderRadius: 10,
           fontFamily: mono,
           fontSize: 12,
@@ -246,12 +246,12 @@ export default function LogView({
             gridTemplateColumns: GRID,
             gap: 10,
             padding: "6px 10px 6px 13px",
-            background: "#11151c",
-            borderBottom: "1px solid #2a2f3a",
+            background: "#fafafa",
+            borderBottom: "1px solid #e4e4e4",
             fontSize: 10.5,
             letterSpacing: 1,
             textTransform: "uppercase",
-            color: "#8b949e",
+            color: "#6b6b6b",
           }}
         >
           <span>Time</span>
@@ -279,8 +279,8 @@ export default function LogView({
                 gridTemplateColumns: GRID,
                 gap: 10,
                 padding: "3px 10px",
-                background: key && band ? "#0f131a" : "transparent",
-                borderLeft: `3px solid ${e.level === "error" ? "#f85149" : e.level === "warn" ? "#f0883e" : "transparent"}`,
+                background: key && band ? "#f7f7f7" : "transparent",
+                borderLeft: `3px solid ${e.level === "error" ? "#e40041" : e.level === "warn" ? "#b45309" : "transparent"}`,
                 color: LEVEL_COLOR[e.level],
                 cursor: "pointer",
               }}
