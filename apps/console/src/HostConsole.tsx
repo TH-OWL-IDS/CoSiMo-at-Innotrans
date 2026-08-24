@@ -874,9 +874,8 @@ export default function HostConsole() {
           <img src={logoUrl} alt="MonoCab" width={40} height={40} style={{ display: "block" }} />
           <h1 style={{ fontSize: 18, margin: 0, fontWeight: 600, letterSpacing: 0.5 }}>Konsole</h1>
         </div>
-        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }} title={c.connected ? "verbunden" : "getrennt"}>
-          <Dot ok={c.connected} />
-        </div>
+        {/* right zone stays empty — it balances the dropdown so the logo is truly centred; connection state lives in Übersicht */}
+        <div style={{ flex: 1 }} />
       </header>
 
       <div style={{ padding: 24 }}>
