@@ -7,6 +7,7 @@
 
 import type { Hub } from "./hub.js";
 import type { LlmRouter } from "./agent/llm.js";
+import { config } from "./config.js";
 import { logger } from "./log/logger.js";
 
 /** A fast endpoint that returns 204; override via HEALTH_PING_URL. */
@@ -41,6 +42,16 @@ export function startHealthMonitor(hub: Hub, llm: LlmRouter): void {
       );
     }
     hub.setLlmReachable(reachable);
+    // The CMS: authored state, not the live path — its dot is informational
+    // (profiles/route fall back to built-ins), but an operator wants to know.
+    try {
+      const res = await fetch(`${config.payload.internalUrl}/api/globals/operator-config`, {
+        signal: AbortSignal.timeout(2500),
+      });
+      hub.setCmsReachable(res.ok);
+    } catch {
+      hub.setCmsReachable(false);
+    }
   };
   void tick();
   setInterval(() => void tick(), INTERVAL_MS);

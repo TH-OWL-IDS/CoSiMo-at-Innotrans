@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, ChevronDown, Clock,
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
-  LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, MessageCircle, Mic, Moon,
-  Pause, Play, RotateCcw, ScrollText, Search, Smile, TramFront, TriangleAlert,
+  Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, MessageCircle, Mic, Moon,
+  Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
   Users, Volume2, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
@@ -191,6 +191,17 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
               name="Sprechen (TTS)"
               detail={st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"}
             />
+            <ServiceRow
+              ok={st.cms}
+              warn={!st.cms}
+              icon={Database}
+              name="CMS"
+              detail={
+                st.cms
+                  ? "Payload erreichbar — Profile, Route und Sessions live"
+                  : "nicht erreichbar — eingebaute Defaults, keine Session-Aufzeichnung"
+              }
+            />
             <ServiceRow ok={st.light} icon={Lightbulb} name="Licht" detail={st.light ? "Treiber verbunden (Kabine über die Sitze)" : "kein Licht-Treiber"} />
             <ServiceRow ok={st.network} icon={Globe} name="Netzwerk" detail={st.network ? "Internet erreichbar" : "kein Internet — Offline-Modus"} />
             <ServiceRow
@@ -211,6 +222,19 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <button style={{ ...btn, background: "#f0f0f0", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.recover()}>
             <LifeBuoy size={15} /> Hängende Unterhaltung lösen
+          </button>
+          <button
+            style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }}
+            title="Alle Sitze zurück zum Consent-Screen (aufgezeichnete Sessions bleiben im CMS)"
+            onClick={() => {
+              // The morning reset: every seat back to the consent screen and
+              // the default profile. Recorded sessions in the CMS stay.
+              if (window.confirm("Alle Sitze zurücksetzen? Laufende Unterhaltungen enden; gespeicherte Sessions bleiben erhalten.")) {
+                c.resetSession("*");
+              }
+            }}
+          >
+            <RotateCw size={15} /> Alle Sitze zurücksetzen
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
             <input

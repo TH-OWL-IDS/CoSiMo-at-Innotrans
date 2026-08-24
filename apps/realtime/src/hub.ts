@@ -170,6 +170,7 @@ export class Hub {
 
   private status: ConnectionStatus = {
     llm: false,
+    cms: false,
     speech: false,
     light: false,
     network: true,
@@ -800,6 +801,14 @@ export class Hub {
     if (ok === this.networkOk) return;
     this.networkOk = ok;
     this.recomputeStatus();
+  }
+
+  /** Payload answered its probe. Informational — nothing degrades here
+   *  (providers already fall back to built-ins on their own). */
+  setCmsReachable(ok: boolean): void {
+    if (ok === this.status.cms) return;
+    this.setStatus({ cms: ok });
+    logger.log("service.status", { cms: ok }, { level: ok ? "info" : "warn" });
   }
 
   /** The brain answered its probe (primary, or the fallback standing in). */

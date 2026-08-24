@@ -64,6 +64,9 @@ export interface SeatInspection {
 
 export interface ConnectionStatus {
   llm: boolean;
+  /** Payload reachable. CMS down is DEGRADED, not dead: built-in profiles
+   *  and route keep the demo alive — but edits and session writes stall. */
+  cms: boolean;
   speech: boolean;
   light: boolean;
   network: boolean;
