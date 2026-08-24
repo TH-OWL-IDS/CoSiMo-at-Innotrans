@@ -123,12 +123,22 @@ export default function LogView({
   logs,
   onClear,
   onReplay,
+  seatFilter,
 }: {
   logs: LogEvent[];
   onClear: () => void;
   onReplay: () => void;
+  /** External pre-filter (e.g. the Diagramm's "Log dieser Session" link);
+   *  `n` bumps so re-clicking the same seat re-applies it. */
+  seatFilter?: { seat: string; n: number } | null;
 }) {
   const [seat, setSeat] = useState("");
+  useEffect(() => {
+    if (seatFilter) {
+      setSeat(seatFilter.seat);
+      setSession("");
+    }
+  }, [seatFilter]);
   const [session, setSession] = useState("");
   const [kinds, setKinds] = useState<Set<LogKind>>(new Set(LOG_KINDS));
   const [minLevel, setMinLevel] = useState<LogLevel>("debug");

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Brain, CloudCog, Database, MonitorSmartphone, RotateCcw,
+  Brain, Check, CloudCog, Database, MonitorSmartphone, RotateCcw, ScrollText,
   TabletSmartphone, TramFront, Volume2, Waypoints, X, type LucideIcon,
 } from "lucide-react";
 import type { ConnectionStatus, LogEvent, MonoCabTelemetry, SeatSummary } from "@cosimo/shared";
@@ -28,25 +28,36 @@ type NodeId = "vehicle" | "hub" | "cms" | "apps" | "llm" | "claude" | "tts";
 /** A popup target: a fixed node, or one kiosk inside the vehicle. */
 type OpenId = NodeId | `kiosk:${string}`;
 
-const DEFAULT_POS: Record<NodeId, [number, number]> = {
-  vehicle: [170, 240],
-  hub: [560, 110],
-  cms: [620, 280],
-  apps: [620, 440],
-  llm: [850, 110],
-  claude: [850, 280],
-  tts: [850, 440],
-};
+/**
+ * Standard layout, computed from the canvas size: the Hub top centre, the
+ * MonoCab centred directly beneath it, the LLM column to the right, CMS and
+ * the browser apps to the left.
+ */
+function defaultPos(w: number, h: number): Record<NodeId, [number, number]> {
+  const cx = Math.max(470, w / 2);
+  const right = Math.min(w - 140, cx + 350);
+  const left = Math.max(150, cx - 350);
+  return {
+    hub: [cx, 100],
+    vehicle: [cx, Math.min(330, Math.max(240, h - 260))],
+    cms: [left, 160],
+    apps: [left, Math.min(340, h - 120)],
+    llm: [right, 100],
+    claude: [right, Math.min(255, h - 200)],
+    tts: [right, Math.min(410, h - 80)],
+  };
+}
 
-const POS_KEY = "cosimo.console.diagram.pos.v3";
+const POS_KEY = "cosimo.console.diagram.pos.v4";
 
-function loadPos(): Record<NodeId, [number, number]> {
+function loadPos(w: number, h: number): Record<NodeId, [number, number]> {
+  const base = defaultPos(w, h);
   try {
     const raw = localStorage.getItem(POS_KEY);
-    if (!raw) return { ...DEFAULT_POS };
-    return { ...DEFAULT_POS, ...(JSON.parse(raw) as Partial<Record<NodeId, [number, number]>>) };
+    if (!raw) return base;
+    return { ...base, ...(JSON.parse(raw) as Partial<Record<NodeId, [number, number]>>) };
   } catch {
-    return { ...DEFAULT_POS };
+    return base;
   }
 }
 
@@ -66,13 +77,24 @@ const NODES: NodeDef[] = [
   { id: "tts", icon: Volume2, title: "ElevenLabs", w: 162 },
 ];
 
-const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?: boolean; width?: number }[] = [
-  { from: "vehicle", to: "hub", label: "wss · via Cloudflare" },
-  { from: "hub", to: "llm", label: "WireGuard", color: ACCENT, width: 2.2 },
-  { from: "hub", to: "claude", label: "Fallback", color: WARN, dashed: true },
-  { from: "hub", to: "cms", label: "REST · TTL" },
-  { from: "hub", to: "tts", label: "TTS" },
-  { from: "apps", to: "hub", label: "wss" },
+/**
+ * The edges follow the real flows, not the diagram convention:
+ * — wss links are genuinely two-way (the kiosk sends audio/taps up, the Hub
+ *   pushes turns, status and cabin:actuate down the SAME socket) → both ends
+ *   carry an arrowhead. The light itself then leaves the iPad over the
+ *   Kabinen-LAN — that hop lives in the MonoCab popup, not on the canvas.
+ * — http(s) edges are request/response; the arrow marks who initiates.
+ *   The CMS never pushes: the Hub reads with a TTL and writes sessions,
+ *   so a single arrow with an honest label.
+ * — Claude is direct https and only carries traffic while fallback is on.
+ */
+const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?: boolean; width?: number; bidi?: boolean }[] = [
+  { from: "vehicle", to: "hub", label: "wss · via Cloudflare", bidi: true, width: 1.8 },
+  { from: "apps", to: "hub", label: "wss · via Cloudflare", bidi: true },
+  { from: "hub", to: "llm", label: "https · WireGuard", color: ACCENT, width: 2.2 },
+  { from: "hub", to: "claude", label: "https · nur Fallback", color: WARN, dashed: true },
+  { from: "hub", to: "cms", label: "liest (TTL) · schreibt Sessions" },
+  { from: "hub", to: "tts", label: "https · Audio" },
 ];
 
 const BUBBLE_H = 58;
@@ -94,7 +116,7 @@ function trim(
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len;
   const uy = dy / len;
-  const rFrom = Math.min(wFrom / 2 / Math.max(Math.abs(ux), 0.001), hFrom / 2 / Math.max(Math.abs(uy), 0.001)) + 4;
+  const rFrom = Math.min(wFrom / 2 / Math.max(Math.abs(ux), 0.001), hFrom / 2 / Math.max(Math.abs(uy), 0.001)) + 8;
   const rTo = Math.min(wTo / 2 / Math.max(Math.abs(ux), 0.001), hTo / 2 / Math.max(Math.abs(uy), 0.001)) + 8;
   return [from[0] + ux * rFrom, from[1] + uy * rFrom, to[0] - ux * rTo, to[1] - uy * rTo];
 }
@@ -104,8 +126,8 @@ type State = "ok" | "warn" | "down" | "none";
 const dotColor = (s: State) => (s === "ok" ? OK : s === "warn" ? WARN : s === "down" ? ACCENT : undefined);
 const borderColor = (s: State) => (s === "down" ? ACCENT : s === "warn" ? WARN : LINE);
 
-export default function DiagramView({ c, st, t }: { c: CosimoState; st: ConnectionStatus | null; t: MonoCabTelemetry | null }) {
-  const [pos, setPos] = useState<Record<NodeId, [number, number]>>(loadPos);
+export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; st: ConnectionStatus | null; t: MonoCabTelemetry | null; onShowLogs?: (deviceId: string) => void }) {
+  const [pos, setPos] = useState<Record<NodeId, [number, number]>>(() => loadPos(window.innerWidth - 48, window.innerHeight - 170));
   const [open, setOpen] = useState<OpenId | null>(null);
   const drag = useRef<{ id: NodeId; startX: number; startY: number; origin: [number, number]; moved: boolean } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -136,11 +158,12 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
     if (!d.moved && Math.hypot(dx, dy) < 5) return;
     d.moved = true;
     const maxX = (canvasRef.current?.clientWidth ?? 940) - 90;
+    const maxY = (canvasRef.current?.clientHeight ?? 580) - 50;
     setPos((p) => ({
       ...p,
       [d.id]: [
         Math.max(90, Math.min(maxX, d.origin[0] + dx)),
-        Math.max(40, Math.min(540, d.origin[1] + dy)),
+        Math.max(40, Math.min(maxY, d.origin[1] + dy)),
       ],
     }));
   };
@@ -174,24 +197,26 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
   };
 
   /** Everything the console knows about a node, for the popup. */
-  const detailsOf = (id: OpenId): { title: string; icon: LucideIcon; rows: [string, string][]; links?: [string, string][] } => {
+  const detailsOf = (
+    id: OpenId,
+  ): { title: string; icon: LucideIcon; rows: [string, React.ReactNode][]; links?: [string, string][]; logSeat?: string } => {
     if (id.startsWith("kiosk:")) {
       const deviceId = id.slice(6);
       const seat = seatOf(deviceId);
       return {
         title: deviceId,
         icon: TabletSmartphone,
+        logSeat: deviceId,
         rows: seat
           ? [
               ["Session", seat.active ? "aktiv" : "wartet"],
               ["Profil", `${seat.personaLabel} (${seat.persona})`],
               ["Phase", seat.phase],
               ["Gesicht", seat.emotion],
-              ["Consent", seat.consent ? "ja — Session wird aufgezeichnet" : "nein"],
-              ["Darstellung", `Text ${seat.accommodations.textSize.toUpperCase()} · ${seat.accommodations.theme}${seat.accommodations.showText ? " · Text sichtbar" : ""}${seat.accommodations.audioOutput ? "" : " · stumm"}`],
+              ["Consent", seat.consent ? <Check size={14} color={OK} aria-label="ja" /> : <X size={14} color={ACCENT} aria-label="nein" />],
+              ["Farben", `${seat.accommodations.theme}${seat.accommodations.contrast === "high" ? " · hoher Kontrast" : ""}`],
+              ["Schriftgröße", seat.accommodations.textSize.toUpperCase()],
               ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
-              ["Gast", seat.lastUser || "—"],
-              ["CoSiMo", seat.lastReply || "—"],
             ]
           : [["Session", "verbunden, noch keine Sitzdaten"]],
       };
@@ -299,7 +324,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: 580 }}>
+      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: "calc(100vh - 170px)", minHeight: 520 }}>
         {/* edges beneath in raw pixel space, following the live positions */}
         <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} role="img" aria-label="Live-Topologie als verschiebbare Knoten mit Verbindungen.">
           <defs>
@@ -327,6 +352,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
                   strokeWidth={e.width ?? 1.4}
                   strokeDasharray={e.dashed ? "6 5" : undefined}
                   markerEnd={color === ACCENT ? "url(#dg-ar)" : color === WARN ? "url(#dg-aw)" : "url(#dg-a)"}
+                  markerStart={e.bidi ? (color === ACCENT ? "url(#dg-ar)" : color === WARN ? "url(#dg-aw)" : "url(#dg-a)") : undefined}
                 />
                 {e.label && (
                   <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 7} fontSize={10.5} textAnchor="middle" fill={color === INK ? MUTE : color} fontFamily="inherit">
@@ -453,7 +479,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
         {/* layout reset, quietly in the corner */}
         <button
           onClick={() => {
-            setPos({ ...DEFAULT_POS });
+            setPos(defaultPos(canvasRef.current?.clientWidth ?? 1100, canvasRef.current?.clientHeight ?? 640));
             try {
               localStorage.removeItem(POS_KEY);
             } catch {
@@ -475,7 +501,7 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
             style={{
               position: "absolute",
               left: Math.min(Math.max(popupAnchor[0] - 170, 12), (canvasRef.current?.clientWidth ?? 940) - 352),
-              top: Math.min(popupAnchor[1] + 44, 330),
+              top: Math.min(popupAnchor[1] + 44, (canvasRef.current?.clientHeight ?? 580) - 270),
               width: 340,
               background: "#fff",
               border: `1px solid ${LINE}`,
@@ -508,6 +534,18 @@ export default function DiagramView({ c, st, t }: { c: CosimoState; st: Connecti
                 </div>
               ))}
             </div>
+            {details.logSeat && onShowLogs && (
+              <button
+                onClick={() => {
+                  const seat = details.logSeat!;
+                  setOpen(null);
+                  onShowLogs(seat);
+                }}
+                style={{ appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, color: ACCENT, display: "inline-flex", alignItems: "center", gap: 8, font: "inherit", alignSelf: "flex-start" }}
+              >
+                <ScrollText size={13} /> Log dieser Session
+              </button>
+            )}
             {details.links && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid #f0f0f0`, paddingTop: 8 }}>
                 {details.links.map(([label, href]) => (

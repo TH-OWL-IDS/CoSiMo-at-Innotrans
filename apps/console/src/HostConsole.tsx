@@ -838,6 +838,7 @@ export default function HostConsole() {
   const st = c.status;
   // The tab survives a reload — during the show that is the one you left open.
   const [tab, setTab] = useState<Tab>(tabFromHash);
+  const [logSeatFilter, setLogSeatFilter] = useState<{ seat: string; n: number } | null>(null);
   const switchTab = (t: Tab) => {
     setTab(t);
     window.location.hash = t;
@@ -884,8 +885,18 @@ export default function HostConsole() {
         {tab === "uebersicht" && <OverviewTab c={c} st={st} />}
         {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
         {tab === "sessions" && <SessionsTab c={c} />}
-        {tab === "diagramm" && <DiagramView c={c} st={st} t={c.telemetry} />}
-        {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} />}
+        {tab === "diagramm" && (
+          <DiagramView
+            c={c}
+            st={st}
+            t={c.telemetry}
+            onShowLogs={(deviceId) => {
+              setLogSeatFilter((f) => ({ seat: deviceId, n: (f?.n ?? 0) + 1 }));
+              switchTab("logs");
+            }}
+          />
+        )}
+        {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
 
       {c.inspection && (
