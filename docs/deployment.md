@@ -140,7 +140,9 @@ only talk to the hub.
   new `packages/*` dependency requires adding it to the COPY list, or the
   image builds successfully with stale code.
 - Payload schema changes need a container rebuild (`--build`), not just a
-  restart.
+  restart — **and a committed migration** (`payload migrate:create`, see
+  docs/cms.md): dev pushes schema live, prod only runs migrations at boot.
+  A field without a migration breaks all reads of its table in prod.
 - The Anthropic/Deepgram/ElevenLabs endpoints, and therefore the *agent*,
   need internet; the offline canned mode keeps the kiosks demoable when
   the uplink drops, since kiosk↔VPS is the only required link. At the

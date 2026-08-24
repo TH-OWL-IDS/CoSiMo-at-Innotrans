@@ -58,7 +58,24 @@ editing starts from the same baseline the fallbacks provide.
 
 After editing collections/globals: `pnpm generate:types` (regenerates
 `payload-types.ts`, which is gitignored). Dev mode pushes schema changes to
-Postgres automatically. **The Docker image must be rebuilt for schema/code
+Postgres automatically — **prod does not**. Prod applies committed Payload
+migrations (`src/migrations/`) at container boot (`pnpm run migrate` before
+`next start`, see the Dockerfile CMD), so every schema change must ship one:
+
+```bash
+cd apps/cms
+DATABASE_URI=postgres://cosimo:cosimo_dev@localhost:5432/cosimo \
+PAYLOAD_SECRET=dev-secret npx payload migrate:create <name>
+```
+
+Commit the generated `.ts` + `.json` pair. Forgetting this bricks prod
+reads of the touched table: on 2026-08-24 a new `tts.voiceIdMale` field
+made every operator-config read fail → the hub silently fell back to env
+defaults (wrong LLM). The prod DB was baselined that day (the initial
+migration is marked applied in `payload_migrations`; Payload's push-mode
+`dev` marker row was removed).
+
+**The Docker image must be rebuilt for schema/code
 changes to reach the container** — and the Dockerfile copies workspace
 packages explicitly, so a new `packages/*` dependency must be added to the
 Dockerfile's COPY list or the build silently ships stale behavior.

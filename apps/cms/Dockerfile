@@ -22,4 +22,6 @@ ENV NEXT_PUBLIC_SERVER_URL=$NEXT_PUBLIC_SERVER_URL
 RUN pnpm run build
 
 EXPOSE 6100
-CMD ["pnpm", "run", "start"]
+# Apply pending Payload migrations, then serve. Dev keeps push mode; prod
+# schema changes MUST ship as a migration (payload migrate:create).
+CMD ["sh", "-c", "pnpm run migrate && pnpm run start"]

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "generate:types": "payload generate:types",
     "seed": "tsx src/seed.ts",
-    "payload": "payload"
+    "payload": "payload",
+    "migrate": "payload migrate"
   },
   "dependencies": {
     "@cosimo/shared": "workspace:*",
