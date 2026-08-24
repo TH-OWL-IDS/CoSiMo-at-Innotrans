@@ -35,6 +35,10 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI ?? "",
     },
+    // Push only in true dev servers. Never in production images — prod
+    // schema changes ship as migrations (docs/cms.md), and a stray push
+    // writes the 'dev' marker that stalls migrate-on-boot.
+    push: process.env.NODE_ENV !== "production",
   }),
   sharp: undefined,
 });
