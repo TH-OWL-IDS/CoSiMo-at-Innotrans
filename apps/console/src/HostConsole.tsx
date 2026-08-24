@@ -1,4 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, ChevronDown, Clock,
+  DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
+  LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, MessageCircle, Mic, Moon,
+  Pause, Play, RotateCcw, ScrollText, Search, Smile, TramFront, TriangleAlert,
+  Users, Volume2, X, Zap, type LucideIcon,
+} from "lucide-react";
 import {
   CABIN_CONTROLS,
   type Accommodations,
@@ -59,10 +66,16 @@ function personaOptions(
   return opts;
 }
 
-const EMOTION_ICON: Record<string, string> = {
-  neutral: "😐", happy: "😊", thinking: "🤔", listening: "👂",
-  speaking: "💬", sleeping: "😴", sad: "😞", surprised: "😲",
+const EMOTION_ICON: Record<string, LucideIcon> = {
+  neutral: Meh, happy: Smile, thinking: Brain, listening: Ear,
+  speaking: MessageCircle, sleeping: Moon, sad: Frown, surprised: Zap,
 };
+
+/** The seat's face, as a quiet 16px stroke icon. */
+function Emotion({ emotion }: { emotion: string }) {
+  const Icon = EMOTION_ICON[emotion] ?? Meh;
+  return <Icon size={16} style={{ verticalAlign: "-3px" }} aria-label={emotion} />;
+}
 
 const card: React.CSSProperties = {
   border: `1px solid ${LINE}`,
@@ -117,10 +130,11 @@ function Dot({ ok, warn }: { ok: boolean; warn?: boolean }) {
  * ÜBERSICHT — every dependency with a status and a sentence of detail
  * ──────────────────────────────────────────────────────────────── */
 
-function ServiceRow({ ok, warn, name, detail }: { ok: boolean; warn?: boolean; name: string; detail: string }) {
+function ServiceRow({ ok, warn, name, detail, icon: Icon }: { ok: boolean; warn?: boolean; name: string; detail: string; icon: LucideIcon }) {
   return (
-    <div style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "12px 0", borderBottom: `1px solid #f0f0f0` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: `1px solid #f0f0f0` }}>
       <Dot ok={ok} warn={warn} />
+      <Icon size={16} color={MUTE} style={{ flexShrink: 0 }} />
       <span style={{ fontSize: 14, fontWeight: 600, width: 130, flexShrink: 0 }}>{name}</span>
       <span style={{ fontSize: 13, color: MUTE }}>{detail}</span>
     </div>
@@ -148,12 +162,14 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           <div>
             <ServiceRow
               ok={c.connected}
+              icon={Cable}
               name="Verbindung"
               detail={c.connected ? `Hub verbunden · ${kiosks} Kiosk${kiosks === 1 ? "" : "s"}, ${c.devices.length - kiosks} Konsole(n)` : "keine Verbindung zum Hub"}
             />
             <ServiceRow
               ok={st.llm}
               warn={fallbackActive}
+              icon={Brain}
               name="LLM"
               detail={
                 st.llm
@@ -164,20 +180,23 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
             <ServiceRow
               ok={st.serverStt}
               warn={!st.serverStt}
+              icon={Mic}
               name="Hören (STT)"
               detail={st.serverStt ? "Deepgram (Server)" : "kein Server-STT — Browser-Erkennung, wo vorhanden"}
             />
             <ServiceRow
               ok={st.serverTts}
               warn={!st.serverTts}
+              icon={Volume2}
               name="Sprechen (TTS)"
               detail={st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"}
             />
-            <ServiceRow ok={st.light} name="Licht" detail={st.light ? "Treiber verbunden (Kabine über die Sitze)" : "kein Licht-Treiber"} />
-            <ServiceRow ok={st.network} name="Netzwerk" detail={st.network ? "Internet erreichbar" : "kein Internet — Offline-Modus"} />
+            <ServiceRow ok={st.light} icon={Lightbulb} name="Licht" detail={st.light ? "Treiber verbunden (Kabine über die Sitze)" : "kein Licht-Treiber"} />
+            <ServiceRow ok={st.network} icon={Globe} name="Netzwerk" detail={st.network ? "Internet erreichbar" : "kein Internet — Offline-Modus"} />
             <ServiceRow
               ok={!st.offlineCanned}
               warn={st.offlineCanned}
+              icon={FlaskConical}
               name="Modus"
               detail={st.offlineCanned ? "Demo-Modus: geskriptete Antworten" : "Live: der Agent antwortet"}
             />
@@ -190,8 +209,8 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
       <section style={card}>
         <p style={h}>Betrieb</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-          <button style={{ ...btn, background: "#f0f0f0" }} onClick={() => c.recover()}>
-            Hängende Unterhaltung lösen
+          <button style={{ ...btn, background: "#f0f0f0", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.recover()}>
+            <LifeBuoy size={15} /> Hängende Unterhaltung lösen
           </button>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
             <input
@@ -227,10 +246,13 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
  * FAHRZEUG — the MonoCab itself, state arranged around the CI drawing
  * ──────────────────────────────────────────────────────────────── */
 
-function Stat({ label, value, sub, warn }: { label: string; value: string; sub?: React.ReactNode; warn?: boolean }) {
+function Stat({ label, value, sub, warn, icon: Icon }: { label: string; value: string; sub?: React.ReactNode; warn?: boolean; icon: LucideIcon }) {
   return (
     <div style={{ border: `1px solid ${LINE}`, borderRadius: 12, padding: "10px 14px", background: "#fff" }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: MUTE }}>{label}</div>
+      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: MUTE, display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon size={13} />
+        {label}
+      </div>
       <div style={{ fontSize: 18, fontWeight: 600, marginTop: 2, color: warn ? WARN : INK, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
@@ -268,7 +290,7 @@ function VehicleTab({ c, t }: { c: CosimoState; t: MonoCabTelemetry | null }) {
             fontSize: 14,
           }}
         >
-          <span>⚠</span>
+          <TriangleAlert size={16} />
           <span>{fault.cause.de}</span>
           <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.85 }}>
             {Math.floor(fault.remainingSec / 60)}:{String(fault.remainingSec % 60).padStart(2, "0")}
@@ -291,18 +313,21 @@ function VehicleTab({ c, t }: { c: CosimoState; t: MonoCabTelemetry | null }) {
 
       {/* the state, symmetric around it */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-        <Stat label="Position" value={t.location.de} />
+        <Stat icon={MapPin} label="Position" value={t.location.de} />
         <Stat
+          icon={Flag}
           label="Nächster Halt"
           value={next ? next.name.de : "—"}
           sub={next ? (next.etaMinutes === 0 ? "jetzt" : `in ${next.etaMinutes} min`) : ""}
         />
         <Stat
+          icon={Clock}
           label="Verspätung"
           value={t.delayMinutes > 0 ? `+${t.delayMinutes} min` : "pünktlich"}
           warn={t.delayMinutes > 0}
         />
         <Stat
+          icon={BatteryMedium}
           label="Akku"
           value={`${Math.round(t.batteryPct)} %`}
           warn={t.batteryPct < 20}
@@ -320,8 +345,9 @@ function VehicleTab({ c, t }: { c: CosimoState; t: MonoCabTelemetry | null }) {
             </span>
           }
         />
-        <Stat label="Türen" value={t.doorsOpen ? "offen" : "geschlossen"} />
+        <Stat icon={t.doorsOpen ? DoorOpen : DoorClosed} label="Türen" value={t.doorsOpen ? "offen" : "geschlossen"} />
         <Stat
+          icon={Users}
           label="Fahrgäste"
           value={`${t.occupancy} / ${t.capacity}`}
           sub={
@@ -349,20 +375,24 @@ function VehicleTab({ c, t }: { c: CosimoState; t: MonoCabTelemetry | null }) {
       <section style={card}>
         <p style={h}>Fahrt steuern</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button style={btn} onClick={() => c.patchTelemetry({ paused: !t.simPaused })}>
-            {t.simPaused ? "▶ Weiterfahren" : "⏸ Fahrt anhalten"}
+          <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.patchTelemetry({ paused: !t.simPaused })}>
+            {t.simPaused ? <Play size={15} /> : <Pause size={15} />}
+            {t.simPaused ? "Weiterfahren" : "Fahrt anhalten"}
           </button>
-          <button style={btn} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>Akku schwach</button>
+          <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.patchTelemetry({ batteryPct: 15 })}>
+            <BatteryLow size={15} /> Akku schwach
+          </button>
         </div>
         <p style={{ ...h, marginTop: 6 }}>Störung auslösen</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "signal-hold" } })}>⚠ Halt vor Signal</button>
-          <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "door-fault" } })}>⚠ Türstörung</button>
-          <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "slow-order" } })}>⚠ Langsamfahrt</button>
-          <button style={btn} onClick={() => c.patchTelemetry({ fault: { kind: "low-battery" } })}>⚠ Akku niedrig</button>
+          {([["signal-hold", "Halt vor Signal"], ["door-fault", "Türstörung"], ["slow-order", "Langsamfahrt"], ["low-battery", "Akku niedrig"]] as const).map(([kind, label]) => (
+            <button key={kind} style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.patchTelemetry({ fault: { kind } })}>
+              <TriangleAlert size={15} color={WARN} /> {label}
+            </button>
+          ))}
           {(t.faults?.length ?? 0) > 0 && (
-            <button style={{ ...btn, background: "#f0f0f0" }} onClick={() => c.patchTelemetry({ clearFaults: true })}>
-              ✔ Störung beheben
+            <button style={{ ...btn, background: "#f0f0f0", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={() => c.patchTelemetry({ clearFaults: true })}>
+              <Check size={15} color={OK} /> Störung beheben
             </button>
           )}
         </div>
@@ -416,12 +446,12 @@ function InspectorDrawer({
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 14 }}>
-          <b>🔍 {inspection.deviceId}</b>{" "}
+          <b><Search size={14} style={{ verticalAlign: "-2px" }} /> {inspection.deviceId}</b>{" "}
           <span style={{ opacity: 0.6 }}>
             · {inspection.persona} · {inspection.sessionId || "keine Session"}
           </span>
         </div>
-        <button style={{ ...btn, padding: "4px 10px" }} onClick={onClose}>✕</button>
+        <button style={{ ...btn, padding: "4px 8px", display: "inline-flex" }} onClick={onClose} aria-label="schließen"><X size={16} /></button>
       </div>
 
       <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -531,8 +561,8 @@ function SeatCard({
   return (
     <section style={{ ...card, borderColor: seat.phase !== "idle" ? ACCENT : LINE }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 15, fontWeight: 600 }}>
-          {EMOTION_ICON[seat.emotion] ?? "·"} <code style={{ fontSize: 12, opacity: 0.7 }}>{seat.deviceId}</code>
+        <span style={{ fontSize: 15, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Emotion emotion={seat.emotion} /> <code style={{ fontSize: 12, opacity: 0.7 }}>{seat.deviceId}</code>
         </span>
         <span style={{ fontSize: 12, opacity: 0.7 }}>
           {seat.phase !== "idle" ? `● ${seat.phase}` : "idle"}
@@ -542,7 +572,7 @@ function SeatCard({
 
       {/* persona — set by NFC chip or manually here */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-        <span style={{ opacity: 0.6 }}>Persona</span>
+        <span style={{ opacity: 0.6, display: "inline-flex", alignItems: "center", gap: 6 }}><IdCard size={14} /> Persona</span>
         <select
           value={seat.persona}
           onChange={(e) => onPersona(e.target.value)}
@@ -620,8 +650,8 @@ function SeatCard({
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <button style={btn} onClick={onInspect}>🔍 Verlauf</button>
-        <button style={btn} onClick={onReset}>Sitz zurücksetzen</button>
+        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }} onClick={onInspect}><Search size={15} /> Verlauf</button>
+        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8 }} onClick={onReset}><RotateCcw size={15} /> Sitz zurücksetzen</button>
       </div>
     </section>
   );
@@ -658,7 +688,7 @@ function SessionsTab({ c }: { c: CosimoState }) {
               key={seat.deviceId}
               style={{ fontSize: 12, opacity: 0.55, border: `1px solid ${LINE}`, borderRadius: 999, padding: "5px 12px" }}
             >
-              {EMOTION_ICON[seat.emotion] ?? "·"} <code>{seat.deviceId}</code> · wartet
+              <Emotion emotion={seat.emotion} /> <code>{seat.deviceId}</code> · wartet
             </span>
           ))}
         </div>
@@ -672,12 +702,104 @@ function SessionsTab({ c }: { c: CosimoState }) {
  * ──────────────────────────────────────────────────────────────── */
 
 type Tab = "uebersicht" | "fahrzeug" | "sessions" | "logs";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "uebersicht", label: "Übersicht" },
-  { id: "fahrzeug", label: "Fahrzeug" },
-  { id: "sessions", label: "Sessions" },
-  { id: "logs", label: "Logs" },
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "uebersicht", label: "Übersicht", icon: LayoutDashboard },
+  { id: "fahrzeug", label: "Fahrzeug", icon: TramFront },
+  { id: "sessions", label: "Sessions", icon: Armchair },
+  { id: "logs", label: "Logs", icon: ScrollText },
 ];
+
+/** The view switcher: a small dropdown on the header's left. The closed
+ *  button shows the current view (and its badge, so a red Übersicht is
+ *  visible without opening); Esc / click-outside close the panel. */
+function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => void; badge: (t: Tab) => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const current = TABS.find((t) => t.id === tab)!;
+  const CurrentIcon = current.icon;
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 8, padding: "7px 12px", fontSize: 14 }}
+      >
+        <CurrentIcon size={16} />
+        {current.label}
+        {badge(tab)}
+        <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : undefined, transition: "transform 150ms" }} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            minWidth: 200,
+            background: "#fff",
+            border: `1px solid ${LINE}`,
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(24,24,23,0.10)",
+            padding: 6,
+            display: "flex",
+            flexDirection: "column",
+            zIndex: 150,
+          }}
+        >
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const active = t.id === tab;
+            return (
+              <button
+                key={t.id}
+                role="menuitem"
+                onClick={() => {
+                  onSwitch(t.id);
+                  setOpen(false);
+                }}
+                style={{
+                  appearance: "none",
+                  border: "none",
+                  background: active ? "#f6f6f6" : "none",
+                  borderRadius: 8,
+                  padding: "9px 10px",
+                  font: "inherit",
+                  fontSize: 14,
+                  fontWeight: active ? 600 : 400,
+                  color: active ? INK : MUTE,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  textAlign: "left",
+                }}
+              >
+                <Icon size={16} color={active ? ACCENT : MUTE} />
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {badge(t.id)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function tabFromHash(): Tab {
   const hash = window.location.hash.replace("#", "");
@@ -707,7 +829,7 @@ export default function HostConsole() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#ffffff", color: INK }}>
-      {/* ── the header: logo, "Konsole", the four views ──────────── */}
+      {/* ── the header: dropdown left, logo centred, status right ── */}
       <header
         style={{
           position: "sticky",
@@ -716,49 +838,19 @@ export default function HostConsole() {
           background: "#ffffff",
           borderBottom: `1px solid ${LINE}`,
           display: "flex",
-          alignItems: "stretch",
-          justifyContent: "space-between",
-          padding: "0 24px",
-          gap: 24,
+          alignItems: "center",
+          padding: "10px 24px",
+          gap: 16,
         }}
       >
-        <div style={{ display: "flex", alignItems: "stretch", gap: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0" }}>
-            <img src={logoUrl} alt="MonoCab" width={40} height={40} style={{ display: "block" }} />
-            <h1 style={{ fontSize: 18, margin: 0, fontWeight: 600, letterSpacing: 0.5 }}>Konsole</h1>
-          </div>
-          <nav style={{ display: "flex", alignItems: "stretch", gap: 4 }}>
-            {TABS.map((t) => {
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => switchTab(t.id)}
-                  style={{
-                    appearance: "none",
-                    background: "none",
-                    border: "none",
-                    borderBottom: `2px solid ${active ? ACCENT : "transparent"}`,
-                    marginBottom: -1,
-                    padding: "0 14px",
-                    font: "inherit",
-                    fontSize: 14,
-                    fontWeight: active ? 600 : 400,
-                    color: active ? INK : MUTE,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  {t.label}
-                  {badge(t.id)}
-                </button>
-              );
-            })}
-          </nav>
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-start" }}>
+          <TabMenu tab={tab} onSwitch={switchTab} badge={badge} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: MUTE }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img src={logoUrl} alt="MonoCab" width={40} height={40} style={{ display: "block" }} />
+          <h1 style={{ fontSize: 18, margin: 0, fontWeight: 600, letterSpacing: 0.5 }}>Konsole</h1>
+        </div>
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, fontSize: 13, color: MUTE }}>
           <Dot ok={c.connected} />
           {c.connected ? "verbunden" : "getrennt"}
         </div>

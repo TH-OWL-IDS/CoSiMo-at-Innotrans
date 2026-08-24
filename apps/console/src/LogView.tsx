@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Brain, CircleCheck, CircleCheckBig, CornerDownLeft, Download, FlagTriangleRight,
+  IdCard, Joystick, Lightbulb, MessageSquare, Mic, Pause, Play, Plug, RadioTower,
+  RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 
 /**
@@ -18,25 +24,36 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
   error: "#e40041",
 };
 
-const KIND_ICON: Record<LogKind, string> = {
-  "seat.connect": "🔌",
-  "seat.disconnect": "⏏",
-  consent: "✅",
-  "nfc.scan": "💳",
-  "persona.switch": "👤",
-  "turn.start": "🗣",
-  "stt.result": "🎙",
-  "llm.step": "🧠",
-  "tool.call": "⚙",
-  "cabin.actuate": "💡",
-  "cabin.result": "↩",
-  "tts.done": "🔊",
-  "turn.end": "🏁",
-  "host.action": "🕹",
-  "fault.start": "⚠️",
-  "fault.end": "✔",
-  "service.status": "📡",
+const KIND_ICON: Record<LogKind, LucideIcon> = {
+  "seat.connect": Plug,
+  "seat.disconnect": Unplug,
+  consent: CircleCheck,
+  "nfc.scan": IdCard,
+  "persona.switch": UserRound,
+  "turn.start": MessageSquare,
+  "stt.result": Mic,
+  "llm.step": Brain,
+  "tool.call": Wrench,
+  "cabin.actuate": Lightbulb,
+  "cabin.result": CornerDownLeft,
+  "tts.done": Volume2,
+  "turn.end": FlagTriangleRight,
+  "host.action": Joystick,
+  "fault.start": TriangleAlert,
+  "fault.end": CircleCheckBig,
+  "service.status": RadioTower,
 };
+
+/** The kind, as icon + name — one visual voice for chips and rows. */
+function Kind({ k, size = 13 }: { k: LogKind; size?: number }) {
+  const Icon = KIND_ICON[k];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <Icon size={size} style={{ flexShrink: 0 }} />
+      {k}
+    </span>
+  );
+}
 
 /** One-line human summary per event kind; the raw JSON is a click away. */
 function summarize(e: LogEvent): string {
@@ -192,12 +209,19 @@ export default function LogView({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button style={{ ...btn, borderColor: paused ? "#b45309" : "#e4e4e4" }} onClick={() => setPaused((p) => !p)}>
-          {paused ? "▶ resume" : "⏸ pause"}
+        <button style={{ ...btn, borderColor: paused ? "#b45309" : "#e4e4e4", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setPaused((p) => !p)}>
+          {paused ? <Play size={13} /> : <Pause size={13} />}
+          {paused ? "resume" : "pause"}
         </button>
-        <button style={btn} onClick={onReplay} title="re-request the hub's buffer">↻ replay</button>
-        <button style={btn} onClick={exportNdjson} disabled={!filtered.length}>⬇ export {filtered.length}</button>
-        <button style={btn} onClick={onClear}>clear</button>
+        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={onReplay} title="re-request the hub's buffer">
+          <RotateCw size={13} /> replay
+        </button>
+        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={exportNdjson} disabled={!filtered.length}>
+          <Download size={13} /> export {filtered.length}
+        </button>
+        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={onClear}>
+          <Trash2 size={13} /> clear
+        </button>
       </div>
 
       {/* ── kind chips ──────────────────────────────────────────── */}
@@ -214,7 +238,7 @@ export default function LogView({
               borderColor: kinds.has(k) ? "#c9c9c9" : "#e4e4e4",
             }}
           >
-            {KIND_ICON[k]} {k}
+            <Kind k={k} size={12} />
           </button>
         ))}
         <button style={{ ...btn, padding: "2px 8px", fontSize: 11 }} onClick={() => setKinds(new Set(LOG_KINDS))}>all</button>
@@ -293,7 +317,7 @@ export default function LogView({
                 {e.sessionId ?? ""}
               </span>
               <span style={{ opacity: 0.6 }}>{e.turn != null ? `#${e.turn}` : ""}</span>
-              <span>{KIND_ICON[e.kind]} {e.kind}</span>
+              <span><Kind k={e.kind} /></span>
               <span style={{ whiteSpace: isOpen ? "pre-wrap" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word" }}>
                 {isOpen ? JSON.stringify({ ...e }, null, 2) : summarize(e)}
               </span>
