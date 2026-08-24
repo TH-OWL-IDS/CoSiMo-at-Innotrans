@@ -881,7 +881,7 @@ export default function HostConsole() {
         <div style={{ flex: 1 }} />
       </header>
 
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: tab === "diagramm" ? 0 : 24 }}>
         {tab === "uebersicht" && <OverviewTab c={c} st={st} />}
         {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
         {tab === "sessions" && <SessionsTab c={c} />}

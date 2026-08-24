@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Brain, Check, CloudCog, Database, MonitorSmartphone, RotateCcw, ScrollText,
+  Brain, Check, Database, Monitor, RotateCcw, Route, ScrollText,
   TabletSmartphone, TramFront, Volume2, Waypoints, X, type LucideIcon,
 } from "lucide-react";
 import type { ConnectionStatus, LogEvent, MonoCabTelemetry, SeatSummary } from "@cosimo/shared";
@@ -24,7 +24,7 @@ const ACCENT = "#e40041";
 const OK = "#1a7f37";
 const WARN = "#b45309";
 
-type NodeId = "vehicle" | "hub" | "cms" | "apps" | "llm" | "claude" | "tts";
+type NodeId = "vehicle" | "hub" | "cms" | "console" | "journey" | "llm" | "tts";
 /** A popup target: a fixed node, or one kiosk inside the vehicle. */
 type OpenId = NodeId | `kiosk:${string}`;
 
@@ -35,16 +35,16 @@ type OpenId = NodeId | `kiosk:${string}`;
  */
 function defaultPos(w: number, h: number): Record<NodeId, [number, number]> {
   const cx = Math.max(470, w / 2);
-  const right = Math.min(w - 140, cx + 350);
-  const left = Math.max(150, cx - 350);
+  const right = Math.min(w - 140, cx + Math.max(360, w * 0.3));
+  const left = Math.max(150, cx - Math.max(360, w * 0.3));
   return {
-    hub: [cx, 100],
-    vehicle: [cx, Math.min(330, Math.max(240, h - 260))],
-    cms: [left, 160],
-    apps: [left, Math.min(340, h - 120)],
-    llm: [right, 100],
-    claude: [right, Math.min(255, h - 200)],
-    tts: [right, Math.min(410, h - 80)],
+    hub: [cx, 110],
+    vehicle: [cx, Math.min(h * 0.55, Math.max(280, h - 260))],
+    cms: [left, 130],
+    console: [left, h * 0.5],
+    journey: [left, h - 110],
+    llm: [right, 150],
+    tts: [right, h - 150],
   };
 }
 
@@ -69,11 +69,11 @@ interface NodeDef {
 }
 
 const NODES: NodeDef[] = [
-  { id: "hub", icon: Waypoints, title: "Hub · Agent", w: 170 },
+  { id: "hub", icon: Waypoints, title: "Hub · CoSiMo", w: 178 },
   { id: "cms", icon: Database, title: "CMS + Postgres", w: 190 },
-  { id: "apps", icon: MonitorSmartphone, title: "Konsole · Emulator · Fahrt", w: 236 },
+  { id: "console", icon: Monitor, title: "Konsole", w: 142 },
+  { id: "journey", icon: Route, title: "Fahrt", w: 126 },
   { id: "llm", icon: Brain, title: "GX10 · vLLM", w: 172 },
-  { id: "claude", icon: CloudCog, title: "Claude", w: 158 },
   { id: "tts", icon: Volume2, title: "ElevenLabs", w: 162 },
 ];
 
@@ -86,12 +86,13 @@ const NODES: NodeDef[] = [
  * — http(s) edges are request/response; the arrow marks who initiates.
  *   The CMS never pushes: the Hub reads with a TTL and writes sessions,
  *   so a single arrow with an honest label.
- * — Claude has no edge on purpose: it is only the fallback — the popup on
- *   the node says whether it is currently carrying turns.
+ * — Claude gets no node of its own: it is only the fallback; the GX10
+ *   bubble turns amber and its popup says so while Claude carries turns.
  */
 const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?: boolean; width?: number; bidi?: boolean }[] = [
   { from: "vehicle", to: "hub", label: "wss · via Cloudflare", bidi: true, width: 1.8 },
-  { from: "apps", to: "hub", label: "wss · via Cloudflare", bidi: true },
+  { from: "console", to: "hub", label: "wss · via Cloudflare", bidi: true },
+  { from: "hub", to: "journey", label: "wss · Telemetrie" },
   { from: "hub", to: "llm", label: "https · WireGuard", color: ACCENT, width: 2.2 },
   { from: "hub", to: "cms", label: "liest (TTL) · schreibt Sessions" },
   { from: "hub", to: "tts", label: "https · Audio" },
@@ -190,9 +191,9 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
     vehicle: kioskDevices.length > 0 ? "ok" : "down",
     hub: c.connected ? (fault ? "warn" : "ok") : "down",
     cms: st?.cms ? "ok" : "warn",
-    apps: "none",
+    console: "none",
+    journey: "none",
     llm: st?.llm ? (fallbackActive ? "warn" : "ok") : "down",
-    claude: fallbackActive ? "ok" : "none",
     tts: st?.serverTts ? "ok" : "warn",
   };
 
@@ -216,6 +217,8 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
               ["Consent", seat.consent ? <Check size={14} color={OK} aria-label="ja" /> : <X size={14} color={ACCENT} aria-label="nein" />],
               ["Farben", `${seat.accommodations.theme}${seat.accommodations.contrast === "high" ? " · hoher Kontrast" : ""}`],
               ["Schriftgröße", seat.accommodations.textSize.toUpperCase()],
+              ["Stimme", `${seat.accommodations.voiceGender === "male" ? "männlich" : "weiblich"} · ${seat.accommodations.voiceTone ?? "neutral"}`],
+              ["Lautstärke", `${Math.round((seat.accommodations.volume ?? 1) * 100)} %`],
               ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
             ]
           : [["Session", "verbunden, noch keine Sitzdaten"]],
@@ -228,6 +231,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           icon: TramFront,
           rows: [
             ["Kiosks", kioskDevices.length ? `${kioskDevices.length} verbunden` : "keine verbunden"],
+            ["Emulator", "Browser-Sitze erscheinen hier wie echte Kiosks"],
             ["Aktive Sessions", String(c.seats.filter((s) => s.active).length)],
             ["Fahrt", t ? `${t.location.de} · ${Math.round(t.speedKmh)} km/h${t.simPaused ? " · pausiert" : ""}` : "—"],
             ["Fahrgäste", t ? `${t.occupancy}/${t.capacity} (${t.seats?.liveSessions ?? 0} echt)` : "—"],
@@ -237,7 +241,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
         };
       case "hub":
         return {
-          title: "Hub · Agent",
+          title: "Hub · CoSiMo",
           icon: Waypoints,
           rows: [
             ["Verbindung", c.connected ? "verbunden" : "getrennt"],
@@ -268,16 +272,25 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           ],
           links: [["Payload Admin", "https://cosimo.homannjohannes.de/admin"]],
         };
-      case "apps":
+      case "console":
         return {
-          title: "Konsole · Emulator · Fahrt",
-          icon: MonitorSmartphone,
-          rows: [["Gemeinsam", "socket-only — keine App spricht mit dem CMS"]],
-          links: [
-            ["Konsole (:6102)", "https://console-cosimo.homannjohannes.de"],
-            ["Emulator (:6103)", "https://seat-cosimo.homannjohannes.de"],
-            ["Fahrt (:6104)", "https://journey-cosimo.homannjohannes.de"],
+          title: "Konsole",
+          icon: Monitor,
+          rows: [
+            ["Rolle", "Personal-Ansicht: Status, Fahrzeug, Sessions, Logs — diese Seite"],
+            ["Pfad", "socket-only — spricht nie mit dem CMS"],
           ],
+          links: [["Konsole (:6102)", "https://console-cosimo.homannjohannes.de"]],
+        };
+      case "journey":
+        return {
+          title: "Fahrt",
+          icon: Route,
+          rows: [
+            ["Rolle", "die Linie live: Halte, Position, Störungen, Fahrgäste"],
+            ["Pfad", "hört nur zu — Telemetrie über den Socket, sendet nichts"],
+          ],
+          links: [["Fahrt (:6104)", "https://journey-cosimo.homannjohannes.de"]],
         };
       case "llm":
         return {
@@ -285,20 +298,11 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           icon: Brain,
           rows: [
             ["Modell", llmName],
-            ["Erreichbar", st?.llm ? (fallbackActive ? "Fallback aktiv" : "ja") : "nein"],
+            ["Erreichbar", st?.llm ? (fallbackActive ? "Fallback aktiv — Turns laufen über Claude" : "ja") : "nein"],
+            ["Fallback", "Claude (direkt, https) — Probe alle 15 s, zurück sobald der GX10 antwortet"],
             ["Wo", "GX10 (Uni-Netz), eigener vLLM-Stack, Tailnet :8007, Bearer"],
             ["Tuning", "NVFP4 · MTP-Spekulation (Tiefe 3) · Thinking aus"],
             ["Gemessen", "Aktions-Turn ≈ 2,4 s · Telemetrie ≈ 3,4 s (24.08.)"],
-          ],
-        };
-      case "claude":
-        return {
-          title: "Claude",
-          icon: CloudCog,
-          rows: [
-            ["Rolle", "automatischer Fallback (Operator-Config → LLM)"],
-            ["Aktiv", fallbackActive ? "JA — Turns laufen gerade über Claude" : "nein — GX10 antwortet"],
-            ["Wechsel", "Probe alle 15 s; zurück zum GX10, sobald es antwortet"],
           ],
         };
       default:
@@ -323,8 +327,8 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
     : [0, 0];
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: "calc(100vh - 170px)", minHeight: 520 }}>
+    <div style={{ overflowX: "auto", overflowY: "hidden" }}>
+      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: "calc(100vh - 61px)", minHeight: 560 }}>
         {/* edges beneath in raw pixel space, following the live positions */}
         <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} role="img" aria-label="Live-Topologie als verschiebbare Knoten mit Verbindungen.">
           <defs>
@@ -488,7 +492,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           }}
           title="Layout zurücksetzen"
           aria-label="Layout zurücksetzen"
-          style={{ position: "absolute", top: 8, right: 8, appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: 6, cursor: "pointer", color: MUTE, display: "inline-flex" }}
+          style={{ position: "absolute", top: 12, right: 12, appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: 6, cursor: "pointer", color: MUTE, display: "inline-flex" }}
         >
           <RotateCcw size={13} />
         </button>
