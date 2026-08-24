@@ -128,17 +128,18 @@ function templatedConfirmation(actions: TurnAction[], lang: Locale): string {
     const list = bits.length > 1 ? bits.slice(0, -1).join(", ") + (de ? " und " : " and ") + bits[bits.length - 1] : bits[0]!;
     parts.push(de ? `Gern, ${list}.` : `Sure, ${list}.`);
   }
-  for (const a of actions) {
-    if (a.tool === "set_presentation") {
-      parts.push(de ? "Erledigt, ich habe das angepasst." : "Done, I have adjusted that.");
-    } else if (a.tool === "request_stop") {
-      parts.push(de ? "Dein Haltewunsch ist registriert." : "Your stop request is registered.");
-    } else if (a.tool === "remember") {
-      parts.push(de ? "Das habe ich mir gemerkt." : "I will remember that.");
-    } else if (a.tool === "forget") {
-      parts.push(de ? "Erledigt, das habe ich vergessen." : "Done, I have forgotten that.");
-    }
+  // One sentence per KIND, not per call — "leiser UND langsamer" is two
+  // set_presentation actions but must confirm once, not twice.
+  const kinds = new Set(actions.map((a) => a.tool));
+  if (kinds.has("set_presentation")) {
+    const n = actions.filter((a) => a.tool === "set_presentation").length;
+    parts.push(de
+      ? n > 1 ? "Erledigt, ich habe beides angepasst." : "Erledigt, ich habe das angepasst."
+      : n > 1 ? "Done, I have adjusted both." : "Done, I have adjusted that.");
   }
+  if (kinds.has("request_stop")) parts.push(de ? "Dein Haltewunsch ist registriert." : "Your stop request is registered.");
+  if (kinds.has("remember")) parts.push(de ? "Das habe ich mir gemerkt." : "I will remember that.");
+  if (kinds.has("forget")) parts.push(de ? "Erledigt, das habe ich vergessen." : "Done, I have forgotten that.");
   return parts.slice(0, 2).join(" ") || (de ? "Erledigt." : "Done.");
 }
 
