@@ -86,13 +86,13 @@ const NODES: NodeDef[] = [
  * — http(s) edges are request/response; the arrow marks who initiates.
  *   The CMS never pushes: the Hub reads with a TTL and writes sessions,
  *   so a single arrow with an honest label.
- * — Claude is direct https and only carries traffic while fallback is on.
+ * — Claude has no edge on purpose: it is only the fallback — the popup on
+ *   the node says whether it is currently carrying turns.
  */
 const EDGES: { from: NodeId; to: NodeId; label?: string; color?: string; dashed?: boolean; width?: number; bidi?: boolean }[] = [
   { from: "vehicle", to: "hub", label: "wss · via Cloudflare", bidi: true, width: 1.8 },
   { from: "apps", to: "hub", label: "wss · via Cloudflare", bidi: true },
   { from: "hub", to: "llm", label: "https · WireGuard", color: ACCENT, width: 2.2 },
-  { from: "hub", to: "claude", label: "https · nur Fallback", color: WARN, dashed: true },
   { from: "hub", to: "cms", label: "liest (TTL) · schreibt Sessions" },
   { from: "hub", to: "tts", label: "https · Audio" },
 ];
