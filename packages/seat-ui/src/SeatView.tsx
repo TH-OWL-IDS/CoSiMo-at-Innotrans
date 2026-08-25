@@ -183,7 +183,9 @@ export default function SeatView({
       aria-hidden
       style={{
         position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
-        boxShadow: "inset 0 0 calc(var(--circle) * 0.05) 0 rgba(72, 199, 108, 0.5)",
+        // not a box-shadow (that paints a band): a radial falloff that only
+        // rises in the outer few percent — a thin, soft green breath at the rim
+        background: "radial-gradient(circle, rgba(72,199,108,0) 0%, rgba(72,199,108,0) 91%, rgba(72,199,108,0.28) 97.5%, rgba(72,199,108,0.38) 100%)",
         opacity: listening ? 1 : 0,
         transition: "opacity 500ms ease",
       }}
