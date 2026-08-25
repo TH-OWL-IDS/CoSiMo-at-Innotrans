@@ -1,22 +1,15 @@
-:root {
-  --bg: #ffffff;
-  --ink: #141414;
-}
-
-* {
-  box-sizing: border-box;
-}
+/* Tokens, fonts, reset and utilities come from the shared package. The
+   kiosk is rider-facing: SeatView inherits the body font, and the rider
+   UI is set in the system face, not the console's monospace — so the
+   body font is overridden here. Tailwind v4 needs iOS 16.4+ WebKit
+   (cascade layers, @property); the app targets iOS 17. */
+@import "@cosimo/ui/styles.css";
 
 html,
 body,
 #root {
-  margin: 0;
-  padding: 0;
   height: 100%;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family: var(--font-sans);
 }
 
 /* Kiosk: prevent text selection / callouts on iPad. */
@@ -24,5 +17,4 @@ body {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  overscroll-behavior: none;
 }

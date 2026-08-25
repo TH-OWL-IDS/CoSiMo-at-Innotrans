@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
 import { SeatView, useSeat, type PanelLayout } from "@cosimo/seat-ui";
+import { X } from "lucide-react";
+import { Button, Eyebrow, Input } from "@cosimo/ui";
 import { isNative } from "../config/serverUrl";
 import { useHidInput } from "./useHidInput";
 import { useCabinActuator } from "./useCabinActuator";
@@ -42,40 +44,14 @@ function TestConsole({
   };
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: "50%",
-        bottom: 12,
-        transform: "translateX(-50%)",
-        width: "min(92vw, 520px)",
-        zIndex: 50,
-        background: "rgba(13,17,23,0.94)",
-        color: "#e8eaed",
-        border: "1px dashed #4b5563",
-        borderRadius: 14,
-        padding: "10px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        fontSize: 13,
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ opacity: 0.6, fontSize: 11, letterSpacing: 1 }}>🧪 TEST-KONSOLE</span>
-        <button
-          onClick={onClose}
-          style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 15, opacity: 0.7 }}
-        >
-          ✕
-        </button>
+    <div className="absolute bottom-3 left-1/2 z-popover flex w-[min(92vw,520px)] -translate-x-1/2 flex-col gap-2 rounded-xl border border-dashed border-line-strong bg-white/95 px-3 py-2.5 font-mono text-md text-ink shadow-float">
+      <div className="flex items-center justify-between">
+        <Eyebrow size="xs">🧪 Test-Konsole</Eyebrow>
+        <Button icon variant="ghost" size="sm" onClick={onClose} aria-label="schließen"><X size={15} /></Button>
       </div>
-      <div
-        ref={logRef}
-        style={{ maxHeight: 130, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}
-      >
+      <div ref={logRef} className="flex max-h-[130px] flex-col gap-1 overflow-y-auto">
         {transcript.slice(-6).map((m, i) => (
-          <div key={i} style={{ opacity: m.role === "user" ? 0.6 : 0.95 }}>
+          <div key={i} className={m.role === "user" ? "text-mute" : "text-ink"}>
             <b>{m.role === "user" ? "Du" : "Cosi"}:</b> {m.text}
           </div>
         ))}
@@ -85,30 +61,16 @@ function TestConsole({
           </div>
         )}
       </div>
-      <form onSubmit={submit} style={{ display: "flex", gap: 8 }}>
-        <input
+      <form onSubmit={submit} className="flex gap-2">
+        <Input
+          className="flex-1 select-text"
+          aria-label="Nachricht"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={lang === "de" ? "Nachricht an CoSiMo…" : "Message to CoSiMo…"}
           autoFocus
-          style={{
-            flex: 1,
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid #4b5563",
-            background: "#0e1013",
-            color: "inherit",
-            fontSize: 14,
-            userSelect: "text",
-            WebkitUserSelect: "text",
-          }}
         />
-        <button
-          type="submit"
-          style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#f3f4f6", color: "#16181c", cursor: "pointer", fontWeight: 600 }}
-        >
-          →
-        </button>
+        <Button type="submit" variant="primary">→</Button>
       </form>
     </div>
   );

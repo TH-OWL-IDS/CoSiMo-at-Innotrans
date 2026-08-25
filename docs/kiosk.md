@@ -89,6 +89,18 @@ either server audio (ElevenLabs, preferred) or falls back to the browser's
 speech synthesis. The mic permission is granted once, natively, permanently
 — one of the reasons this is a native app rather than a PWA.
 
+## Styling
+
+The app imports `@cosimo/ui/styles.css` (Tailwind v4 tokens, self-hosted
+fonts) like the other apps — but only the **operator-only** surfaces use
+it: the setup screen (`ServerSetup`) and the hidden test console wear the
+console's white CI. The rider-facing `SeatView` comes from
+`packages/seat-ui`, takes its colours from the persona schemes and stays
+in the system font (`apps/kiosk/src/index.css` overrides the body font).
+Tailwind v4 needs WebKit 16.4+ (cascade layers, `@property`), so the iOS
+deployment target is **17.0** (`ios/App/Podfile`, `project.pbxproj`) —
+the iPad minis at the stand run iOS 17/18.
+
 ## Build & run
 
 ```bash

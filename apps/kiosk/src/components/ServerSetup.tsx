@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { FlaskConical } from "lucide-react";
+import { Brand, Button, Card, Eyebrow, Input } from "@cosimo/ui";
 import type { PanelLayout } from "../config/panelLayout";
 
 /**
  * Operator-only screen: server URL + panel-cutout calibration. Shown on
  * first launch when no URL is known, and via the hidden 3s hold on the
- * telemetry slit. Visitors never see it.
+ * telemetry slit. Visitors never see it — so it wears the console's CI,
+ * not the rider UI's.
  */
 export default function ServerSetup({
   current,
@@ -39,175 +42,88 @@ export default function ServerSetup({
   };
 
   const num = (key: keyof PanelLayout, label: string) => (
-    <label
-      key={key}
-      style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, opacity: 0.85 }}
-    >
+    <label key={key} className="flex flex-col gap-1 text-sm text-mute">
       {label}
-      <input
+      <Input
         type="number"
         step={0.5}
+        size="lg"
+        className="w-[76px] select-text"
         value={geo[key] as number}
         onChange={(e) => setGeo({ ...geo, [key]: Number(e.target.value) })}
-        style={{
-          width: 76,
-          padding: "8px 10px",
-          fontSize: 15,
-          borderRadius: 10,
-          border: "1px solid #4b5563",
-          background: "#0e1013",
-          color: "inherit",
-          userSelect: "text",
-          WebkitUserSelect: "text",
-        }}
       />
     </label>
   );
 
   return (
-    <main
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "1.1rem",
-        padding: "2rem",
-        background: "#16181c",
-        color: "#f3f4f6",
-        textAlign: "center",
-        overflowY: "auto",
-      }}
-    >
-      <h1 style={{ margin: 0, fontSize: "1.35rem" }}>CoSiMo — Einrichtung</h1>
-      <p style={{ margin: 0, maxWidth: "30rem", opacity: 0.7, fontSize: 13 }}>
-        Server-Adresse und Panel-Kalibrierung (Position der Ausschnitte in % des
-        Bildschirms). Nur für das Standpersonal.
-      </p>
+    <main className="fixed inset-0 z-header flex flex-col items-center justify-center gap-5 overflow-y-auto bg-bg p-8 font-mono text-center text-ink">
+      <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Einrichtung">
+        <Brand size={44} />
+      </h1>
+      <div>
+        <Eyebrow className="justify-center">Einrichtung</Eyebrow>
+        <p className="m-0 mt-1 max-w-[30rem] text-md text-mute">
+          Server-Adresse und Panel-Kalibrierung (Position der Ausschnitte in % des
+          Bildschirms). Nur für das Standpersonal.
+        </p>
+      </div>
 
-      <form
-        onSubmit={submit}
-        style={{ display: "flex", flexDirection: "column", gap: "1.1rem", alignItems: "center" }}
-      >
-        <div style={{ display: "flex", gap: 8, width: "min(90vw, 30rem)" }}>
-          <input
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setError("");
-            }}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            inputMode="url"
-            placeholder="https://cosimo.homannjohannes.de"
-            style={{
-              flex: 1,
-              padding: "12px 16px",
-              fontSize: "1.05rem",
-              borderRadius: 12,
-              border: "1px solid #4b5563",
-              background: "#0e1013",
-              color: "inherit",
-              userSelect: "text",
-              WebkitUserSelect: "text",
-            }}
-          />
-        </div>
-
-        <fieldset
-          style={{
-            border: "1px solid #374151",
-            borderRadius: 14,
-            padding: "12px 16px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
+      <form onSubmit={submit} className="flex flex-col items-center gap-5">
+        <Input
+          size="lg"
+          className="w-[min(90vw,30rem)] select-text"
+          aria-label="Server-Adresse"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError("");
           }}
-        >
-          <legend style={{ fontSize: 12, opacity: 0.7, padding: "0 6px" }}>
-            Panel-Kalibrierung (%)
-          </legend>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          aria-invalid={Boolean(error)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="url"
+          placeholder="https://cosimo.homannjohannes.de"
+        />
+
+        <Card className="items-center">
+          <Eyebrow>Panel-Kalibrierung (%)</Eyebrow>
+          <div className="flex flex-wrap justify-center gap-3">
             {num("circleX", "Kreis X")}
             {num("circleY", "Kreis Y")}
             {num("circleD", "Kreis Ø")}
           </div>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="flex flex-wrap justify-center gap-3">
             {num("slitX", "Schlitz X")}
             {num("slitY", "Schlitz Y")}
             {num("slitW", "Schlitz B")}
             {num("slitH", "Schlitz H")}
             {num("slitR", "Radius px")}
           </div>
-          <label style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", fontSize: 13 }}>
+          <label className="flex items-center justify-center gap-2 text-md">
             <input
               type="checkbox"
+              className="accent-ink"
               checked={geo.guides}
               onChange={(e) => setGeo({ ...geo, guides: e.target.checked })}
             />
             Umrisse anzeigen (zum Ausrichten hinter dem Panel)
           </label>
-        </fieldset>
+        </Card>
 
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            type="submit"
-            style={{
-              padding: "10px 22px",
-              borderRadius: 12,
-              border: "none",
-              background: "#f3f4f6",
-              color: "#16181c",
-              cursor: "pointer",
-              fontWeight: 600,
-              fontSize: "1rem",
-            }}
-          >
-            Speichern
-          </button>
+        <div className="flex gap-2.5">
+          <Button type="submit" variant="primary">Speichern</Button>
           {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                padding: "10px 18px",
-                borderRadius: 12,
-                border: "1px solid #4b5563",
-                background: "transparent",
-                color: "inherit",
-                opacity: 0.75,
-                cursor: "pointer",
-                fontSize: "0.95rem",
-              }}
-            >
-              Abbrechen
-            </button>
+            <Button type="button" onClick={onCancel}>Abbrechen</Button>
           )}
         </div>
         {onOpenTestChat && (
-          <button
-            type="button"
-            onClick={onOpenTestChat}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 12,
-              border: "1px dashed #4b5563",
-              background: "transparent",
-              color: "inherit",
-              opacity: 0.6,
-              cursor: "pointer",
-              fontSize: "0.85rem",
-            }}
-          >
-            🧪 Text-Konsole (Test) — mit CoSiMo schreiben
-          </button>
+          <Button type="button" variant="outline" size="sm" className="border-dashed" onClick={onOpenTestChat}>
+            <FlaskConical size={14} /> Text-Konsole (Test) — mit CoSiMo schreiben
+          </Button>
         )}
       </form>
-      {error && <p style={{ margin: 0, color: "#fca5a5", fontSize: 13 }}>{error}</p>}
+      {error && <p role="alert" className="m-0 text-md text-accent">{error}</p>}
     </main>
   );
 }
