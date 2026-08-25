@@ -127,6 +127,12 @@ only talk to the hub.
 
 ## Deployment gotchas learned the hard way
 
+- **Always start prod with `./start.sh`** (optionally `./start.sh cms
+  realtime` to rebuild only some services). A bare `docker compose up`
+  runs the DEV configuration: ports on 0.0.0.0:6100–6104 (Postgres public
+  on :5432), realtime outside the Tailscale namespace → Cloudflare shows
+  "Bad Gateway" (2026-08-25).
+
 - **`--env-file .env.prod` does not reach the containers.** It only feeds
   compose's `${…}` interpolation. The containers get secrets from
   `env_file:` — the base file names `.env.local` (dev); the prod overlay
