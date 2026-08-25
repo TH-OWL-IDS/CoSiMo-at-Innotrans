@@ -74,3 +74,13 @@ The side panel uses `@cosimo/ui` (white CI, Source Code Pro, `Button` /
 `Input` / `Eyebrow`); the seat column stays black like the iPad behind its
 panel. `SeatView` itself is untouched — rider-facing UI lives in
 `packages/seat-ui` and takes its colours from the persona schemes.
+
+## Reload keeps the seat
+
+Device id, session id and the consent decision live in `sessionStorage`
+(per tab). A reload — or a short socket drop — comes back as the *same*
+seat: the hub parks a kiosk's state (profile, consent, session, last
+exchange, cabin controls) for 10 min and restores it when the same device
+id says hello again, so the conversation continues and the consent screen
+is not shown twice. A host reset ("Sitz zurücksetzen", "Alles
+zurücksetzen") clears all of it. A new tab is a new seat.

@@ -32,7 +32,7 @@ interface Base {
 
 export type LogEvent = Base &
   (
-    | { kind: "seat.connect"; data: { role: "kiosk" | "host" } }
+    | { kind: "seat.connect"; data: { role: "kiosk" | "host"; restored?: boolean } }
     | { kind: "seat.disconnect"; data: { role: "kiosk" | "host" } }
     | { kind: "consent"; data: { consent: boolean } }
     | { kind: "nfc.scan"; data: { tagId: string; persona: PersonaKey | null } }

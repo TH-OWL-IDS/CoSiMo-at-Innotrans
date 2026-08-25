@@ -28,6 +28,25 @@ import type {
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
+const sessionKey = (role: string) => `cosimo.sessionId.${role}`;
+function storedSession(role: string): string | null {
+  try {
+    return sessionStorage.getItem(sessionKey(role));
+  } catch {
+    return null;
+  }
+}
+/** A fresh session id, remembered for this tab. */
+function newSession(role: string): string {
+  const id = makeId("s");
+  try {
+    sessionStorage.setItem(sessionKey(role), id);
+  } catch {
+    // private mode — the id just won't survive a reload
+  }
+  return id;
+}
+
 /** A per-tab device id that survives reloads (falls back to a fresh one). */
 function stableDeviceId(role: "kiosk" | "host"): string {
   const key = `cosimo.deviceId.${role}`;
@@ -172,7 +191,10 @@ export function useCosimoSocket(
   // console; a localStorage id would collide across two open tabs (the hub
   // keys entries by id, so the second tab's disconnect would drop the first).
   const deviceId = useMemo(() => stableDeviceId(role), [role]);
-  const sessionRef = useRef<string>(makeId("s"));
+  // The session id survives a reload of this tab (sessionStorage, like the
+  // device id): the hub's recorder and the agent's history are keyed by it,
+  // so a reloaded seat continues its conversation instead of starting one.
+  const sessionRef = useRef<string>(storedSession(role) ?? newSession(role));
 
   /** Set by the kiosk (see setCabinActuator) — the host console leaves it null. */
   const actuatorRef = useRef<
@@ -363,7 +385,7 @@ export function useCosimoSocket(
     });
     socket.on("session:reset", ({ deviceId: target }) => {
       if (target !== deviceId && target !== "*") return;
-      sessionRef.current = makeId("s");
+      sessionRef.current = newSession(role);
       replyRef.current = "";
       setReply("");
       setHeard("");

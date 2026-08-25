@@ -117,6 +117,16 @@ type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 /** Expressive emotions are reactions, not states — they fade back to neutral. */
 const DECAYING_EMOTIONS: ReadonlySet<FaceEmotion> = new Set(["happy", "sad", "surprised"]);
 
+/** How long a dropped kiosk's state (persona, consent, session, last
+ *  exchange, cabin) waits for the same device id to come back. */
+const PARK_MS = 10 * 60_000;
+
+/** The part of a DeviceEntry that outlives its socket. */
+type ParkedState = Pick<
+  DeviceEntry,
+  "persona" | "emotion" | "consent" | "active" | "sessionId" | "lastUser" | "lastReply" | "lastReplyFull" | "controls" | "turn" | "lastActivity"
+> & { parkedAt: number };
+
 /** Link check tuning (see probeDevices). */
 const PROBE_INTERVAL_MS = 10_000;
 const PROBE_TIMEOUT_MS = 3_000;
@@ -192,6 +202,8 @@ export class Hub {
   private configLister: (() => HostConfigBroadcast) | undefined;
   /** Recently disconnected devices, shown as "lost" for LOST_LINGER_MS. */
   private readonly lost = new Map<string, ConnectedDevice>();
+  /** Dropped kiosks' state, waiting PARK_MS for the same id to return. */
+  private readonly parked = new Map<string, ParkedState>();
   /** Last config pushed, serialized — broadcastConfig() only emits on change. */
   private lastConfigJson = "";
   private memoriesResolver: MemoriesResolver | undefined;
@@ -425,6 +437,17 @@ export class Hub {
         probedAt: null,
         health: "ok",
       };
+      // The same id coming back within PARK_MS is the same seat: a reloaded
+      // emulator tab or a reconnecting iPad keeps its profile, consent,
+      // session and cabin state — no new consent, no new conversation.
+      const parked = this.parked.get(deviceId);
+      if (parked && role === "kiosk" && Date.now() - parked.parkedAt < PARK_MS) {
+        const { parkedAt: _, ...state } = parked;
+        Object.assign(entry, state);
+        if (state.sessionId) this.sessionDevice.set(state.sessionId, deviceId);
+        logger.log("seat.connect", { role, restored: true }, { deviceId, sessionId: state.sessionId || undefined });
+      }
+      this.parked.delete(deviceId);
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
       // The same id coming back is the "lost" device returning — not a new one.
@@ -456,6 +479,7 @@ export class Hub {
         });
         socket.on("host:reset-all", () => {
           logger.log("host.action", { action: "reset-all", args: {} }, { deviceId });
+          this.parked.clear();
           // Seats: back to the consent screen, like "Alle Sitze zurücksetzen".
           this.io.emit("session:reset", { deviceId: "*" });
           // Other consoles: reload yourselves (fresh state, stale tabs get a nudge).
@@ -627,6 +651,8 @@ export class Hub {
     });
     socket.on("host:resetSession", ({ deviceId }) => {
       hostAction("resetSession", { deviceId });
+      if (deviceId === "*") this.parked.clear();
+      else this.parked.delete(deviceId);
       this.io.emit("session:reset", { deviceId });
       const targets =
         deviceId === "*"
@@ -683,6 +709,15 @@ export class Hub {
         // Keep a "lost" line for 30 s so a flapping iPad is visible on the
         // console. Kiosks only: a console tab closing is not a fault.
         if (e && e.role === "kiosk") {
+          this.parked.set(id, {
+            persona: e.persona, emotion: e.emotion, consent: e.consent, active: e.active,
+            sessionId: e.sessionId, lastUser: e.lastUser, lastReply: e.lastReply, lastReplyFull: e.lastReplyFull,
+            controls: e.controls, turn: e.turn, lastActivity: e.lastActivity, parkedAt: Date.now(),
+          });
+          setTimeout(() => {
+            const p = this.parked.get(id);
+            if (p && Date.now() - p.parkedAt >= PARK_MS) this.parked.delete(id);
+          }, PARK_MS + 1000);
           this.lost.set(id, { ...this.snapshot(id, e), health: "lost", rttMs: null });
           setTimeout(() => {
             this.lost.delete(id);

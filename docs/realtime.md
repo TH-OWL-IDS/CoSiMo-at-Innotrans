@@ -262,3 +262,12 @@ sockets: `session:reset "*"` sends every seat back to the consent screen
 (as "Alle Sitze zurücksetzen" does), and every *other* console receives
 `host:reload` and shows a blocking reload panel. Logged as `host.action
 reset-all`.
+
+## Parked seats — reconnects keep their state
+
+On a kiosk disconnect the hub parks the entry's persona, emotion, consent,
+active flag, session id, last exchange, cabin controls and turn counter
+for 10 min. A hello with the same device id within that window restores
+them (logged as `seat.connect` with `restored: true`) and re-maps the
+session to the device; the recorder and the agent's history are keyed by
+session id, so the conversation simply continues. Resets clear the park.

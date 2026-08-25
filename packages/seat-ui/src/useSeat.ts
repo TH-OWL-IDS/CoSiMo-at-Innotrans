@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
 import { schemeById, type ColorScheme } from "@cosimo/face";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
@@ -31,19 +31,55 @@ export interface Seat {
  * the same language resolution, consent flow, accommodation mapping,
  * push-to-talk and TTS fallback — so "works in the emulator" means something.
  */
+const CONSENT_KEY = "cosimo.consent";
+function storedConsent(): boolean | null {
+  try {
+    const v = sessionStorage.getItem(CONSENT_KEY);
+    return v === "1" ? true : v === "0" ? false : null;
+  } catch {
+    return null;
+  }
+}
+function rememberConsent(v: boolean | null): void {
+  try {
+    if (v === null) sessionStorage.removeItem(CONSENT_KEY);
+    else sessionStorage.setItem(CONSENT_KEY, v ? "1" : "0");
+  } catch {
+    // private mode — the decision just won't survive a reload
+  }
+}
+
 export function useSeat(serverUrl: string): Seat {
   const cosimo = useCosimoSocket(serverUrl);
   const [lang, setLang] = useState<Locale>("de");
-  const [consentDecided, setConsentDecided] = useState(false);
+  // The decision survives a reload of this tab (sessionStorage, like the
+  // device + session ids): a reloaded emulator lands in the conversation,
+  // not on the consent screen. The hub keeps the seat's state meanwhile.
+  const [consentDecided, setConsentDecided] = useState(() => storedConsent() !== null);
 
   const decideConsent = (consent: boolean) => {
     cosimo.setConsent(consent);
+    rememberConsent(consent);
     setConsentDecided(true);
   };
 
+  // After a reload: tell the (possibly new) hub entry the remembered decision
+  // once the socket is up. Idempotent on the hub.
+  const resent = useRef(false);
+  useEffect(() => {
+    const kept = storedConsent();
+    if (!cosimo.connected || kept === null || resent.current) return;
+    resent.current = true;
+    cosimo.setConsent(kept);
+  }, [cosimo.connected]);
+
   // Host reset → return to the consent screen for the next visitor.
   useEffect(() => {
-    if (cosimo.resetNonce > 0) setConsentDecided(false);
+    if (cosimo.resetNonce > 0) {
+      rememberConsent(null);
+      resent.current = false;
+      setConsentDecided(false);
+    }
   }, [cosimo.resetNonce]);
 
   // The active profile's preferred language becomes the seat's UI language
