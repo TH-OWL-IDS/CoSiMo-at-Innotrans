@@ -141,45 +141,48 @@ export default function SeatView({
   const panel = surface === "panel";
   /** The inset look: an inner shadow drawn above the content (so nothing
    *  covers its edge) plus a soft halo on the ground around the hole. */
-  const insetShadow = "inset 0 3px 12px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(0,0,0,0.08)";
-  const halo = "0 0 0 1px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06), 0 0 14px rgba(0,0,0,0.05)";
+  const insetShadow = "inset 0 2px 6px rgba(0,0,0,0.14), inset 0 0 0 0.5px rgba(0,0,0,0.05)";
+  const halo = "0 0.5px 1.5px rgba(0,0,0,0.05), 0 0 10px rgba(0,0,0,0.035)";
   const Inset = ({ radius }: { radius: string | number }) =>
     panel ? <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: radius, boxShadow: insetShadow, pointerEvents: "none", zIndex: 5 }} /> : null;
 
   /**
    * The circle's edge glow — on the "screen", i.e. beneath the panel's inset
-   * shadow (z 4 < 5): green while the microphone is live, and while CoSiMo
-   * thinks the green turns greyish and becomes a soft arc orbiting the edge.
-   * Both fade in and out; the arc stands still with reduced motion.
+   * shadow (z 4 < 5): a soft green rim while the microphone is live; while
+   * CoSiMo thinks the green fades into a faint greyish arc orbiting the
+   * edge. Plain elements (not inline components), so React keeps them
+   * mounted and the opacity transitions actually run. The arc stands
+   * still with reduced motion.
    */
   const listening = ptt.active || cosimo.phase === "listening";
   const thinking = !listening && cosimo.phase === "thinking";
-  const Glow = () => (
-    <>
-      <div
-        aria-hidden
-        style={{
-          position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
-          boxShadow: "inset 0 0 calc(var(--circle) * 0.12) calc(var(--circle) * 0.01) rgba(72, 199, 108, 0.85)",
-          opacity: listening ? 1 : 0,
-          transition: "opacity 250ms",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
-          // a ring band at the edge: conic arc, masked to the outer 9 %, blurred soft
-          background: "conic-gradient(from 0deg, transparent 0deg, rgba(150, 168, 156, 0.0) 40deg, rgba(150, 168, 156, 0.85) 120deg, transparent 200deg)",
-          WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 9%), #000 calc(100% - 8%))",
-          mask: "radial-gradient(farthest-side, transparent calc(100% - 9%), #000 calc(100% - 8%))",
-          filter: "blur(calc(var(--circle) * 0.02))",
-          opacity: thinking ? 1 : 0,
-          transition: "opacity 400ms",
-          animation: thinking && !reduceMotion ? "cosimo-orbit 1.8s linear infinite" : "none",
-        }}
-      />
-    </>
+  const glowRim = (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
+        boxShadow: "inset 0 0 calc(var(--circle) * 0.05) 0 rgba(72, 199, 108, 0.5)",
+        opacity: listening ? 1 : 0,
+        transition: "opacity 500ms ease",
+      }}
+    />
+  );
+  const glowArc = (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
+        // a thin band at the edge: a conic arc, masked to the outer 3.5 %, softened
+        background: "conic-gradient(from 0deg, transparent 0deg, rgba(150, 168, 156, 0) 60deg, rgba(150, 168, 156, 0.45) 130deg, transparent 200deg)",
+        WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3.5%), #000 calc(100% - 3%))",
+        mask: "radial-gradient(farthest-side, transparent calc(100% - 3.5%), #000 calc(100% - 3%))",
+        filter: "blur(calc(var(--circle) * 0.012))",
+        opacity: thinking ? 1 : 0,
+        transition: "opacity 600ms ease",
+        animation: reduceMotion ? "none" : "cosimo-orbit 2.4s linear infinite",
+        animationPlayState: thinking ? "running" : "paused",
+      }}
+    />
   );
 
   return (
@@ -245,7 +248,8 @@ export default function SeatView({
           }}
         >
           <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }`}</style>
-          <Glow />
+          {glowRim}
+          {glowArc}
           <Inset radius="50%" />
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
