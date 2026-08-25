@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
 import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat } from "@cosimo/seat-ui";
+import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 
 /**
@@ -9,7 +10,8 @@ import { resolveServerUrl } from "./serverUrl";
  * SeatView the iPad renders — so what you see here is what a rider sees.
  * The physical parts are replaced by the side panel: the talk/info buttons,
  * the NFC reader, and the cabin-LAN light controller (which is logged, or
- * optionally fired for real when this machine can reach it).
+ * optionally fired for real when this machine can reach it). The panel
+ * wears the console's white CI (@cosimo/ui); the seat column stays black.
  */
 
 interface LogEntry {
@@ -99,34 +101,27 @@ export default function App() {
   }, [text, cosimo, lang]);
 
   const controls = cosimo.cabin;
-  const statusDot = (ok: boolean | undefined) => (ok ? "🟢" : "🔴");
+  const Status = ({ ok, label }: { ok: boolean | undefined; label: string }) => (
+    <span className="inline-flex items-center gap-1.5"><Dot size="sm" state={ok ? "ok" : "down"} />{label}</span>
+  );
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "grid", gridTemplateColumns: "1fr 340px" }}>
-      {/* ── the seat, exactly as the iPad renders it ─────────────── */}
-      <div style={{ position: "relative" }}>
+    <div className="fixed inset-0 grid grid-cols-[1fr_340px]">
+      {/* ── the seat, exactly as the iPad renders it — including the
+             kiosk's system font, which SeatView inherits ──────────── */}
+      <div className="relative bg-black font-sans">
         <SeatView seat={seat} layout={DEFAULT_PANEL_LAYOUT} fullscreen={false} />
       </div>
 
       {/* ── the side panel: everything the hardware would provide ── */}
-      <aside
-        style={{
-          background: "var(--panel)",
-          color: "var(--panel-ink)",
-          borderLeft: "1px solid var(--panel-line)",
-          padding: 16,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 18,
-          fontSize: 13,
-        }}
-      >
-        <header>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: "var(--panel-mute)" }}>COSIMO</div>
-          <h1 style={{ margin: "2px 0 6px", fontSize: 18 }}>Seat emulator</h1>
-          <div style={{ color: "var(--panel-mute)", lineHeight: 1.5 }}>
-            {cosimo.connected ? "🟢 connected" : "🔴 connecting…"} ·{" "}
+      <aside className="flex flex-col gap-4 overflow-y-auto border-l border-line bg-white p-4 text-md text-ink">
+        <header className="flex flex-col gap-1.5">
+          <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Seat emulator">
+            <Brand size={32} />
+          </h1>
+          <Eyebrow size="xs">Seat emulator</Eyebrow>
+          <div className="leading-normal text-mute">
+            <Status ok={cosimo.connected} label={cosimo.connected ? "connected" : "connecting…"} /> ·{" "}
             <span title={serverUrl || "same-origin (dev proxy)"}>
               {serverUrl ? new URL(serverUrl).host : "same-origin"}
             </span>
@@ -135,21 +130,23 @@ export default function App() {
             {cosimo.persona && (
               <>
                 {" "}
-                · profile <b>{cosimo.persona.label}</b>
+                · profile <b className="text-ink">{cosimo.persona.label}</b>
               </>
             )}
           </div>
-          <div style={{ color: "var(--panel-mute)", marginTop: 6, fontSize: 11.5 }}>
+          <div className="text-xs text-mute">
             Repoint with <code>?server=https://…</code>
           </div>
         </header>
 
         <section>
-          <p className="em-label">Buttons (ESP32)</p>
-          <div style={{ display: "grid", gap: 8 }}>
-            <button
-              className="em-btn primary"
-              data-active={ptt.active}
+          <Eyebrow size="xs" className="mb-1.5">Buttons (ESP32)</Eyebrow>
+          <div className="grid gap-2">
+            <Button
+              variant={ptt.active ? "on" : "primary"}
+              size="lg"
+              className="min-h-14 touch-none"
+              aria-pressed={ptt.active}
               disabled={!seat.consentDecided || !ptt.supported}
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -158,16 +155,15 @@ export default function App() {
               onPointerUp={ptt.stop}
               onPointerCancel={ptt.stop}
               onContextMenu={(e) => e.preventDefault()}
-              style={{ minHeight: 56, touchAction: "none" }}
             >
               {ptt.active ? "● listening — release to send" : "hold to talk  (or hold Space)"}
-            </button>
-            <button className="em-btn" disabled={!seat.consentDecided} onClick={seat.askInfo}>
+            </Button>
+            <Button size="lg" className="justify-start" disabled={!seat.consentDecided} onClick={seat.askInfo}>
               ⓘ info — canned intro question
-            </button>
+            </Button>
             {/* Say which speech path is live — "STT doesn't work" is usually
                 "there is no Deepgram key and this isn't Chrome". */}
-            <div style={{ fontSize: 11.5, color: "var(--panel-mute)", lineHeight: 1.5 }}>
+            <div className="text-xs leading-normal text-mute">
               STT:{" "}
               {cosimo.status?.serverStt
                 ? "Deepgram (server)"
@@ -178,12 +174,12 @@ export default function App() {
               TTS: {cosimo.status?.serverTts ? "ElevenLabs (server)" : "browser speech synthesis"}
             </div>
             {ptt.error && (
-              <div style={{ color: "#f85149", fontSize: 12, lineHeight: 1.4, fontFamily: "ui-monospace, Menlo, monospace" }}>
+              <div className="text-sm leading-snug text-accent">
                 ✖ {ptt.error}
               </div>
             )}
             {!ptt.supported && seat.consentDecided && (
-              <div style={{ color: "#f0883e", fontSize: 12, lineHeight: 1.4 }}>
+              <div className="text-sm leading-snug text-warn">
                 Voice input is unavailable here — use the text field below, or fix the STT
                 path above. The mic also needs a secure origin (https / localhost).
               </div>
@@ -192,70 +188,71 @@ export default function App() {
         </section>
 
         <section>
-          <p className="em-label">NFC card</p>
+          <Eyebrow size="xs" className="mb-1.5">NFC card</Eyebrow>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               scanNfc();
             }}
-            style={{ display: "flex", gap: 8 }}
+            className="flex gap-2"
           >
-            <input
-              className="em-input"
+            <Input
+              className="w-full"
+              aria-label="chip id"
               value={nfc}
               onChange={(e) => setNfc(e.target.value)}
               placeholder="chip id, e.g. ANNA1"
               spellCheck={false}
             />
-            <button className="em-btn" type="submit" disabled={!nfc.trim()}>
+            <Button type="submit" disabled={!nfc.trim()}>
               tap
-            </button>
+            </Button>
           </form>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {["ANNA1", "BRUNO1", "CLARA1", "DAVID1", "EMIL1"].map((id) => (
-              <button
+              <Button
                 key={id}
-                className="em-btn"
-                style={{ padding: "4px 8px", fontSize: 11.5 }}
+                size="xs"
                 onClick={() => {
                   setNfc(id);
                   cosimo.registerNfc(id, lang);
                 }}
               >
                 {id}
-              </button>
+              </Button>
             ))}
           </div>
         </section>
 
         <section>
-          <p className="em-label">Text (test console path)</p>
+          <Eyebrow size="xs" className="mb-1.5">Text (test console path)</Eyebrow>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               sendText();
             }}
-            style={{ display: "flex", gap: 8 }}
+            className="flex gap-2"
           >
-            <input
-              className="em-input"
+            <Input
+              className="w-full"
+              aria-label="message"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={lang === "de" ? "Nachricht an CoSiMo…" : "Message to CoSiMo…"}
               disabled={!seat.consentDecided}
             />
-            <button className="em-btn" type="submit" disabled={!seat.consentDecided || !text.trim()}>
+            <Button type="submit" disabled={!seat.consentDecided || !text.trim()}>
               →
-            </button>
+            </Button>
           </form>
         </section>
 
         <section>
-          <p className="em-label">Cabin (this seat)</p>
-          <div style={{ display: "grid", gap: 4, fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}>
-            {controls.length === 0 && <span style={{ color: "var(--panel-mute)" }}>—</span>}
+          <Eyebrow size="xs" className="mb-1.5">Cabin (this seat)</Eyebrow>
+          <div className="grid gap-1 text-sm">
+            {controls.length === 0 && <span className="text-mute">—</span>}
             {controls.map((c) => (
-              <div key={c.id} style={{ display: "flex", justifyContent: "space-between" }}>
+              <div key={c.id} className="flex justify-between">
                 <span>{c.id}</span>
                 <span>
                   {c.on !== undefined ? (c.on ? "on" : "off") : `${c.level ?? 0}%`}
@@ -266,32 +263,20 @@ export default function App() {
           </div>
         </section>
 
-        <section style={{ flex: 1, minHeight: 120, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <p className="em-label">Cabin LAN — LPU-2 calls</p>
-            <label style={{ fontSize: 11.5, color: "var(--panel-mute)", cursor: "pointer" }}>
+        <section className="flex min-h-[120px] flex-1 flex-col">
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <Eyebrow size="xs">Cabin LAN — LPU-2 calls</Eyebrow>
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-mute">
               <input
                 type="checkbox"
+                className="accent-ink"
                 checked={fireForReal}
                 onChange={(e) => setFireForReal(e.target.checked)}
-                style={{ marginRight: 6 }}
               />
               fire for real
             </label>
           </div>
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              fontFamily: "ui-monospace, Menlo, monospace",
-              fontSize: 11.5,
-              lineHeight: 1.5,
-              color: "var(--panel-mute)",
-              border: "1px solid var(--panel-line)",
-              borderRadius: 10,
-              padding: 8,
-            }}
-          >
+          <div className="flex-1 overflow-y-auto rounded-lg border border-line bg-well p-2 text-xs leading-normal text-mute">
             {log.length === 0 && (
               <span>
                 Nothing yet. Ask CoSiMo to change the light — the URLs the hub hands this seat
@@ -299,16 +284,16 @@ export default function App() {
               </span>
             )}
             {log.map((e, i) => (
-              <div key={i} style={{ marginBottom: 6 }}>
-                <span style={{ color: "var(--panel-ink)" }}>
+              <div key={i} className="mb-1.5">
+                <span className="text-ink">
                   {e.at} {e.control}
                 </span>{" "}
-                <span style={{ color: e.outcome === "failed" ? "#f85149" : e.outcome === "ok" ? "#3fb950" : "inherit" }}>
+                <span className={cn(e.outcome === "failed" && "text-accent", e.outcome === "ok" && "text-ok")}>
                   {e.outcome}
                   {e.error ? ` — ${e.error}` : ""}
                 </span>
                 {e.urls.map((u) => (
-                  <div key={u} style={{ paddingLeft: 8, wordBreak: "break-all" }}>
+                  <div key={u} className="break-all pl-2">
                     → GET {u}
                   </div>
                 ))}
@@ -317,12 +302,14 @@ export default function App() {
           </div>
         </section>
 
-        <footer style={{ color: "var(--panel-mute)", fontSize: 11.5, lineHeight: 1.5 }}>
+        <footer className="flex flex-wrap gap-3 text-xs leading-normal text-mute">
           {cosimo.status && (
             <>
-              {statusDot(cosimo.status.llm)} llm · {statusDot(cosimo.status.serverStt)} stt ·{" "}
-              {statusDot(cosimo.status.serverTts)} tts · {statusDot(cosimo.status.network)} net
-              {cosimo.status.offlineCanned && " · offline canned"}
+              <Status ok={cosimo.status.llm} label="llm" />
+              <Status ok={cosimo.status.serverStt} label="stt" />
+              <Status ok={cosimo.status.serverTts} label="tts" />
+              <Status ok={cosimo.status.network} label="net" />
+              {cosimo.status.offlineCanned && <span>· offline canned</span>}
             </>
           )}
         </footer>

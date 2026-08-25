@@ -1,8 +1,9 @@
 # apps/console — the live operator console
 
 What booth staff have open on a phone or spare iPad during the show. One
-header — the MonoCab logo and the word **Konsole**, separated from the
-content by a hairline — and four views (the active tab survives a reload
+header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
+`@cosimo/ui`; CoSiMo and the × in Schoolbell, the hand-written face font),
+separated from the content by a hairline — and five views (the active tab survives a reload
 via the URL hash):
 
 - **Übersicht** — every dependency as a row with a status dot and a detail
@@ -25,6 +26,14 @@ via the URL hash):
   the tab label shows the active-seat count.
 - **Logs** — the structured debug stream (see below). The persona pickers are built from
 `host:personas`, pushed by the hub — no CMS query.
+
+## Styling
+
+Tailwind v4 utilities on the `@cosimo/ui` tokens (white MonoCab CI, Source
+Code Pro, self-hosted fonts — see [packages/ui/README.md](../packages/ui/README.md)).
+The view switcher is a Radix `DropdownMenu`, the seat inspector a Radix
+`Dialog` (focus trap, Esc, scrim). Only data-driven values remain inline:
+diagram node positions, the battery fill, the log grid template.
 
 ## Page lock
 

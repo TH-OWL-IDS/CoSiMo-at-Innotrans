@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LockKeyhole } from "lucide-react";
-import logoUrl from "./assets/monocab-logo.svg";
+import { Brand, Button, Input } from "@cosimo/ui";
 
 /**
  * The page lock — a password gate in front of the console so a visitor who
@@ -57,68 +57,31 @@ export default function Lock({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#fff" }}>
+    <main className="flex min-h-screen items-center justify-center bg-bg p-6">
       <form
         onSubmit={submit}
-        style={{
-          width: "min(360px, 100%)",
-          border: "1px solid #e4e4e4",
-          borderRadius: 12,
-          padding: 24,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 16,
-          boxShadow: "0 1px 2px rgba(24,24,23,0.04)",
-        }}
+        className="flex w-[min(360px,100%)] flex-col items-center gap-4 rounded-xl border border-line bg-white p-6 shadow-card"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={logoUrl} alt="MonoCab" width={40} height={40} style={{ display: "block" }} />
-          <h1 style={{ fontSize: 18, margin: 0, fontWeight: 600, letterSpacing: 0.5 }}>Konsole</h1>
-        </div>
-        <label style={{ width: "100%", display: "flex", flexDirection: "column", gap: 6, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, opacity: 0.55 }}>
+        <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Konsole">
+          <Brand size={44} />
+        </h1>
+        <label className="flex w-full flex-col gap-1.5 text-sm uppercase tracking-caps opacity-55">
           Passwort
-          <input
+          <Input
             type="password"
+            size="lg"
             autoFocus
             autoComplete="current-password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             aria-invalid={wrong}
-            style={{
-              font: "inherit",
-              fontSize: 16,
-              textTransform: "none",
-              letterSpacing: 0,
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: `1px solid ${wrong ? "#e40041" : "#d9d9d9"}`,
-              background: "#fff",
-              color: "#181817",
-              outline: "none",
-            }}
+            className="normal-case tracking-normal opacity-100"
           />
         </label>
-        <button
-          type="submit"
-          style={{
-            width: "100%",
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #181817",
-            background: "#181817",
-            color: "#fff",
-            fontSize: 14,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
-        >
+        <Button type="submit" variant="primary" size="lg">
           <LockKeyhole size={15} /> Entsperren
-        </button>
-        <span role="status" style={{ fontSize: 12, color: "#e40041", minHeight: 16 }}>
+        </Button>
+        <span role="status" className="min-h-4 text-sm text-accent">
           {wrong ? "Falsches Passwort" : ""}
         </span>
       </form>

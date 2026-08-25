@@ -7,6 +7,7 @@ import {
   ListTodo,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
+import { Button, ChipButton, Input, Select, cn } from "@cosimo/ui";
 
 /**
  * The Log view — the structured debug stream from the realtime service, live.
@@ -17,13 +18,6 @@ import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/s
  * Read-only by design: this is a debugging surface, not a control surface —
  * controls live in the operator view.
  */
-
-const LEVEL_COLOR: Record<LogLevel, string> = {
-  debug: "#8a8a8a",
-  info: "#181817",
-  warn: "#b45309",
-  error: "#e40041",
-};
 
 const KIND_ICON: Record<LogKind, LucideIcon> = {
   "seat.connect": Plug,
@@ -50,8 +44,8 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
 function Kind({ k, size = 13 }: { k: LogKind; size?: number }) {
   const Icon = KIND_ICON[k];
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <Icon size={size} style={{ flexShrink: 0 }} />
+    <span className="inline-flex items-center gap-1.5">
+      <Icon size={size} className="shrink-0" />
       {k}
     </span>
   );
@@ -110,18 +104,10 @@ function time(ts: string): string {
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
-const mono = '"Source Code Pro", ui-monospace, "SF Mono", Menlo, monospace';
-/** One template for the header and every row — the columns can never drift. */
+/** One template for the header and every row — set once as a CSS variable
+ *  on the tail container, so the columns can never drift. */
 const GRID = "92px 110px 96px 60px 150px 1fr";
-const input: React.CSSProperties = {
-  background: "#f6f6f6",
-  color: "#181817",
-  border: "1px solid #e4e4e4",
-  borderRadius: 8,
-  padding: "6px 8px",
-  fontSize: 12,
-};
-const btn: React.CSSProperties = { ...input, cursor: "pointer" };
+const ROW = "grid grid-cols-[var(--log-grid)] gap-2.5";
 
 export default function LogView({
   logs,
@@ -203,95 +189,64 @@ export default function LogView({
   let band = 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "calc(100vh - 120px)", minHeight: 400 }}>
+    <div className="flex h-[calc(100vh-120px)] min-h-[400px] flex-col gap-2.5">
       {/* ── toolbar ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <select style={input} value={seat} onChange={(e) => { setSeat(e.target.value); setSession(""); }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select size="sm" tone="well" aria-label="Sitz" value={seat} onChange={(e) => { setSeat(e.target.value); setSession(""); }}>
           <option value="">all seats</option>
           {seats.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select style={input} value={session} onChange={(e) => setSession(e.target.value)}>
+        </Select>
+        <Select size="sm" tone="well" aria-label="Session" value={session} onChange={(e) => setSession(e.target.value)}>
           <option value="">all sessions</option>
           {sessions.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select style={input} value={minLevel} onChange={(e) => setMinLevel(e.target.value as LogLevel)}>
+        </Select>
+        <Select size="sm" tone="well" aria-label="Mindest-Level" value={minLevel} onChange={(e) => setMinLevel(e.target.value as LogLevel)}>
           {LEVELS.map((l) => <option key={l} value={l}>≥ {l}</option>)}
-        </select>
-        <input
-          style={{ ...input, flex: 1, minWidth: 160 }}
+        </Select>
+        <Input
+          size="sm"
+          tone="well"
+          aria-label="Suche"
+          className="min-w-40 flex-1"
           placeholder="search text / tool / json…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button style={{ ...btn, borderColor: paused ? "#b45309" : "#e4e4e4", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setPaused((p) => !p)}>
+        <Button size="sm" variant="secondary" tone={paused ? "warn" : undefined} aria-pressed={paused} onClick={() => setPaused((p) => !p)}>
           {paused ? <Play size={13} /> : <Pause size={13} />}
           {paused ? "resume" : "pause"}
-        </button>
-        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={onReplay} title="re-request the hub's buffer">
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onReplay} title="re-request the hub's buffer">
           <RotateCw size={13} /> replay
-        </button>
-        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={exportNdjson} disabled={!filtered.length}>
+        </Button>
+        <Button size="sm" variant="secondary" onClick={exportNdjson} disabled={!filtered.length}>
           <Download size={13} /> export {filtered.length}
-        </button>
-        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={onClear}>
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onClear}>
           <Trash2 size={13} /> clear
-        </button>
+        </Button>
       </div>
 
       {/* ── kind chips ──────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      <div className="flex flex-wrap gap-1">
         {LOG_KINDS.map((k) => (
-          <button
-            key={k}
-            onClick={() => toggleKind(k)}
-            style={{
-              ...btn,
-              padding: "2px 8px",
-              fontSize: 11,
-              opacity: kinds.has(k) ? 1 : 0.35,
-              borderColor: kinds.has(k) ? "#c9c9c9" : "#e4e4e4",
-            }}
-          >
+          <ChipButton key={k} aria-pressed={kinds.has(k)} onClick={() => toggleKind(k)}>
             <Kind k={k} size={12} />
-          </button>
+          </ChipButton>
         ))}
-        <button style={{ ...btn, padding: "2px 8px", fontSize: 11 }} onClick={() => setKinds(new Set(LOG_KINDS))}>all</button>
-        <button style={{ ...btn, padding: "2px 8px", fontSize: 11 }} onClick={() => setKinds(new Set(["turn.start", "tool.call", "cabin.actuate", "cabin.result", "turn.end"]))}>
+        <Button size="xs" variant="secondary" onClick={() => setKinds(new Set(LOG_KINDS))}>all</Button>
+        <Button size="xs" variant="secondary" onClick={() => setKinds(new Set(["turn.start", "tool.call", "cabin.actuate", "cabin.result", "turn.end"]))}>
           turns only
-        </button>
+        </Button>
       </div>
 
       {/* ── the tail ────────────────────────────────────────────── */}
       <div
         ref={listRef}
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          background: "#f6f6f6",
-          border: "1px solid #e4e4e4",
-          borderRadius: 10,
-          fontFamily: mono,
-          fontSize: 12,
-          lineHeight: 1.5,
-        }}
+        className="flex-1 overflow-y-auto rounded-lg border border-line bg-well font-mono text-sm leading-normal"
+        style={{ "--log-grid": GRID } as React.CSSProperties}
       >
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 1,
-            display: "grid",
-            gridTemplateColumns: GRID,
-            gap: 10,
-            padding: "6px 10px 6px 13px",
-            background: "#fafafa",
-            borderBottom: "1px solid #e4e4e4",
-            fontSize: 10.5,
-            letterSpacing: 1,
-            textTransform: "uppercase",
-            color: "#6b6b6b",
-          }}
-        >
+        <div className={cn(ROW, "sticky top-0 z-sticky border-b border-line bg-well-raised py-1.5 pl-[13px] pr-2.5 text-2xs uppercase tracking-caps text-mute")}>
           <span>Time</span>
           <span>Seat</span>
           <span>Session</span>
@@ -300,7 +255,7 @@ export default function LogView({
           <span>Details</span>
         </div>
         {filtered.length === 0 && (
-          <div style={{ padding: 16, opacity: 0.5 }}>
+          <div className="p-4 opacity-55">
             {logs.length === 0 ? "No events yet — they appear as seats connect and talk." : "Nothing matches the current filter."}
           </div>
         )}
@@ -311,35 +266,38 @@ export default function LogView({
           return (
             <div
               key={e.seq}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isOpen}
               onClick={() => setOpen(isOpen ? null : e.seq)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: GRID,
-                gap: 10,
-                padding: "3px 10px",
-                background: key && band ? "#f7f7f7" : "transparent",
-                borderLeft: `3px solid ${e.level === "error" ? "#e40041" : e.level === "warn" ? "#b45309" : "transparent"}`,
-                color: LEVEL_COLOR[e.level],
-                cursor: "pointer",
-              }}
+              onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && (ev.preventDefault(), setOpen(isOpen ? null : e.seq))}
+              data-level={e.level}
+              data-band={key && band ? "" : undefined}
+              className={cn(
+                ROW,
+                "cursor-pointer border-l-[3px] border-transparent px-2.5 py-[3px] text-left",
+                "hover:bg-white/60 focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-ink",
+                "data-[band]:bg-well-raised",
+                "data-[level=debug]:text-mute data-[level=warn]:border-warn data-[level=warn]:text-warn data-[level=error]:border-accent data-[level=error]:text-accent",
+              )}
             >
-              <span style={{ opacity: 0.6 }}>{time(e.ts)}</span>
-              <span style={{ opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.deviceId}>
+              <span className="opacity-55">{time(e.ts)}</span>
+              <span className="truncate opacity-85" title={e.deviceId}>
                 {e.deviceId ?? "—"}
               </span>
-              <span style={{ opacity: 0.7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={e.sessionId}>
+              <span className="truncate opacity-70" title={e.sessionId}>
                 {e.sessionId ?? ""}
               </span>
-              <span style={{ opacity: 0.6 }}>{e.turn != null ? `#${e.turn}` : ""}</span>
+              <span className="opacity-55">{e.turn != null ? `#${e.turn}` : ""}</span>
               <span><Kind k={e.kind} /></span>
-              <span style={{ whiteSpace: isOpen ? "pre-wrap" : "nowrap", overflow: "hidden", textOverflow: "ellipsis", wordBreak: "break-word" }}>
+              <span className={cn("overflow-hidden break-words", isOpen ? "whitespace-pre-wrap" : "truncate")}>
                 {isOpen ? JSON.stringify({ ...e }, null, 2) : summarize(e)}
               </span>
             </div>
           );
         })}
       </div>
-      <div style={{ fontSize: 11, opacity: 0.5 }}>
+      <div className="text-xs opacity-55">
         {filtered.length} of {logs.length} events{paused ? " · paused (new events are buffered)" : ""} · click a row for the raw event
       </div>
     </div>

@@ -94,3 +94,10 @@ pnpm --filter @cosimo/journey dev       # :6104
 | `apps/cms/src/globals/RouteConfig.ts` | stops (+ demand), scenario rules |
 | `apps/console/src/HostConsole.tsx` | the ⚠ fault buttons, fault + delay display |
 | `apps/journey/src/App.tsx` | the diagram |
+
+## Look
+
+Since 2026-08-25 the view wears the same white MonoCab CI as the console
+(`@cosimo/ui`: tokens, Source Code Pro, the CoSiMo × MonoCab wordmark in
+the header). The SVG line reads the same CSS variables — the travelled
+track and the cab are CI red, a hold turns the cab amber.

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { BatteryMedium, Clock, Flag, MapPin, TriangleAlert, Users } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
+import { Banner, Brand, Button, Dot, Eyebrow, SeatGlyph, StatTile, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 
 /**
@@ -11,11 +13,19 @@ import { resolveServerUrl } from "./serverUrl";
  *
  * Layout: stops left → right in outbound order; the return trip runs right →
  * left on the same line (the cab flips). On a narrow screen the diagram keeps
- * its width and scrolls horizontally — a line is a line.
+ * its width and scrolls horizontally — a line is a line. Same white CI and
+ * tokens as the console (@cosimo/ui); the SVG reads the same variables.
  */
 
 const STOP_GAP = 220; // px between stops — the diagram's "scale"
 const PAD = 80;
+
+const INK = "var(--color-ink)";
+const MUTE = "var(--color-mute)";
+const LINE = "var(--color-line)";
+const ACCENT = "var(--color-accent)";
+const WARN = "var(--color-warn)";
+const OK = "var(--color-ok)";
 
 function fmt(n: number): string {
   return n.toLocaleString("de-DE");
@@ -49,7 +59,7 @@ export default function App() {
 
   if (!t) {
     return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "var(--mute)" }}>
+      <main className="grid min-h-screen place-items-center bg-bg text-mute">
         {c.connected ? L("Warte auf Telemetrie …", "Waiting for telemetry …") : L("Verbinde …", "Connecting …")}
       </main>
     );
@@ -70,77 +80,59 @@ export default function App() {
   }));
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* ── header: line, destination, clock ────────────────────── */}
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          padding: "18px 24px 8px",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: 2, color: "var(--mute)" }}>MONOCAB · {t.line[lang].toUpperCase()}</div>
-          <h1 style={{ margin: "2px 0 0", fontSize: 26, fontWeight: 600 }}>
+    <main className="flex min-h-screen flex-col bg-bg text-ink">
+      {/* ── header: wordmark, line + destination, clock ───────────── */}
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-6 py-2.5">
+        <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Fahrt">
+          <Brand />
+        </h1>
+        <div className="text-center">
+          <Eyebrow size="xs" className="justify-center">MonoCab · {t.line[lang]}</Eyebrow>
+          <div className="mt-0.5 text-2xl font-semibold">
             {outbound ? "→" : "←"} {t.destination[lang]}
-            {t.simPaused && <span style={{ color: "var(--mute)", fontSize: 16, marginLeft: 12 }}>⏸ {L("pausiert", "paused")}</span>}
-          </h1>
+            {t.simPaused && <span className="ml-3 text-lg font-medium text-mute">⏸ {L("pausiert", "paused")}</span>}
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 18, alignItems: "baseline", color: "var(--mute)", fontSize: 14 }}>
-          <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 22, color: "var(--ink)" }}>
+        <div className="flex items-center gap-4 text-base text-mute">
+          <span className="text-2xl tabular-nums text-ink">
             {clock.toLocaleTimeString(lang === "de" ? "de-DE" : "en-GB", { hour: "2-digit", minute: "2-digit" })}
           </span>
-          <button
-            onClick={() => setLang((l) => (l === "de" ? "en" : "de"))}
-            style={{ background: "none", border: "1px solid var(--line)", color: "var(--mute)", borderRadius: 999, padding: "2px 10px", cursor: "pointer", fontSize: 12 }}
-          >
+          <Button size="xs" variant="outline" className="rounded-full" onClick={() => setLang((l) => (l === "de" ? "en" : "de"))} aria-label={L("Sprache wechseln", "switch language")}>
             {lang === "de" ? "EN" : "DE"}
-          </button>
-          <span>{c.connected ? "●" : "○"}</span>
+          </Button>
+          <span className="inline-flex items-center gap-1.5 text-sm" title={c.connected ? L("verbunden", "connected") : L("getrennt", "disconnected")}>
+            <Dot state={c.connected ? "ok" : "down"} />
+            <span className="sr-only">{c.connected ? L("verbunden", "connected") : L("getrennt", "disconnected")}</span>
+          </span>
         </div>
       </header>
 
       {/* ── fault banner ─────────────────────────────────────────── */}
-      <div style={{ minHeight: 44, padding: "0 24px" }}>
+      <div className="min-h-11 px-6 pt-4">
         {fault && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 12,
-              background: "rgba(240,136,62,0.12)",
-              border: "1px solid var(--warn)",
-              color: "var(--warn)",
-              borderRadius: 10,
-              padding: "8px 14px",
-              fontSize: 14,
-            }}
-          >
-            <span style={{ animation: "pulse 1.2s infinite" }}>⚠</span>
+          <Banner>
+            <TriangleAlert size={16} style={{ animation: "pulse 1.2s infinite" }} />
             <span>{fault.cause[lang]}</span>
-            <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.8 }}>
+            <span className="tabular-nums opacity-85">
               {Math.floor(fault.remainingSec / 60)}:{String(fault.remainingSec % 60).padStart(2, "0")}
             </span>
-            {t.delayMinutes > 0 && <span style={{ opacity: 0.8 }}>· +{t.delayMinutes} min</span>}
-          </div>
+            {t.delayMinutes > 0 && <span className="opacity-85">· +{t.delayMinutes} min</span>}
+          </Banner>
         )}
       </div>
 
       {/* ── the line ─────────────────────────────────────────────── */}
-      <section style={{ overflowX: "auto", overflowY: "hidden", padding: "24px 0 8px", WebkitOverflowScrolling: "touch" }}>
-        <svg width={width} height={200} viewBox={`0 0 ${width} 200`} style={{ display: "block", minWidth: width }}>
+      <section className="overflow-x-auto overflow-y-hidden pb-2 pt-6" style={{ WebkitOverflowScrolling: "touch" }}>
+        <svg width={width} height={200} viewBox={`0 0 ${width} 200`} className="block font-mono" style={{ minWidth: width }}>
           {/* track */}
-          <line x1={PAD} y1={110} x2={width - PAD} y2={110} stroke="var(--track)" strokeWidth={6} strokeLinecap="round" />
+          <line x1={PAD} y1={110} x2={width - PAD} y2={110} stroke={LINE} strokeWidth={6} strokeLinecap="round" />
           {/* travelled part of the current trip, in the direction of travel */}
           <line
             x1={outbound ? PAD : width - PAD}
             y1={110}
             x2={cabX}
             y2={110}
-            stroke="var(--accent)"
+            stroke={ACCENT}
             strokeWidth={6}
             strokeLinecap="round"
             opacity={0.55}
@@ -152,11 +144,11 @@ export default function App() {
             const eta = t.nextStops.find((ns) => ns.id === s.id)?.etaMinutes;
             return (
               <g key={s.id} transform={`translate(${x(i)} 110)`}>
-                <circle r={here ? 13 : 9} fill="var(--bg)" stroke={here || isNext ? "var(--accent)" : "var(--ink)"} strokeWidth={3} />
-                <text y={-26} textAnchor="middle" fill="var(--ink)" fontSize={15} fontWeight={here ? 700 : 500}>
+                <circle r={here ? 13 : 9} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={3} />
+                <text y={-26} textAnchor="middle" fill={INK} fontSize={15} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
-                <text y={38} textAnchor="middle" fill="var(--mute)" fontSize={12} fontVariant="tabular-nums">
+                <text y={38} textAnchor="middle" fill={MUTE} fontSize={12} fontVariant="tabular-nums">
                   {eta != null ? (eta === 0 ? L("jetzt", "now") : `${eta} min`) : i === 0 || i === n - 1 ? L("Endhalt", "terminal") : ""}
                 </text>
               </g>
@@ -164,19 +156,19 @@ export default function App() {
           })}
           {/* the cab */}
           <g transform={`translate(${cabX} 110)`} style={{ transition: "transform 900ms linear" }}>
-            <rect x={-30} y={-20} width={60} height={34} rx={10} fill={holding ? "var(--warn)" : "var(--accent)"} />
-            <rect x={-22} y={-14} width={44} height={14} rx={4} fill="rgba(11,14,19,0.55)" />
+            <rect x={-30} y={-20} width={60} height={34} rx={10} fill={holding ? WARN : ACCENT} />
+            <rect x={-22} y={-14} width={44} height={14} rx={4} fill="rgba(255,255,255,0.55)" />
             {/* doors */}
             {t.doorsOpen && (
               <>
-                <rect x={-34} y={-12} width={4} height={18} fill="var(--ok)" />
-                <rect x={30} y={-12} width={4} height={18} fill="var(--ok)" />
+                <rect x={-34} y={-12} width={4} height={18} fill={OK} />
+                <rect x={30} y={-12} width={4} height={18} fill={OK} />
               </>
             )}
-            <text y={-30} textAnchor="middle" fill="var(--ink)" fontSize={13} fontWeight={600} fontVariant="tabular-nums">
+            <text y={-30} textAnchor="middle" fill={INK} fontSize={13} fontWeight={600} fontVariant="tabular-nums">
               {fmt(Math.round(t.speedKmh))} km/h
             </text>
-            <text y={34} textAnchor="middle" fill={holding ? "var(--warn)" : "var(--mute)"} fontSize={11}>
+            <text y={34} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={11}>
               {holding ? L("Halt", "held") : t.doorsOpen ? L("Türen offen", "doors open") : outbound ? "→" : "←"}
             </text>
           </g>
@@ -184,55 +176,32 @@ export default function App() {
       </section>
 
       {/* ── status row ───────────────────────────────────────────── */}
-      <section
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 14,
-          padding: "8px 24px 24px",
-        }}
-      >
-        <Tile label={L("Nächster Halt", "Next stop")} value={next ? next.name[lang] : "—"} sub={next ? (next.etaMinutes === 0 ? L("jetzt", "now") : `${next.etaMinutes} min`) : ""} />
-        <Tile label={L("Position", "Position")} value={t.location[lang]} />
-        <Tile
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5 px-6 pb-6 pt-2">
+        <StatTile icon={Flag} label={L("Nächster Halt", "Next stop")} value={next ? next.name[lang] : "—"} sub={next ? (next.etaMinutes === 0 ? L("jetzt", "now") : `${next.etaMinutes} min`) : ""} />
+        <StatTile icon={MapPin} label={L("Position", "Position")} value={t.location[lang]} />
+        <StatTile
+          icon={Users}
           label={L("Fahrgäste", "Passengers")}
           value={`${t.occupancy} / ${t.capacity}`}
           sub={
-            <span style={{ display: "inline-flex", gap: 4, marginTop: 4 }}>
+            <span className="mt-1 inline-flex gap-1">
               {seats.map((s, i) => (
-                <span
+                <SeatGlyph
                   key={i}
+                  state={s.live ? "live" : s.taken ? "taken" : "free"}
                   title={s.live ? L("echter Fahrgast (CoSiMo-Sitz aktiv)", "real rider (live CoSiMo seat)") : s.taken ? L("simuliert", "simulated") : L("frei", "free")}
-                  style={{
-                    width: 14,
-                    height: 18,
-                    borderRadius: "4px 4px 2px 2px",
-                    background: s.live ? "var(--accent)" : s.taken ? "var(--ink)" : "transparent",
-                    border: "1.5px solid var(--ink)",
-                    opacity: s.taken ? 1 : 0.35,
-                  }}
                 />
               ))}
             </span>
           }
         />
-        <Tile label={L("Akku", "Battery")} value={`${Math.round(t.batteryPct)} %`} sub={t.batteryPct < 20 ? L("niedrig", "low") : ""} warn={t.batteryPct < 20} />
-        <Tile label={L("Verspätung", "Delay")} value={t.delayMinutes > 0 ? `+${t.delayMinutes} min` : L("pünktlich", "on time")} warn={t.delayMinutes > 0} />
+        <StatTile icon={BatteryMedium} label={L("Akku", "Battery")} value={`${Math.round(t.batteryPct)} %`} sub={t.batteryPct < 20 ? L("niedrig", "low") : ""} warn={t.batteryPct < 20} />
+        <StatTile icon={Clock} label={L("Verspätung", "Delay")} value={t.delayMinutes > 0 ? `+${t.delayMinutes} min` : L("pünktlich", "on time")} warn={t.delayMinutes > 0} />
       </section>
 
       {t.notes && (
-        <footer style={{ padding: "0 24px 24px", color: "var(--mute)", fontSize: 13 }}>{t.notes[lang]}</footer>
+        <footer className={cn("px-6 pb-6 text-md text-mute")}>{t.notes[lang]}</footer>
       )}
     </main>
-  );
-}
-
-function Tile({ label, value, sub, warn }: { label: string; value: string; sub?: React.ReactNode; warn?: boolean }) {
-  return (
-    <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "10px 14px" }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "var(--mute)" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 600, marginTop: 2, color: warn ? "var(--warn)" : "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {sub ? <div style={{ fontSize: 13, color: "var(--mute)" }}>{sub}</div> : null}
-    </div>
   );
 }

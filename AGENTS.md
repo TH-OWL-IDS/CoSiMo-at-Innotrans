@@ -26,7 +26,7 @@ live in [docs/](docs/).
 
 ## Repo shape
 
-pnpm monorepo. Six apps, four shared packages — **treat the apps as
+pnpm monorepo. Six apps, five shared packages — **treat the apps as
 separate systems** that only meet through `packages/shared`:
 
 - `apps/kiosk` — visitor iPad app (Vite + React + Capacitor). Thin client;
@@ -45,6 +45,10 @@ separate systems** that only meet through `packages/shared`:
   lives here — it plays no role during the show.
 - `packages/shared` — THE contract (types only): ws events, emotions,
   telemetry, personas, sessions. Protocol changes start here.
+- `packages/ui` — the CI as Tailwind v4 tokens (`@theme`), the self-hosted
+  fonts, the wordmark and a few cva components. Every browser app
+  (console, journey, emulator) imports its one stylesheet. See
+  [packages/ui/README.md](packages/ui/README.md).
 - `packages/face` — the animated face engine. `packages/client` — the
   `useCosimoSocket` hook. `packages/seat-ui` — the seat as the rider sees
   it (`useSeat` + `SeatView`), rendered identically by kiosk and emulator.
@@ -92,6 +96,13 @@ client against :6101 works well — see the smoke pattern in git history).
 7. **Payload array fields must never be named `id`** (collides with the
    internal row PK). Regenerate types after schema edits; rebuild the cms
    Docker image (and extend its COPY list for new workspace deps).
+   Same rule for the static apps: a new workspace dep goes into their
+   Dockerfile COPY lists (`packages/ui` is there already).
+7b. **Operator/dev UI is styled with `@cosimo/ui` + Tailwind utilities**,
+   never with hand-copied hex values or ad-hoc inline style objects. Inline
+   `style` is for data-driven values only (positions, widths, percentages).
+   New tokens go into `packages/ui/src/styles.css`; new shared looks become
+   a component there.
 8. **iPads are portrait, behind panels.** UI belongs inside the circle and
    slit cutouts; screen corners/edges are physically unreachable. Operator
    access = 3s hold on the slit.

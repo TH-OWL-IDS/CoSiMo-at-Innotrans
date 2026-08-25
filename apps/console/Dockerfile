@@ -9,12 +9,14 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/client/package.json packages/client/
+COPY packages/ui/package.json packages/ui/
 COPY apps/console/package.json apps/console/
 RUN pnpm install --filter @cosimo/console... --no-frozen-lockfile
 
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/client packages/client
+COPY packages/ui packages/ui
 COPY apps/console apps/console
 
 ARG VITE_REALTIME_URL

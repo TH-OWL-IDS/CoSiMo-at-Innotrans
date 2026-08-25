@@ -10,6 +10,7 @@ COPY pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/face/package.json packages/face/
 COPY packages/client/package.json packages/client/
+COPY packages/ui/package.json packages/ui/
 COPY packages/seat-ui/package.json packages/seat-ui/
 COPY apps/emulator/package.json apps/emulator/
 RUN pnpm install --filter @cosimo/emulator... --no-frozen-lockfile
@@ -18,6 +19,7 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/face packages/face
 COPY packages/client packages/client
+COPY packages/ui packages/ui
 COPY packages/seat-ui packages/seat-ui
 COPY apps/emulator apps/emulator
 

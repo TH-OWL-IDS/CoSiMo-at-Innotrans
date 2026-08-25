@@ -7,12 +7,14 @@ WORKDIR /app
 COPY pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/client/package.json packages/client/
+COPY packages/ui/package.json packages/ui/
 COPY apps/journey/package.json apps/journey/
 RUN pnpm install --filter @cosimo/journey... --no-frozen-lockfile
 
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY packages/client packages/client
+COPY packages/ui packages/ui
 COPY apps/journey apps/journey
 
 ARG VITE_REALTIME_URL

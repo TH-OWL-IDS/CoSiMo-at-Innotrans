@@ -1,0 +1,121 @@
+/*
+ * @cosimo/ui — the one stylesheet every app imports.
+ *
+ * Tailwind v4, CSS-first: the design tokens below are the MonoCab / CoSiMo
+ * CI and become both utilities (`bg-ink`, `text-mute`, `rounded-lg`) and
+ * CSS variables (`var(--color-ink)`). Colours are declared without
+ * `inline`, so utilities reference the variable — an app with another
+ * palette (journey's dark view) overrides `:root { --color-bg: … }` after
+ * the import and every utility follows.
+ */
+@import "tailwindcss";
+
+/* Tailwind skips node_modules, where pnpm symlinks workspace packages —
+   so the shared packages that carry class names are listed here, once.
+   Paths are relative to this file and survive the symlink + Docker COPY. */
+@source "./";
+@source "../../seat-ui/src";
+@source "../../face/src";
+
+/* Self-hosted: nothing loads from Google during the show. Source Code Pro
+   is the variable file — one download covers 400–700. Schoolbell is the
+   CoSiMo wordmark, hand-written like the face. Latin subsets; that covers
+   German. Vite emits these as hashed /assets/*.woff2 in every app. */
+@font-face {
+  font-family: "Source Code Pro";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/source-code-pro-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schoolbell";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/schoolbell-latin.woff2") format("woff2");
+}
+
+@theme {
+  /* ── colour: the CI plus the few semantic tones the console needs ── */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-bg: #ffffff;
+  --color-ink: #181817;
+  --color-mute: #6b6b6b;
+  --color-line: #e4e4e4;
+  --color-line-strong: #d9d9d9;   /* control borders (buttons, inputs) */
+  --color-line-soft: #f0f0f0;     /* dividers inside a card */
+  --color-well: #f6f6f6;          /* sunken surfaces: log tail, code, pre */
+  --color-well-raised: #fafafa;   /* a step lighter: sticky header, bands */
+  --color-accent: #e40041;        /* CI red — also "down / live seat" */
+  --color-ok: #1a7f37;
+  --color-warn: #b45309;
+  --color-warn-soft: #fff8f0;
+
+  /* ── type ── */
+  --font-mono: "Source Code Pro", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-wordmark: "Schoolbell", "Comic Sans MS", cursive;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-2xs: 10.5px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+  --text-2xl: 18px;
+  --text-4xl: 30px;
+  --tracking-caps: 1px;
+
+  /* ── shape ── */
+  --radius-xs: 2px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 18px;
+
+  /* ── elevation: four, all ink-tinted ── */
+  --shadow-card: 0 1px 2px rgb(24 24 23 / 0.04);
+  --shadow-node: 0 1px 3px rgb(24 24 23 / 0.08);
+  --shadow-float: 0 10px 28px rgb(24 24 23 / 0.12);
+  --shadow-drawer: -8px 0 24px rgb(24 24 23 / 0.08);
+
+  /* ── stacking ── */
+  --z-sticky: 1;
+  --z-popover: 50;
+  --z-header: 100;
+  --z-menu: 150;
+  --z-drawer: 200;
+}
+
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    overscroll-behavior: none;
+  }
+  /* Radix portals must stack above the app; isolating #root keeps its
+     z-indices from leaking out. */
+  #root {
+    isolation: isolate;
+  }
+}
+
+/* Interaction vocabulary, shared by every control. The ring is ink, not
+   accent — in this CI red means "down" or "live", never "focused". */
+@utility focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  &:focus-visible {
+    outline-color: var(--color-ink);
+  }
+}

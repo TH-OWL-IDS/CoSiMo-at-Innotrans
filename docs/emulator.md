@@ -67,3 +67,10 @@ the realtime CORS list must include the origin (prod overlay adds `https://$COSI
 pnpm --filter @cosimo/emulator dev     # :6103, socket proxied to :6101
 # prod: part of docker-compose.prod.yml → seat-cosimo.homannjohannes.de
 ```
+
+## Look
+
+The side panel uses `@cosimo/ui` (white CI, Source Code Pro, `Button` /
+`Input` / `Eyebrow`); the seat column stays black like the iPad behind its
+panel. `SeatView` itself is untouched — rider-facing UI lives in
+`packages/seat-ui` and takes its colours from the persona schemes.

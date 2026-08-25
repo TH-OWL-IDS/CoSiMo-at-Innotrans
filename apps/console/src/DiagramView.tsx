@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import type { ConnectionStatus, LogEvent, MonoCabTelemetry, SeatSummary } from "@cosimo/shared";
 import type { CosimoState } from "@cosimo/client";
+import { Button, Dot, KeyValue, cn, type DotState } from "@cosimo/ui";
 
 /**
  * The system, live and touchable: draggable bubbles (Miro-style, the layout
@@ -17,12 +18,12 @@ import type { CosimoState } from "@cosimo/client";
  * opens its live seat state (profile, phase, consent, last exchange).
  */
 
-const INK = "#181817";
-const MUTE = "#6b6b6b";
-const LINE = "#e4e4e4";
-const ACCENT = "#e40041";
-const OK = "#1a7f37";
-const WARN = "#b45309";
+/* The SVG edges and markers are drawn in pixel space, so they take colours
+   as values — read from the same tokens the utilities use. */
+const INK = "var(--color-ink)";
+const MUTE = "var(--color-mute)";
+const ACCENT = "var(--color-accent)";
+const WARN = "var(--color-warn)";
 
 type NodeId = "vehicle" | "hub" | "cms" | "console" | "journey" | "llm" | "tts";
 /** A popup target: a fixed node, or one kiosk inside the vehicle. */
@@ -124,8 +125,8 @@ function trim(
 
 type State = "ok" | "warn" | "down" | "none";
 
-const dotColor = (s: State) => (s === "ok" ? OK : s === "warn" ? WARN : s === "down" ? ACCENT : undefined);
-const borderColor = (s: State) => (s === "down" ? ACCENT : s === "warn" ? WARN : LINE);
+const dotState = (s: State): DotState | null => (s === "ok" ? "ok" : s === "warn" ? "warn" : s === "down" ? "down" : null);
+const borderClass = (s: State) => (s === "down" ? "border-accent" : s === "warn" ? "border-warn" : "border-line");
 
 export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; st: ConnectionStatus | null; t: MonoCabTelemetry | null; onShowLogs?: (deviceId: string) => void }) {
   const [pos, setPos] = useState<Record<NodeId, [number, number]>>(() => loadPos(window.innerWidth - 48, window.innerHeight - 170));
@@ -214,7 +215,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
               ["Profil", `${seat.personaLabel} (${seat.persona})`],
               ["Phase", seat.phase],
               ["Gesicht", seat.emotion],
-              ["Consent", seat.consent ? <Check size={14} color={OK} aria-label="ja" /> : <X size={14} color={ACCENT} aria-label="nein" />],
+              ["Consent", seat.consent ? <Check size={14} className="text-ok" aria-label="ja" /> : <X size={14} className="text-accent" aria-label="nein" />],
               ["Farben", `${seat.accommodations.theme}${seat.accommodations.contrast === "high" ? " · hoher Kontrast" : ""}`],
               ["Schriftgröße", seat.accommodations.textSize.toUpperCase()],
               ["Stimme", `${seat.accommodations.voice || (seat.accommodations.voiceGender === "male" ? "männlich" : "weiblich")} · ${seat.accommodations.voiceTone ?? "neutral"}`],
@@ -327,10 +328,10 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
     : [0, 0];
 
   return (
-    <div style={{ overflowX: "auto", overflowY: "hidden" }}>
-      <div ref={canvasRef} style={{ position: "relative", width: "100%", minWidth: 940, height: "calc(100vh - 61px)", minHeight: 560 }}>
+    <div className="overflow-x-auto overflow-y-hidden">
+      <div ref={canvasRef} className="relative h-[calc(100vh-61px)] min-h-[560px] w-full min-w-[940px]">
         {/* edges beneath in raw pixel space, following the live positions */}
-        <svg width="100%" height="100%" style={{ position: "absolute", inset: 0, pointerEvents: "none" }} role="img" aria-label="Live-Topologie als verschiebbare Knoten mit Verbindungen.">
+        <svg width="100%" height="100%" className="pointer-events-none absolute inset-0" role="img" aria-label="Live-Topologie als verschiebbare Knoten mit Verbindungen.">
           <defs>
             <marker id="dg-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
               <path d="M0 0 L10 5 L0 10 z" fill={INK} />
@@ -373,32 +374,22 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           onPointerDown={startDrag("vehicle")}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag("vehicle")}
-          role="button"
+          role="group"
+          aria-label="MonoCab — Enter öffnet Details"
           tabIndex={0}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen("vehicle")}
-          style={{
-            position: "absolute",
-            left: pos.vehicle[0] - VEHICLE_W / 2,
-            top: pos.vehicle[1] - vh / 2,
-            width: VEHICLE_W,
-            background: "#fff",
-            border: `1.5px solid ${borderColor(stateOf.vehicle)}`,
-            borderRadius: 18,
-            boxShadow: "0 1px 3px rgba(24,24,23,0.08)",
-            cursor: "grab",
-            userSelect: "none",
-            touchAction: "none",
-            padding: "12px 12px 10px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
+          onKeyDown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && setOpen("vehicle")}
+          className={cn(
+            "absolute flex cursor-grab touch-none select-none flex-col gap-2 rounded-2xl border-[1.5px] bg-white px-3 pb-2.5 pt-3 shadow-node focus-ring",
+            "hover:border-line-strong active:cursor-grabbing",
+            borderClass(stateOf.vehicle),
+          )}
+          style={{ left: pos.vehicle[0] - VEHICLE_W / 2, top: pos.vehicle[1] - vh / 2, width: VEHICLE_W }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 4px" }}>
-            <TramFront size={20} color={INK} />
-            <div style={{ fontSize: 13, fontWeight: 700, color: INK, display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="flex items-center gap-2.5 px-1">
+            <TramFront size={20} className="text-ink" />
+            <div className="flex items-center gap-1.5 text-md font-bold text-ink">
               MonoCab
-              {dotColor(stateOf.vehicle) && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(stateOf.vehicle) }} />}
+              {dotState(stateOf.vehicle) && <Dot size="sm" state={dotState(stateOf.vehicle)!} />}
             </div>
           </div>
 
@@ -418,20 +409,15 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
                 onPointerUp={endDrag(`kiosk:${d.deviceId}`)}
                 role="button"
                 tabIndex={0}
+                aria-haspopup="dialog"
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(`kiosk:${d.deviceId}`)}
-                style={{
-                  border: `1.5px solid ${active ? ACCENT : LINE}`,
-                  borderRadius: 999,
-                  padding: "8px 12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 9,
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-full border-[1.5px] bg-white px-3 py-2 focus-ring hover:border-line-strong",
+                  active ? "border-accent" : "border-line",
+                )}
               >
-                <TabletSmartphone size={16} color={INK} style={{ flexShrink: 0 }} />
-                <div style={{ fontSize: 12, fontWeight: 600, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <TabletSmartphone size={16} className="shrink-0 text-ink" />
+                <div className="truncate text-sm font-semibold text-ink">
                   {d.deviceId}
                 </div>
               </div>
@@ -452,36 +438,30 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
               onPointerUp={endDrag(n.id)}
               role="button"
               tabIndex={0}
+              aria-haspopup="dialog"
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(n.id)}
-              style={{
-                position: "absolute",
-                left: x - n.w / 2,
-                top: y - BUBBLE_H / 2,
-                width: n.w,
-                background: "#fff",
-                border: `1.5px solid ${borderColor(s)}`,
-                borderRadius: 999,
-                padding: "10px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                boxShadow: "0 1px 3px rgba(24,24,23,0.08)",
-                cursor: "grab",
-                userSelect: "none",
-                touchAction: "none",
-              }}
+              className={cn(
+                "absolute flex cursor-grab touch-none select-none items-center gap-2.5 rounded-full border-[1.5px] bg-white px-4 py-2.5 shadow-node focus-ring",
+                "hover:border-line-strong active:cursor-grabbing",
+                borderClass(s),
+              )}
+              style={{ left: x - n.w / 2, top: y - BUBBLE_H / 2, width: n.w }}
             >
-              <Icon size={20} color={INK} style={{ flexShrink: 0 }} />
-              <div style={{ fontSize: 13, fontWeight: 600, color: INK, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <Icon size={20} className="shrink-0 text-ink" />
+              <div className="flex items-center gap-1.5 whitespace-nowrap text-md font-semibold text-ink">
                 {n.title}
-                {dotColor(s) && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(s), flexShrink: 0 }} />}
+                {dotState(s) && <Dot size="sm" state={dotState(s)!} />}
               </div>
             </div>
           );
         })}
 
         {/* layout reset, quietly in the corner */}
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          icon
+          className="absolute right-3 top-3"
           onClick={() => {
             setPos(defaultPos(canvasRef.current?.clientWidth ?? 1100, canvasRef.current?.clientHeight ?? 640));
             try {
@@ -492,68 +472,49 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           }}
           title="Layout zurücksetzen"
           aria-label="Layout zurücksetzen"
-          style={{ position: "absolute", top: 12, right: 12, appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: 6, cursor: "pointer", color: MUTE, display: "inline-flex" }}
         >
           <RotateCcw size={13} />
-        </button>
+        </Button>
 
         {/* node popup */}
         {open && details && (
           <div
             role="dialog"
             aria-label={details.title}
+            className="absolute z-popover flex w-[340px] flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-float"
             style={{
-              position: "absolute",
               left: Math.min(Math.max(popupAnchor[0] - 170, 12), (canvasRef.current?.clientWidth ?? 940) - 352),
               top: Math.min(popupAnchor[1] + 44, (canvasRef.current?.clientHeight ?? 580) - 270),
-              width: 340,
-              background: "#fff",
-              border: `1px solid ${LINE}`,
-              borderRadius: 12,
-              boxShadow: "0 12px 32px rgba(24,24,23,0.14)",
-              padding: 16,
-              zIndex: 50,
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14 }}>
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-base font-bold">
                 <details.icon size={17} /> {details.title}
               </span>
-              <button
-                onClick={() => setOpen(null)}
-                aria-label="schließen"
-                style={{ appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: 4, cursor: "pointer", display: "inline-flex" }}
-              >
+              <Button variant="outline" size="sm" icon autoFocus onClick={() => setOpen(null)} aria-label="schließen">
                 <X size={14} />
-              </button>
+              </Button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {details.rows.map(([k, v]) => (
-                <div key={k} style={{ display: "flex", gap: 10, fontSize: 12, lineHeight: 1.45 }}>
-                  <span style={{ color: MUTE, width: 96, flexShrink: 0 }}>{k}</span>
-                  <span style={{ color: INK }}>{v}</span>
-                </div>
-              ))}
-            </div>
+            <KeyValue rows={details.rows} />
             {details.logSeat && onShowLogs && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
+                tone="accent"
+                className="self-start"
                 onClick={() => {
                   const seat = details.logSeat!;
                   setOpen(null);
                   onShowLogs(seat);
                 }}
-                style={{ appearance: "none", border: `1px solid ${LINE}`, background: "#fff", borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, color: ACCENT, display: "inline-flex", alignItems: "center", gap: 8, font: "inherit", alignSelf: "flex-start" }}
               >
                 <ScrollText size={13} /> Log dieser Session
-              </button>
+              </Button>
             )}
             {details.links && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid #f0f0f0`, paddingTop: 8 }}>
+              <div className="flex flex-col gap-1 border-t border-line-soft pt-2">
                 {details.links.map(([label, href]) => (
-                  <a key={href} href={href} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: ACCENT, textDecoration: "none" }}>
+                  <a key={href} href={href} target="_blank" rel="noreferrer" className="text-sm text-accent no-underline hover:underline hover:underline-offset-2 focus-ring rounded-xs">
                     {label} ↗
                   </a>
                 ))}
