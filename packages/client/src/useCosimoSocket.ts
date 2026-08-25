@@ -155,7 +155,7 @@ export function useCosimoSocket(
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
   /** CoSiMo's option/info card for this seat (null = none). */
   const [card, setCard] = useState<SeatCard | null>(null);
-  /** Live playback volume for TTS clips — a ref, because the tts:audio
+  /** Live playback volume for TTS clips — a ref, because the tts:chunk
    *  handler lives inside the socket-setup effect and must not go stale. */
   const volumeRef = useRef(1);
   const [heard, setHeard] = useState("");
@@ -205,11 +205,81 @@ export function useCosimoSocket(
     return analyserRef.current;
   };
 
-  /** Silence CoSiMo instantly (barge-in): stop server-TTS clip + browser speech. */
+  /**
+   * Streaming TTS: the hub ships one clip per sentence (`tts:chunk`, numbered
+   * per turn). Clips queue here and play back-to-back in order; `speaking`
+   * stays up across the gaps and settles only after the end marker's last
+   * clip has played (with a short grace so the mouth doesn't flicker).
+   */
+  const ttsQueueRef = useRef<{
+    turn: number;
+    next: number;
+    pending: Map<number, { audioBase64: string; mime: string }>;
+    ended: boolean;
+    playing: boolean;
+  }>({ turn: -2, next: 0, pending: new Map(), ended: false, playing: false });
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const settleSpeaking = () => {
+    if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      setSpeaking(false);
+    }, 120);
+  };
+
+  const playNextChunk = () => {
+    const q = ttsQueueRef.current;
+    if (q.playing) return;
+    const clip = q.pending.get(q.next);
+    if (!clip) {
+      if (q.ended) settleSpeaking();
+      return;
+    }
+    q.pending.delete(q.next);
+    q.next++;
+    q.playing = true;
+    if (settleTimerRef.current) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
+    const onDone = () => {
+      analysingRef.current = false;
+      q.playing = false;
+      playNextChunk();
+    };
+    try {
+      const audio = new Audio(`data:${clip.mime};base64,${clip.audioBase64}`);
+      audio.volume = volumeRef.current; // "leiser bitte" — playback-side, instant
+      audioRef.current = audio;
+      // Route the clip through the analyser so the mouth can follow the
+      // actual voice. Only when the context is unlocked ("running") — a
+      // suspended context would swallow the sound entirely.
+      try {
+        const an = ensureAnalyser();
+        if (an && audioCtxRef.current?.state === "running") {
+          const src = audioCtxRef.current.createMediaElementSource(audio);
+          src.connect(an);
+          analysingRef.current = true;
+          envelopeRef.current = 0;
+        }
+      } catch {
+        // analyser unavailable — plain playback, synthetic mouth cadence
+      }
+      audio.onplay = () => setSpeaking(true);
+      audio.onended = onDone;
+      audio.onerror = onDone;
+      void audio.play().catch(onDone);
+    } catch {
+      onDone();
+    }
+  };
+
+  /** Silence CoSiMo instantly (barge-in): stop server-TTS clips + browser speech. */
   const stopPlayback = () => {
     audioRef.current?.pause();
     audioRef.current = null;
     analysingRef.current = false;
+    const q = ttsQueueRef.current;
+    q.pending.clear(); q.ended = false; q.playing = false; q.turn = -2;
+    if (settleTimerRef.current) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     setSpeaking(false);
   };
@@ -288,37 +358,23 @@ export function useCosimoSocket(
       // Server-STT path: the rider's words arrive here (browser-STT goes via send()).
       if (text.trim()) setTranscript((t) => [...t, { role: "user", text }]);
     });
-    socket.on("tts:audio", ({ audioBase64, mime, turn }) => {
+    socket.on("tts:chunk", ({ turn, seq, last, audioBase64, mime }) => {
       // A clip from a superseded (barged-in) turn arrives late — drop it.
       if (turn !== -1 && turn < turnRef.current) return;
-      try {
-        // Stop any previous clip, then play — the Face's mouth follows the audio.
+      const q = ttsQueueRef.current;
+      if (q.turn !== turn) {
+        // a new turn's speech: whatever is still playing is stale
         audioRef.current?.pause();
         analysingRef.current = false;
-        const audio = new Audio(`data:${mime};base64,${audioBase64}`);
-        audio.volume = volumeRef.current; // "leiser bitte" — playback-side, instant
-        audioRef.current = audio;
-        // Route the clip through the analyser so the mouth can follow the
-        // actual voice. Only when the context is unlocked ("running") — a
-        // suspended context would swallow the sound entirely.
-        try {
-          const an = ensureAnalyser();
-          if (an && audioCtxRef.current?.state === "running") {
-            const src = audioCtxRef.current.createMediaElementSource(audio);
-            src.connect(an);
-            analysingRef.current = true;
-            envelopeRef.current = 0;
-          }
-        } catch {
-          // analyser unavailable — plain playback, synthetic mouth cadence
-        }
-        audio.onplay = () => setSpeaking(true);
-        audio.onended = () => { analysingRef.current = false; setSpeaking(false); };
-        audio.onerror = () => { analysingRef.current = false; setSpeaking(false); };
-        void audio.play().catch(() => setSpeaking(false));
-      } catch {
-        setSpeaking(false);
+        q.turn = turn; q.next = 0; q.pending.clear(); q.ended = false; q.playing = false;
       }
+      if (last) {
+        q.ended = true;
+        if (!q.playing && q.pending.size === 0) settleSpeaking();
+        return;
+      }
+      q.pending.set(seq, { audioBase64, mime });
+      playNextChunk();
     });
 
     socket.on("chat:delta", ({ text, done, turn }) => {

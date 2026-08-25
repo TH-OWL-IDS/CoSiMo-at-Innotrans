@@ -32,6 +32,7 @@ import {
   type SeatInspection,
   type SeatSummary,
   type ServerToClientEvents,
+  type TtsChunk,
 } from "@cosimo/shared";
 
 /** Resolves a persona key to its client-facing broadcast slice. */
@@ -802,12 +803,12 @@ export class Hub {
     }
   }
 
-  /** Send synthesized speech for the session's device to play (server TTS).
-   *  Stale clips (from a barged-in turn) are dropped, not sent. */
-  emitTtsAudio(sessionId: string, audioBase64: string, mime: string, turn: number): void {
+  /** Send one streamed speech clip (or the end marker) to the session's
+   *  device. Stale-turn chunks are dropped like chat deltas. */
+  emitTtsChunk(sessionId: string, chunk: Omit<TtsChunk, "sessionId">): void {
     const entry = this.entryOf(sessionId);
-    if (entry && turn !== -1 && turn < entry.turn) return;
-    (entry?.socket ?? this.io).emit("tts:audio", { sessionId, audioBase64, mime, turn });
+    if (entry && chunk.turn !== -1 && chunk.turn < entry.turn) return;
+    (entry?.socket ?? this.io).emit("tts:chunk", { sessionId, ...chunk });
   }
 
   // ── Global showcase state ─────────────────────────────────────────

@@ -10,7 +10,7 @@ The hub is the state router. Its central idea is the
 **global vs. per-seat split** (see [architecture.md](architecture.md)):
 
 - Global events (`telemetry:update`, `status:update`) broadcast to all.
-- Conversation events (`chat:delta`, `tts:audio`, `face:emotion`,
+- Conversation events (`chat:delta`, `tts:chunk`, `face:emotion`,
   `pipeline:phase`, `persona:active`, `voice:transcript`) route **only to
   the seat that owns the session**. The hub learns session→device ownership
   from the first event a socket sends for a session and keeps a
@@ -104,12 +104,29 @@ input / tapping a card) while CoSiMo answers aborts that seat's in-flight
 turn: the kiosk silences playback instantly on button-down, `ptt:start` makes
 the agent abort the LLM stream mid-generation (`AbortController` per seat,
 wired into both adapters), and pending TTS is dropped. Every turn carries a
-per-seat monotonic `turn` number on `chat:delta`/`tts:audio`; hub and clients
+per-seat monotonic `turn` number on `chat:delta`/`tts:chunk`; hub and clients
 drop chunks from superseded turns, so racing stragglers can't garble the new
 reply (-1 = wildcard, used by host recover). A running *tool call* is never
 aborted (the cabin must not end up half-applied) — the loop stops before the
 next generation step instead. Interrupted turns record `outcome:
 "interrupted"` with the partial transcript.
+
+## Streaming TTS (`src/speech/speaker.ts`, `sentences.ts`)
+
+Speech streams as the text does. `TurnSpeaker` is fed every LLM delta;
+`takeSentences` cuts complete sentences (conservative: min ~20 chars,
+de/en abbreviation guard, ordinal dots, German quotes) and each one is
+synthesized immediately — ordered, one at a time (~150 ms per sentence on
+ElevenLabs Flash) with `previous_text` for prosody continuity — and shipped
+as a `tts:chunk` (`seq` per turn) the moment it exists. The final message
+is an end marker (`last: true`, no audio). The client queues clips per
+turn, plays them back-to-back, keeps `speaking` up across gaps and settles
+120 ms after the last clip. Barge-in: the abort signal drops unshipped
+clips; the client's turn guard drops in-flight ones; a new turn's chunk
+resets the queue. Canned replies and `announce()` use the same path (the
+text just arrives all at once). `tts.done` logs `firstChunkMs` (turn start
+→ first playable clip) and `chunks`. Kiosk protocol change: the native app
+must be rebuilt (old binaries still listen for `tts:audio`).
 
 ## LLM adapters (`src/agent/llm.ts`)
 

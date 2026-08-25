@@ -30,6 +30,7 @@ import { ProfileSink } from "./profileSink.js";
 import { cannedReply, errorReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 import { logger } from "../log/logger.js";
+import { TurnSpeaker } from "../speech/speaker.js";
 
 export interface AgentTurnInput {
   sessionId: string;
@@ -297,6 +298,9 @@ export class CosimoAgent {
     let errorMessage: string | undefined;
     /** True when the fallback already emitted done + idle (emitFullReply). */
     let streamClosed = false;
+    // Speech streams as the text does: every finished sentence is synthesized
+    // and shipped while the model still writes the next one.
+    const speaker = this.newSpeaker(sessionId, persona, lang, turnNo, startedAt, ctrl.signal);
     const llmStarted = Date.now();
     let llmMs = 0;
 
@@ -320,6 +324,7 @@ export class CosimoAgent {
           }
           assistantText += delta;
           this.hub.emitChatDelta(sessionId, delta, false, turnNo);
+          speaker.push(delta);
         });
 
         logger.log(
@@ -349,6 +354,7 @@ export class CosimoAgent {
             { ...ctx, level: "warn" },
           );
           assistantText = "";
+          speaker.discard();
           turn.retractLastAssistant();
           continue;
         }
@@ -406,6 +412,7 @@ export class CosimoAgent {
             }
             assistantText = confirmation;
             this.hub.emitChatDelta(sessionId, confirmation, false, turnNo);
+            speaker.push(confirmation);
           }
           break;
         }
@@ -444,6 +451,7 @@ export class CosimoAgent {
             }
           }
           this.emitFullReply(sessionId, fallback.text, turnNo);
+          speaker.push(fallback.text);
           streamClosed = true; // emitFullReply already sent done + idle
         }
         // eslint-disable-next-line no-console
@@ -457,6 +465,7 @@ export class CosimoAgent {
       // phase/face changes — the interrupter (listening) or the next turn owns
       // the seat now. Record what was said so far as an interrupted turn.
       outcome = "interrupted";
+      void speaker.finish(); // aborted: drains without shipping anything
       this.hub.emitChatDelta(sessionId, "", true, turnNo);
       this.recordCosimoTurn(sessionId, lang, assistantText, actions, chosenEmotion, startedAt, modality, outcome, {
         sttMs, llmMs, llm: llmInfo ?? undefined,
@@ -474,7 +483,7 @@ export class CosimoAgent {
 
     // Keep the controller registered through TTS so a barge-in during
     // synthesis still cancels the audio; clean up only if we're still current.
-    const ttsMs = await this.speak(sessionId, assistantText, lang, persona, turnNo, ctrl.signal);
+    const { ttsMs } = await speaker.finish();
     if (this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
     this.recordCosimoTurn(sessionId, lang, assistantText, actions, chosenEmotion, startedAt, modality, outcome, {
       sttMs, llmMs, ttsMs, llm: llmInfo ?? undefined, error: errorMessage,
@@ -565,10 +574,40 @@ export class CosimoAgent {
     if (rec) void this.sink.save(rec);
   }
 
+  /** The seat's voice + whether it wants audio at all, for one turn. */
+  private newSpeaker(
+    sessionId: string,
+    persona: PersonaKey,
+    lang: Locale,
+    turnNo: number,
+    startedAt: number,
+    signal?: AbortSignal,
+  ): TurnSpeaker {
+    // The SEAT's live accommodations, not the profile: a walk-up's
+    // set_presentation changes exist only on the seat (the profile is the
+    // shared clean plate and stays untouched). Same source the client renders.
+    const acc = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
+    return new TurnSpeaker({
+      tts: this.tts,
+      hub: this.hub,
+      sessionId,
+      turn: turnNo,
+      lang,
+      voice: {
+        rate: acc.speechRate ?? 1,
+        gender: acc.voiceGender ?? "female",
+        tone: acc.voiceTone ?? "neutral",
+        voiceKey: acc.voice,
+      },
+      enabled: this.tts.available && acc.audioOutput,
+      signal,
+      startedAt,
+    });
+  }
+
   /**
-   * Speak the reply via server TTS when available and the persona wants audio.
-   * When no server TTS is configured the client speaks locally (Web Speech), so
-   * this is a no-op. Never throws — speech is best-effort.
+   * Speak a complete text (canned replies, announcements). Same streaming
+   * path as a live turn — the text just arrives all at once. Never throws.
    */
   private async speak(
     sessionId: string,
@@ -578,40 +617,10 @@ export class CosimoAgent {
     turnNo: number,
     signal?: AbortSignal,
   ): Promise<number | undefined> {
-    if (!this.tts.available || !text.trim()) return undefined;
-    // The SEAT's live accommodations, not the profile: a walk-up's
-    // set_presentation changes exist only on the seat (the profile is the
-    // shared clean plate and stays untouched). Same source the client renders.
-    const acc = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
-    if (!acc.audioOutput) return undefined;
-    const voice = {
-      rate: acc.speechRate ?? 1,
-      gender: acc.voiceGender ?? ("female" as const),
-      tone: acc.voiceTone ?? ("neutral" as const),
-      voiceKey: acc.voice,
-    };
-    const t0 = Date.now();
-    try {
-      // Live at synth time — "sprich langsamer" already applies to the
-      // confirmation sentence of the very same turn.
-      const audio = await this.tts.synthesize(text, lang, voice);
-      const durationMs = Date.now() - t0;
-      if (audio) {
-        logger.log(
-          "tts.done",
-          { chars: text.length, bytes: Math.floor((audio.audioBase64.length * 3) / 4), durationMs, voice },
-          { sessionId, turn: turnNo },
-        );
-      }
-      // Barge-in during synthesis → never ship the stale clip.
-      if (signal?.aborted) return durationMs;
-      if (audio) this.hub.emitTtsAudio(sessionId, audio.audioBase64, audio.mime, turnNo);
-      return durationMs;
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[cosimo-agent] tts failed:", err);
-      return Date.now() - t0;
-    }
+    if (!text.trim()) return undefined;
+    const speaker = this.newSpeaker(sessionId, persona, lang, turnNo, Date.now(), signal);
+    speaker.push(text);
+    return (await speaker.finish()).ttsMs;
   }
 
   /**

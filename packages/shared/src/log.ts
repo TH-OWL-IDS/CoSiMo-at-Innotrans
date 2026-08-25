@@ -66,7 +66,18 @@ export type LogEvent = Base &
     | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
     | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
     | { kind: "card.show"; data: { kind: string; question: string; options: string[] } }
-    | { kind: "tts.done"; data: { chars: number; bytes: number; durationMs: number; voice?: { gender: string; tone: string; rate: number } } }
+    | {
+        kind: "tts.done";
+        data: {
+          chars: number;
+          bytes: number;
+          durationMs: number;
+          voice?: { gender: string; tone: string; rate: number };
+          /** Streaming: time from turn start to the first playable clip. */
+          firstChunkMs?: number;
+          chunks?: number;
+        };
+      }
     | {
         kind: "turn.end";
         data: {

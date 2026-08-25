@@ -24,10 +24,18 @@ via the URL hash):
   log with tool calls, results and latencies. Idle seats appear as chips;
   the tab label shows the active-seat count.
 - **Logs** — the structured debug stream (see below). The persona pickers are built from
-`host:personas`, pushed by the hub — no CMS query. **Unauthenticated**: anyone
-who connects as `role: "host"` can reset seats, wherever the page is served
-from, so the fix is a host token checked by the hub on `hello`, not a login
-on the page. Add it before the fair.
+`host:personas`, pushed by the hub — no CMS query.
+
+## Page lock
+
+The page sits behind a password (`apps/console/src/Lock.tsx`): a SHA-256
+hash in the bundle, the unlock remembered in localStorage per device. To
+change it, replace `HASH` with `printf 'new-password' | shasum -a 256`.
+This keeps visitors who find the URL out of the operator controls — but
+**the socket is still unauthenticated**: anyone who connects as
+`role: "host"` can reset seats, wherever the page is served from. The
+real fix is a host token checked by the hub on `hello`. Add it before the
+fair.
 
 ## Where it connects
 

@@ -85,7 +85,7 @@ function summarize(e: LogEvent): string {
     case "cabin.result":
       return `${e.data.control} ${e.data.ok ? "ok" : `FAILED${e.data.error ? ` — ${e.data.error}` : ""}`}`;
     case "tts.done":
-      return `${e.data.chars} chars → ${Math.round(e.data.bytes / 1024)} kB in ${e.data.durationMs} ms`;
+      return `${e.data.chars} chars → ${Math.round(e.data.bytes / 1024)} kB${e.data.chunks ? ` · ${e.data.chunks} Clip${e.data.chunks > 1 ? "s" : ""}` : ""}${e.data.firstChunkMs != null ? ` · erstes Audio nach ${e.data.firstChunkMs} ms` : ""} (${e.data.durationMs} ms)`;
     case "turn.end": {
       const t = e.data.timings;
       const parts = [t.sttMs != null && `stt ${t.sttMs}`, t.llmMs != null && `llm ${t.llmMs}`, t.ttsMs != null && `tts ${t.ttsMs}`].filter(Boolean);

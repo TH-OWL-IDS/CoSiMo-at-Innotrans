@@ -74,8 +74,19 @@ export interface ConnectionStatus {
   offlineCanned: boolean;
   /** Server-side STT available → clients upload audio instead of using Web Speech. */
   serverStt: boolean;
-  /** Server-side TTS available → clients play tts:audio instead of Web Speech. */
+  /** Server-side TTS available → clients play tts:chunk instead of Web Speech. */
   serverTts: boolean;
+}
+
+/** A streamed speech clip (one sentence) or the turn's end marker. */
+export interface TtsChunk {
+  sessionId: string;
+  turn: number;
+  seq: number;
+  /** End marker: no audio, the turn's speech is complete once played out. */
+  last: boolean;
+  audioBase64: string;
+  mime: string;
 }
 
 /** Events the server pushes to clients. */
@@ -105,7 +116,12 @@ export interface ServerToClientEvents {
   "voice:transcript": (payload: { sessionId: string; text: string; lang: Locale }) => void;
   /** Synthesized speech to play (server TTS). When absent, clients speak locally.
    *  Carries the turn number — stale clips (barged-in turns) are dropped. */
-  "tts:audio": (payload: { sessionId: string; audioBase64: string; mime: string; turn: number }) => void;
+  /**
+   * One sentence of synthesized speech (streaming TTS): chunks of a turn are
+   * numbered `seq` from 0 and play back-to-back in order; the final message
+   * carries `last: true` with empty audio as an end marker.
+   */
+  "tts:chunk": (payload: TtsChunk) => void;
 
   /** Show (or clear, card=null) the seat's option/info card. */
   "seat:card": (payload: { sessionId: string; card: SeatCard | null; turn: number }) => void;

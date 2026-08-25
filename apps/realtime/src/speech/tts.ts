@@ -22,6 +22,8 @@ export interface VoiceOptions {
   tone: VoiceTone;
   /** A specific catalog voice (accommodations.voice); wins over gender. */
   voiceKey?: string;
+  /** Already-spoken text of this turn (streaming) — keeps prosody continuous. */
+  previousText?: string;
 }
 
 export interface TtsProvider {
@@ -73,7 +75,12 @@ export class ElevenLabsTts implements TtsProvider {
     const res = await fetch(url, {
       method: "POST",
       headers: { "xi-api-key": this.key, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: model, voice_settings }),
+      body: JSON.stringify({
+        text,
+        model_id: model,
+        voice_settings,
+        ...(voice?.previousText ? { previous_text: voice.previousText.slice(-600) } : {}),
+      }),
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) throw new Error(`elevenlabs ${res.status}`);
