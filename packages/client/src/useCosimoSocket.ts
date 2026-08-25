@@ -24,6 +24,7 @@ import type {
   ServerToClientEvents,
   SeatCard,
   HostConfigBroadcast,
+  ClientKind,
 } from "@cosimo/shared";
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -186,6 +187,8 @@ const LOG_MAX = 10_000;
 export function useCosimoSocket(
   realtimeUrl: string,
   role: "kiosk" | "host" = "kiosk",
+  /** What this client is, for the console's device list (defaults by role). */
+  kind: ClientKind = role === "host" ? "console" : "kiosk",
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
   // Stable across reloads of this tab, unique per tab: sessionStorage. A
@@ -362,7 +365,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
-      socket.emit("hello", { deviceId, role });
+      socket.emit("hello", { deviceId, role, kind });
     });
     socket.on("disconnect", () => setConnected(false));
 

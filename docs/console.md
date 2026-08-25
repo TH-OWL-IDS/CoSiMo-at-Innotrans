@@ -10,7 +10,9 @@ via the URL hash):
   tablet): status word + dot, a sentence on what it means for the demo
   right now, and live facts read from the socket state and the log stream
   — **Verbindungen** (the count of consoles that answered the last ping,
-  each one with RTT and health in its tooltip; then one line per *kiosk*: id, last ping RTT, link health ok/langsam/antwortet nicht/
+  each one with RTT and health in its tooltip; then one line per real
+  kiosk, emulator seat and journey view (the client says what it is on
+  `hello`: `kind`): id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
   on an active seat; a "Jetzt prüfen" button triggers the hub's link check
   on demand; "Alles zurücksetzen" sends every seat back to the consent
@@ -78,5 +80,6 @@ pnpm --filter @cosimo/console dev         # :6102, socket proxied to :6101
 The hub allows at most **3** consoles at once (`MAX_HOST_CONSOLES`). A
 fourth evicts the oldest: it gets `host:evicted`, shows a "Konsole
 ersetzt" panel and is disconnected; reloading it takes a slot back from
-the then-oldest. Forgotten tabs therefore can't pile up. Note the journey
-view also connects as a host-role client and counts against the cap.
+the then-oldest. Forgotten tabs therefore can't pile up. Only real consoles count (`kind:
+"console"`); journey views are host-role too but are listed as their own
+rows and never evicted.

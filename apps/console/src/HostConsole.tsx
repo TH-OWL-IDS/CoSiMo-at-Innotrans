@@ -5,11 +5,12 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  AppWindow, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
   type Accommodations,
+  type ClientKind,
   type ConnectedDevice,
   type ConnectionStatus,
   type DeviceHealth,
@@ -116,15 +117,18 @@ const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h ==
  * health, when it was last heard from. "stale" with recent activity is
  * almost always an old app build that doesn't answer sys:ping yet.
  */
+const KIND_LABEL: Record<ClientKind, string> = { kiosk: "Kiosk", emulator: "Emulator", console: "Konsole", journey: "Fahrt-Ansicht" };
+const KIND_ICON: Record<ClientKind, LucideIcon> = { kiosk: TabletSmartphone, emulator: AppWindow, console: Monitor, journey: Route };
+
 function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
-  const Icon = TabletSmartphone;
+  const Icon = KIND_ICON[d.kind];
   const recentActivity = d.lastActivityAt != null && now - new Date(d.lastActivityAt).getTime() < 60_000;
   const note =
     d.health === "stale" && recentActivity ? "aktiv, aber kein Ping — alte App-Version?" :
     d.health === "lost" ? "Verbindung verloren" :
     d.transport === "polling" ? "kein WebSocket — nur Polling" : "";
   const title = [
-    `Kiosk ${d.deviceId}`,
+    `${KIND_LABEL[d.kind]} ${d.deviceId}`,
     `verbunden seit ${clock(d.connectedAt)} · ${d.transport}`,
     d.probedAt ? `Ping ${d.rttMs != null ? `${d.rttMs} ms` : "ohne Antwort"} (${ago(d.probedAt, now)})` : "noch nicht geprüft",
     d.lastActivityAt ? `letzte Aktivität ${ago(d.lastActivityAt, now)}` : null,
@@ -136,6 +140,7 @@ function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
       <Tip tip={title} className="min-w-0 flex-1">
         <span className="block truncate">
           {d.deviceId}
+          {d.kind !== "kiosk" && <span className="text-mute"> · {KIND_LABEL[d.kind]}</span>}
           {d.active && <span className="text-accent"> · Session</span>}
         </span>
       </Tip>
@@ -223,15 +228,17 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const errors = logs.filter((e) => e.level === "error").length;
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
-  // Rows are kiosks only (live first, lost last) — the list reads as the cab.
+  // Rows: real kiosks, then emulators, then journey views (lost ones last
+  // within their group) — the list reads as the cab plus its watchers.
   // Consoles are a counter; the individual ones live in its tooltip.
+  const KIND_RANK: Record<ClientKind, number> = { kiosk: 0, emulator: 1, journey: 2, console: 3 };
   const kiosks = c.devices
-    .filter((d) => d.role === "kiosk")
-    .sort((a, b) => Number(a.health === "lost") - Number(b.health === "lost") || a.deviceId.localeCompare(b.deviceId));
+    .filter((d) => d.kind !== "console")
+    .sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind] || Number(a.health === "lost") - Number(b.health === "lost") || a.deviceId.localeCompare(b.deviceId));
   // Consoles that answered the last ping. A closed tab stays "stale" until
   // the socket's own timeout notices — that is not an active console.
   const hosts = live
-    .filter((d) => d.role === "host" && (d.health === "ok" || d.health === "slow"))
+    .filter((d) => d.kind === "console" && (d.health === "ok" || d.health === "slow"))
     .sort((a, b) => a.deviceId.localeCompare(b.deviceId));
   const consoleList = hosts.length
     ? hosts.map((d) => `${d.deviceId}${d.deviceId === c.deviceId ? " (diese)" : ""} · ${d.rttMs != null ? `${d.rttMs} ms` : "—"} · ${HEALTH_LABEL[d.health]}`).join("\n")
@@ -250,7 +257,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard
-          state={!c.connected ? "down" : kiosks.some((d) => d.health === "lost") ? "down" : live.some((d) => d.health !== "ok") ? "warn" : "ok"}
+          state={!c.connected ? "down" : kiosks.some((d) => d.kind === "kiosk" && d.health === "lost") ? "down" : live.some((d) => d.health !== "ok") ? "warn" : "ok"}
           icon={Cable}
           name="Verbindungen"
           detail="Wer gerade am Hub hängt. Der Hub pingt alle 10 s jede Verbindung über den Socket und misst die Antwortzeit. Konsolen: die Zahl der Bedien-Oberflächen, die zuletzt geantwortet haben (Details im Tooltip). Darunter jeder Kiosk-Sitz — iPad oder Browser-Emulator — mit Antwortzeit, Transport und Sitz-Status. „Jetzt prüfen“ löst die Messung sofort aus."
@@ -259,7 +266,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           ]}
         >
           <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
-            {kiosks.length === 0 && <span className="text-sm text-mute">keine Kiosks verbunden</span>}
+            {kiosks.length === 0 && <span className="text-sm text-mute">keine Sitze oder Ansichten verbunden</span>}
             {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} />)}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -867,7 +874,7 @@ function tabFromHash(): Tab {
 }
 
 export default function HostConsole() {
-  const c = useCosimoSocket(REALTIME_URL, "host");
+  const c = useCosimoSocket(REALTIME_URL, "host", "console");
   const st = c.status;
   // The tab survives a reload — during the show that is the one you left open.
   const [tab, setTab] = useState<Tab>(tabFromHash);

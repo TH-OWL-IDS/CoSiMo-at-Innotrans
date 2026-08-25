@@ -46,7 +46,7 @@ function lineProgress(t: MonoCabTelemetry): number {
 export default function App() {
   const serverUrl = useMemo(resolveServerUrl, []);
   // The view is a host-role client: it only listens, and it never counts as a seat.
-  const c = useCosimoSocket(serverUrl, "host");
+  const c = useCosimoSocket(serverUrl, "host", "journey");
   const t = c.telemetry;
   const [lang, setLang] = useState<Locale>(() => (navigator.language.startsWith("en") ? "en" : "de"));
   const [clock, setClock] = useState(() => new Date());

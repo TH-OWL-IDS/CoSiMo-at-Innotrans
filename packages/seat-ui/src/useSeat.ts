@@ -49,8 +49,8 @@ function rememberConsent(v: boolean | null): void {
   }
 }
 
-export function useSeat(serverUrl: string): Seat {
-  const cosimo = useCosimoSocket(serverUrl);
+export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk"): Seat {
+  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind);
   const [lang, setLang] = useState<Locale>("de");
   // The decision survives a reload of this tab (sessionStorage, like the
   // device + session ids): a reloaded emulator lands in the conversation,

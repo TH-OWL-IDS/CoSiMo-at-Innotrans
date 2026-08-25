@@ -28,7 +28,7 @@ function entry(at: string, a: CabinActuation, outcome: LogEntry["outcome"], erro
 
 export default function App() {
   const serverUrl = useMemo(resolveServerUrl, []);
-  const seat = useSeat(serverUrl);
+  const seat = useSeat(serverUrl, "emulator");
   const { cosimo, lang, ptt } = seat;
 
   const [nfc, setNfc] = useState("");

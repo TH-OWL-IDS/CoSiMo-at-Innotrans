@@ -27,9 +27,14 @@ export type DeviceHealth =
   | "stale"  // socket open, no answer within the timeout (old app? frozen tab?)
   | "lost";  // socket gone — kept in the list for 30 s so a flap is visible
 
+/** What a client is, beyond its role: real iPad vs browser emulator (both
+ *  kiosk-role), operator console vs journey view (both host-role). */
+export type ClientKind = "kiosk" | "emulator" | "console" | "journey";
+
 export interface ConnectedDevice {
   deviceId: string;
   role: "kiosk" | "host";
+  kind: ClientKind;
   /** ISO time the socket said hello. */
   connectedAt: string;
   /** The engine.io transport in use — polling on the cabin WLAN is a smell. */
@@ -190,7 +195,7 @@ export interface ServerToClientEvents {
 /** Events clients send to the server. */
 export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host" }) => void;
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;

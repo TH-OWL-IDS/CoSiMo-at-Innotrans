@@ -272,6 +272,8 @@ them (logged as `seat.connect` with `restored: true`) and re-maps the
 session to the device; the recorder and the agent's history are keyed by
 session id, so the conversation simply continues. Resets clear the park.
 
-`MAX_HOST_CONSOLES` (default 3): on a host hello the hub evicts the
-oldest host sockets beyond the cap — `host:evicted` then a server-side
+`hello` carries `kind` (`kiosk | emulator | console | journey`) next to
+the role; old clients get the plain kind for their role. `MAX_HOST_CONSOLES`
+(default 3): on a console hello the hub evicts the oldest *console* sockets
+beyond the cap — `host:evicted` then a server-side
 disconnect (not auto-reconnected). Logged as `host.action evict`.

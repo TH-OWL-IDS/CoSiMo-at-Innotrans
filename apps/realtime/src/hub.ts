@@ -33,6 +33,7 @@ import {
   type SeatSummary,
   type ServerToClientEvents,
   type TtsChunk,
+  type ClientKind,
   type DeviceHealth,
   type HostConfigBroadcast,
 } from "@cosimo/shared";
@@ -144,6 +145,7 @@ function transportOf(socket: Sock): "websocket" | "polling" {
 
 interface DeviceEntry {
   role: "kiosk" | "host";
+  kind: ClientKind;
   socket: Sock;
   /** Link facts for the console's Verbindung card. */
   connectedAt: number;
@@ -419,9 +421,11 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role }) => {
+    socket.on("hello", ({ deviceId, role, kind }) => {
       const entry: DeviceEntry = {
         role,
+        // Old clients say nothing — assume the plain thing for their role.
+        kind: kind ?? (role === "host" ? "console" : "kiosk"),
         socket,
         persona: this.resolvePersona("default"),
         emotion: "sleeping",
@@ -453,8 +457,8 @@ export class Hub {
       }
       this.parked.delete(deviceId);
       // Console cap: evict the oldest console(s) to make room for this one.
-      if (role === "host") {
-        const hosts = Array.from(this.devices).filter(([id, e]) => e.role === "host" && id !== deviceId).sort((a, b) => a[1].connectedAt - b[1].connectedAt);
+      if (entry.kind === "console") {
+        const hosts = Array.from(this.devices).filter(([id, e]) => e.kind === "console" && id !== deviceId).sort((a, b) => a[1].connectedAt - b[1].connectedAt);
         for (const [id, e] of hosts.slice(0, Math.max(0, hosts.length - (MAX_HOST_CONSOLES - 1)))) {
           logger.log("host.action", { action: "evict", args: { evicted: id, max: MAX_HOST_CONSOLES } }, { deviceId });
           e.socket.emit("host:evicted", { max: MAX_HOST_CONSOLES, by: deviceId });
@@ -777,6 +781,7 @@ export class Hub {
     return {
       deviceId,
       role: d.role,
+      kind: d.kind,
       connectedAt: new Date(d.connectedAt).toISOString(),
       transport: transportOf(d.socket),
       lastActivityAt: d.role === "kiosk" ? new Date(d.lastActivity).toISOString() : null,
