@@ -166,14 +166,14 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
 
   if (!st) {
     return (
-      <div className="flex max-w-[1200px] flex-col gap-6">
+      <div className="flex flex-col gap-6">
         <Card><span className="text-mute">warte auf Status …</span></Card>
       </div>
     );
   }
 
   return (
-    <div className="flex max-w-[1200px] flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <Eyebrow>Dienste{lastSvc ? ` · Stand ${clock(lastSvc.ts)}` : ""}</Eyebrow>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard

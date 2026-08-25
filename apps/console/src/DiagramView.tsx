@@ -379,7 +379,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           tabIndex={0}
           onKeyDown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && setOpen("vehicle")}
           className={cn(
-            "absolute flex cursor-grab touch-none select-none flex-col gap-2 rounded-2xl border-[1.5px] bg-white px-3 pb-2.5 pt-3 shadow-node focus-ring",
+            "absolute flex cursor-grab touch-none select-none flex-col gap-2 rounded-2xl border bg-white px-3 pb-2.5 pt-3 shadow-node focus-ring",
             "hover:border-line-strong active:cursor-grabbing",
             borderClass(stateOf.vehicle),
           )}
@@ -412,7 +412,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
                 aria-haspopup="dialog"
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(`kiosk:${d.deviceId}`)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-full border-[1.5px] bg-white px-3 py-2 focus-ring hover:border-line-strong",
+                  "flex cursor-pointer items-center gap-2 rounded-full border bg-white px-3 py-2 focus-ring hover:border-line-strong",
                   active ? "border-accent" : "border-line",
                 )}
               >
@@ -441,7 +441,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
               aria-haspopup="dialog"
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpen(n.id)}
               className={cn(
-                "absolute flex cursor-grab touch-none select-none items-center gap-2.5 rounded-full border-[1.5px] bg-white px-4 py-2.5 shadow-node focus-ring",
+                "absolute flex cursor-grab touch-none select-none items-center gap-2.5 rounded-full border bg-white px-4 py-2.5 shadow-node focus-ring",
                 "hover:border-line-strong active:cursor-grabbing",
                 borderClass(s),
               )}

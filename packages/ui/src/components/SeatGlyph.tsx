@@ -6,7 +6,7 @@ export function SeatGlyph({ state, title }: { state: "live" | "taken" | "free"; 
     <span
       title={title}
       className={cn(
-        "inline-block h-[17px] w-[13px] rounded-[4px_4px_2px_2px] border-[1.5px] border-ink",
+        "inline-block h-[17px] w-[13px] rounded-[4px_4px_2px_2px] border border-ink",
         state === "live" ? "bg-accent" : state === "taken" ? "bg-ink" : "bg-transparent opacity-30",
       )}
     />

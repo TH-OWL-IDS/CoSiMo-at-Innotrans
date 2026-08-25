@@ -110,6 +110,17 @@
   }
 }
 
+/* The CI line is 2px, not a hairline: the plain `border*` utilities are
+   redefined so every border in every app is 2px without spelling it out.
+   Use `border-[3px]` etc. for the rare exception. */
+@utility border { border-width: 2px; }
+@utility border-x { border-inline-width: 2px; }
+@utility border-y { border-block-width: 2px; }
+@utility border-t { border-top-width: 2px; }
+@utility border-r { border-right-width: 2px; }
+@utility border-b { border-bottom-width: 2px; }
+@utility border-l { border-left-width: 2px; }
+
 /* Interaction vocabulary, shared by every control. The ring is ink, not
    accent — in this CI red means "down" or "live", never "focused". */
 @utility focus-ring {

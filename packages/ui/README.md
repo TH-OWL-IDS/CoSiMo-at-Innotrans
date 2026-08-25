@@ -44,6 +44,12 @@ Fonts are self-hosted in `src/fonts/` and referenced relatively — Vite
 emits them as hashed `/assets/*.woff2` in every app. Nothing loads from
 Google during the show.
 
+## Borders are 2px
+
+The CI line is 2px. The plain `border`, `border-t/r/b/l/x/y` utilities are
+redefined in `styles.css` to 2px, so every border in every app is 2px
+without spelling it out; use `border-[3px]` etc. for the rare exception.
+
 ## Interaction vocabulary
 
 `focus-ring` (custom utility): 2px **ink** outline on `:focus-visible` —
