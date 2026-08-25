@@ -151,7 +151,7 @@ function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
 function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
   state: ServiceState;
   name: string;
-  /** One sentence: what this means for the demo right now (the title's tooltip). */
+  /** What this card is about — descriptive, never status (the title's tooltip). */
   detail: string;
   /** Extra content below the facts (e.g. the Verbindung card's device rows). */
   children?: React.ReactNode;
@@ -161,7 +161,7 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
 }) {
   return (
     <Card active={state === "down"} className="gap-3">
-      {/* the consequence sentence lives in the title's tooltip, not on the card */}
+      {/* what the card is about lives in the title's tooltip */}
       <div className="flex min-w-0 items-center gap-2.5">
         <Icon size={20} className="shrink-0 text-ink" />
         <Tip tip={detail} className="min-w-0 flex-1">
@@ -253,7 +253,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={!c.connected ? "down" : kiosks.some((d) => d.health === "lost") ? "down" : live.some((d) => d.health !== "ok") ? "warn" : "ok"}
           icon={Cable}
           name="Verbindungen"
-          detail={c.connected ? "Hub erreichbar — jede Zeile ist ein Gerät; der Hub pingt alle 10 s." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
+          detail="Wer gerade am Hub hängt. Der Hub pingt alle 10 s jede Verbindung über den Socket und misst die Antwortzeit. Konsolen: die Zahl der Bedien-Oberflächen, die zuletzt geantwortet haben (Details im Tooltip). Darunter jeder Kiosk-Sitz — iPad oder Browser-Emulator — mit Antwortzeit, Transport und Sitz-Status. „Jetzt prüfen“ löst die Messung sofort aus."
           facts={[
             ["Konsolen", <Tip tip={consoleList}><span className="block truncate">{String(hosts.length)}</span></Tip>],
           ]}
@@ -270,13 +270,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
           icon={Brain}
           name="LLM"
-          detail={
-            st.llm
-              ? fallbackActive
-                ? "GX10 antwortet nicht — Claude übernimmt die Turns, bis die Probe wieder durchkommt."
-                : "Der Agent antwortet live; Tools und Erinnerungen sind aktiv."
-              : "Gehirn nicht erreichbar — Antworten kommen aus dem Skript."
-          }
+          detail="Das Gehirn: welches Modell die Antworten schreibt, ob gerade der Fallback einspringt, wie lange das Denken im Schnitt dauert und wann der letzte Turn lief. Die Werte kommen aus den Turn-Ereignissen des Logs."
           facts={[
             ["Modell", llmName],
             ["Fallback", fallbackActive ? <span className="text-warn">aktiv (Claude)</span> : "bereit"],
@@ -288,7 +282,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.serverStt ? "ok" : "warn"}
           icon={Mic}
           name="Hören (STT)"
-          detail={st.serverStt ? "Deepgram auf dem Server — jede Aufnahme wird hochgeladen und transkribiert." : "Kein Server-STT — die iPads erkennen selbst, wo der Browser es kann."}
+          detail="Spracherkennung: ob die Aufnahmen der Sitze auf dem Server (Deepgram) transkribiert werden oder das iPad selbst erkennt. Ø Dauer und „Zuletzt“ beziehen sich auf die letzten Erkennungen."
           facts={[
             ["Pfad", st.serverStt ? "Deepgram (Server)" : "Browser-Erkennung"],
             ["Ø Dauer", ms(sttMs)],
@@ -299,7 +293,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.serverTts ? "ok" : "warn"}
           icon={Volume2}
           name="Sprechen (TTS)"
-          detail={st.serverTts ? "ElevenLabs auf dem Server — die Stimme kommt satzweise als Audio zum Sitz." : "Browser-Synthese — die iPads sprechen mit der Systemstimme."}
+          detail="Sprachausgabe: ob die Stimme auf dem Server (ElevenLabs) erzeugt und als Audio an den Sitz gestreamt wird oder das iPad mit der Systemstimme spricht. „Erstes Audio“ ist die Zeit bis zum ersten hörbaren Satz."
           facts={[
             ["Pfad", st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"],
             ["Ø Dauer", ms(ttsMs)],
@@ -311,7 +305,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.cms ? "ok" : "warn"}
           icon={Database}
           name="CMS"
-          detail={st.cms ? "Payload erreichbar — Profile, Route und Sessions live." : "Nicht erreichbar — der Hub fährt mit der zuletzt geladenen Konfiguration weiter."}
+          detail="Die Redaktion: Payload hält Profile (NFC-Karten), Route, Sessions und die Operator-Konfiguration. Der Hub liest sie mit Cache und fährt bei Ausfall mit dem zuletzt Geladenen weiter. Die Zeilen zeigen, welche Routen (LLM, STT, TTS, LPU-2) der Hub daraus gerade fährt."
           facts={[
             ["Status", lastCmsSvc ? `${st.cms ? "erreichbar" : "getrennt"} seit ${clock(lastCmsSvc.ts)}` : st.cms ? "erreichbar" : "getrennt"],
             ["Profile", c.personas.length ? String(c.personas.length) : "—"],
@@ -329,7 +323,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.light ? "ok" : "warn"}
           icon={Lightbulb}
           name="Licht"
-          detail={st.light ? "Treiber verbunden — CoSiMo schaltet die Kabine über die Sitze (Kabinen-LAN)." : "Kein Licht-Treiber — Lichtwünsche werden nur bestätigt, nicht ausgeführt."}
+          detail="Kabinenlicht: CoSiMo schaltet Lampen über die Sitze — das iPad ruft den LPU-2 im Kabinen-LAN per HTTP auf. Die Zeilen zählen die Aktionen und zeigen die letzte."
           facts={[
             ["Aktionen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""}` : "noch keine"],
             ["Zuletzt", lastCabin ? `${ago(lastCabin.ts, now)} · ${lastCabin.data.control} ${lastCabin.data.ok ? "ok" : "Fehler"}` : "—"],
@@ -340,7 +334,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.network ? "ok" : "down"}
           icon={Globe}
           name="Netzwerk"
-          detail={st.network ? "Internet erreichbar — Cloud-Dienste (TTS, STT, Fallback) stehen bereit." : "Kein Internet — Offline-Modus, nur lokale Antworten."}
+          detail="Internet und Sprachdienste vom Hub aus gesehen: ohne Internet gibt es keine Cloud-Dienste (TTS, STT, Fallback), und der Hub schaltet in den Offline-Modus. „Status“: wann der Hub zuletzt gemeldet hat."
           facts={[
             ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
             ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
@@ -351,7 +345,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.offlineCanned ? "warn" : "ok"}
           icon={FlaskConical}
           name="Modus"
-          detail={st.offlineCanned ? "Demo-Modus: geskriptete Antworten, kein Agent — umschalten unter Sessions › Betrieb." : "Live: der Agent antwortet."}
+          detail="Betriebsart des Agenten: Live (der Agent antwortet) oder Demo (geskriptete Antworten). Dazu die Zahl der Turns und Fehler seit Start und ob gerade eine Störung auf der Strecke simuliert wird."
           facts={[
             ["Modus", st.offlineCanned ? "Demo (Skript)" : "Live (Agent)"],
             ["Turns gesamt", String(turnsTotal)],
