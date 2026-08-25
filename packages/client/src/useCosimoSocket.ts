@@ -48,17 +48,23 @@ function newSession(role: string): string {
   return id;
 }
 
-/** A per-tab device id that survives reloads (falls back to a fresh one). */
-function stableDeviceId(role: "kiosk" | "host"): string {
-  const key = `cosimo.deviceId.${role}`;
+/** Id prefix per client kind: seats (real or emulated) are "cosi-", operator
+ *  consoles "host-", journey views "journey-". */
+const ID_PREFIX: Record<ClientKind, string> = { kiosk: "cosi", emulator: "cosi", console: "host", journey: "journey" };
+
+/** A per-tab device id that survives reloads (falls back to a fresh one).
+ *  A stored id with the wrong prefix (older build) is replaced. */
+function stableDeviceId(kind: ClientKind): string {
+  const key = `cosimo.deviceId.${kind}`;
+  const prefix = ID_PREFIX[kind];
   try {
     const kept = sessionStorage.getItem(key);
-    if (kept) return kept;
-    const id = makeId(role === "host" ? "host" : "ipad");
+    if (kept && kept.startsWith(`${prefix}-`)) return kept;
+    const id = makeId(prefix);
     sessionStorage.setItem(key, id);
     return id;
   } catch {
-    return makeId(role === "host" ? "host" : "ipad");
+    return makeId(prefix);
   }
 }
 
@@ -195,7 +201,7 @@ export function useCosimoSocket(
   // fresh id per reload made every reload look like a new device on the
   // console; a localStorage id would collide across two open tabs (the hub
   // keys entries by id, so the second tab's disconnect would drop the first).
-  const deviceId = useMemo(() => stableDeviceId(role), [role]);
+  const deviceId = useMemo(() => stableDeviceId(kind), [kind]);
   // The session id survives a reload of this tab (sessionStorage, like the
   // device id): the hub's recorder and the agent's history are keyed by it,
   // so a reloaded seat continues its conversation instead of starting one.
