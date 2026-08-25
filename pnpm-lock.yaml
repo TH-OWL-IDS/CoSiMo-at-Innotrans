@@ -327,6 +327,9 @@ importers:
       '@cosimo/shared':
         specifier: workspace:*
         version: link:../shared
+      lucide-react:
+        specifier: ^1.33.0
+        version: 1.33.0(react@19.1.2)
     devDependencies:
       '@types/react':
         specifier: ^19.1.2

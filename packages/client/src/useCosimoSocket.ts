@@ -37,6 +37,14 @@ export interface CosimoState {
   card: SeatCard | null;
   /** Dismiss the card locally (e.g. after a tap already sent the answer). */
   clearCard: () => void;
+  /** Answer a LOCAL card (hub applies it, no LLM round). */
+  answerCard: (cardId: string, value: string) => void;
+  /** ↻ — have CoSiMo say the last reply again. */
+  repeatLast: () => void;
+  /** When the last reply finished (ms epoch) — drives the ↻ affordance. */
+  lastReplyAt: number;
+  /** Last rider activity at this seat (ms epoch) — drives the idle hint. */
+  lastActivityAt: number;
   /** True while CoSiMo's reply is still streaming. */
   replying: boolean;
   /** Running conversation history (rider + CoSiMo), for the text-first layout. */
@@ -155,6 +163,9 @@ export function useCosimoSocket(
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
   /** CoSiMo's option/info card for this seat (null = none). */
   const [card, setCard] = useState<SeatCard | null>(null);
+  const [lastReplyAt, setLastReplyAt] = useState(0);
+  const [lastActivityAt, setLastActivityAt] = useState(() => Date.now());
+  const touch = () => setLastActivityAt(Date.now());
   /** Live playback volume for TTS clips — a ref, because the tts:chunk
    *  handler lives inside the socket-setup effect and must not go stale. */
   const volumeRef = useRef(1);
@@ -390,7 +401,10 @@ export function useCosimoSocket(
       if (done) {
         setReplying(false);
         const full = replyRef.current.trim();
-        if (full) setTranscript((t) => [...t, { role: "cosimo", text: full }]);
+        if (full) {
+          setTranscript((t) => [...t, { role: "cosimo", text: full }]);
+          setLastReplyAt(Date.now()); // arms the ↻ affordance
+        }
         return;
       }
       setReplying(true);
@@ -406,7 +420,18 @@ export function useCosimoSocket(
 
   const clearCard = () => setCard(null);
 
+  const answerCard = (cardId: string, value: string) => {
+    touch();
+    sockRef.current?.emit("card:answer", { sessionId: sessionRef.current, cardId, value });
+  };
+
+  const repeatLast = () => {
+    touch();
+    sockRef.current?.emit("reply:repeat", { sessionId: sessionRef.current });
+  };
+
   const send = (text: string, lang: Locale, modality: Modality = "text") => {
+    touch();
     setCard(null); // any user turn answers/invalidates the card
     const socket = sockRef.current;
     if (!socket) return;
@@ -477,6 +502,7 @@ export function useCosimoSocket(
   const clearInspection = () => setInspection(null);
 
   const pttStart = () => {
+    touch();
     // Barge-in: the button press itself silences CoSiMo — instantly locally,
     // and the server aborts the seat's in-flight turn on ptt:start.
     stopPlayback();
@@ -517,7 +543,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection,

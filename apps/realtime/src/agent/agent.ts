@@ -8,6 +8,7 @@
  */
 
 import {
+  type Accommodations,
   CABIN_CONTROLS,
   type ExpressiveEmotion,
   type Locale,
@@ -31,6 +32,7 @@ import { cannedReply, errorReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 import { logger } from "../log/logger.js";
 import { TurnSpeaker } from "../speech/speaker.js";
+import { CUSTOMIZE_STEPS, customizeCard, customizeDone, localAnswer } from "./cards.js";
 
 export interface AgentTurnInput {
   sessionId: string;
@@ -621,6 +623,86 @@ export class CosimoAgent {
     const speaker = this.newSpeaker(sessionId, persona, lang, turnNo, Date.now(), signal);
     speaker.push(text);
     return (await speaker.finish()).ttsMs;
+  }
+
+  /**
+   * A tap on a LOCAL card: the hub applies the setting itself (no LLM round)
+   * and CoSiMo still answers audio-visually — a short templated line, spoken
+   * in the NEW setting (the new voice, the new volume …). Wizard cards chain
+   * to the next step; the closing line says whether it persists.
+   */
+  async handleCardAnswer(input: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey }): Promise<void> {
+    const { sessionId, deviceId, cardId, value, lang, persona } = input;
+    const card = this.hub.cardOf(sessionId);
+    if (!card || card.id !== cardId || !card.local) return;
+    const voices = this.operatorConfig.get().tts.voices;
+    const before = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
+    const turnNo = this.hub.beginTurn(sessionId);
+    const startedAt = Date.now();
+    const lines: string[] = [];
+    let applied: Partial<Accommodations> | undefined;
+
+    if (value !== "__skip" && value !== "__done") {
+      const ans = localAnswer(card, value, lang, voices, before);
+      if (!ans) {
+        logger.log("card.answer", { kind: card.kind, value }, { deviceId, sessionId, turn: turnNo, level: "warn" });
+        return;
+      }
+      const next = this.hub.patchSeatAccommodations(deviceId, ans.patch);
+      if (next) this.persistAccommodations(persona, next);
+      applied = ans.patch;
+      lines.push(ans.spoken);
+    }
+    logger.log("card.answer", { kind: card.kind, value, ...(applied ? { applied } : {}) }, { deviceId, sessionId, turn: turnNo });
+    this.recorder.addTurn(sessionId, { role: "user", modality: "tap", lang, transcript: `[${card.kind}] ${value}`, at: new Date().toISOString() });
+
+    if (card.step) {
+      const nextIdx = card.step.index + 1;
+      if (value === "__done" || nextIdx >= CUSTOMIZE_STEPS.length) {
+        this.hub.setWizardStep(sessionId, undefined);
+        this.hub.showCard(sessionId, null, turnNo);
+        lines.push(customizeDone(lang, this.personas.isPersistable(persona)));
+      } else {
+        const acc = this.hub.accommodationsOf(sessionId) ?? before;
+        const nextCard = customizeCard(nextIdx, lang, voices, acc);
+        if (nextCard) {
+          this.hub.setWizardStep(sessionId, nextIdx);
+          lines.push(nextCard.question);
+          this.hub.showCard(sessionId, nextCard, turnNo);
+        }
+      }
+    } else {
+      this.hub.showCard(sessionId, null, turnNo);
+    }
+
+    const spoken = lines.join(" ");
+    this.emitFullReply(sessionId, spoken, turnNo);
+    this.hub.setEmotion("happy", sessionId, turnNo);
+    const ttsMs = await this.speak(sessionId, spoken, lang, persona, turnNo);
+    const [setting, v] = applied ? Object.entries(applied)[0] ?? [] : [];
+    this.recordCosimoTurn(
+      sessionId, lang, spoken,
+      setting ? [{ tool: "set_presentation", args: { setting, value: v }, ok: true }] : [],
+      "happy", startedAt, "tap", "ok", { ttsMs },
+    );
+    this.persist(sessionId);
+  }
+
+  /** ↻ — say the last reply again, no LLM round. */
+  async repeatLast(input: { sessionId: string; lang: Locale; persona: PersonaKey }): Promise<void> {
+    const { sessionId, lang, persona } = input;
+    const text = this.hub.lastReplyOf(sessionId);
+    if (!text.trim()) return;
+    const turnNo = this.hub.beginTurn(sessionId);
+    this.emitFullReply(sessionId, text, turnNo);
+    await this.speak(sessionId, text, lang, persona, turnNo);
+  }
+
+  /** Card-bound riders keep their settings; the shared default never does. */
+  private persistAccommodations(persona: PersonaKey, acc: Accommodations): void {
+    if (!this.personas.isPersistable(persona)) return;
+    this.personas.setAccommodationsLocal(persona, acc);
+    void this.profiles.saveAccommodations(persona, acc);
   }
 
   /**

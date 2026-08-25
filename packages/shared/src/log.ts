@@ -65,7 +65,8 @@ export type LogEvent = Base &
       }
     | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
     | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
-    | { kind: "card.show"; data: { kind: string; question: string; options: string[] } }
+    | { kind: "card.show"; data: { kind: string; question: string; options: string[]; local: boolean; step?: string } }
+    | { kind: "card.answer"; data: { kind: string; value: string; applied?: Record<string, unknown> } }
     | {
         kind: "tts.done";
         data: {
@@ -111,6 +112,7 @@ export const LOG_KINDS: readonly LogKind[] = [
   "cabin.actuate",
   "cabin.result",
   "card.show",
+  "card.answer",
   "tts.done",
   "turn.end",
   "host.action",

@@ -5,6 +5,7 @@ import {
   RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
   type LucideIcon,
   ListTodo,
+  MousePointerClick,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 import { Button, ChipButton, Input, Select, cn } from "@cosimo/ui";
@@ -32,6 +33,7 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "cabin.actuate": Lightbulb,
   "cabin.result": CornerDownLeft,
   "card.show": ListTodo,
+  "card.answer": MousePointerClick,
   "tts.done": Volume2,
   "turn.end": FlagTriangleRight,
   "host.action": Joystick,
@@ -67,7 +69,9 @@ function summarize(e: LogEvent): string {
     case "turn.start":
       return `${e.data.modality} · ${e.data.lang} · ${e.data.llm ? `${e.data.llm.provider}/${e.data.llm.model}` : "canned"} · “${e.data.text}”`;
     case "card.show":
-      return `${e.data.kind} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
+      return `${e.data.kind}${e.data.step ? ` ${e.data.step}` : ""}${e.data.local ? " · lokal" : ""} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
+    case "card.answer":
+      return `${e.data.kind} → ${e.data.value}${e.data.applied ? ` · ${JSON.stringify(e.data.applied)}` : ""}`;
     case "stt.result":
       return `${e.data.chars} chars in ${e.data.durationMs} ms (${Math.round(e.data.bytes / 1024)} kB ${e.data.mime})`;
     case "llm.step":

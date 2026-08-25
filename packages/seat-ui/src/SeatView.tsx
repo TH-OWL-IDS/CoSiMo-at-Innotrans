@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import type { Locale, PipelinePhase, SeatCard } from "@cosimo/shared";
-import { CosimoFaceAnimated, schemes, type ColorScheme } from "@cosimo/face";
+import type { Locale, PipelinePhase } from "@cosimo/shared";
+import { CosimoFaceAnimated } from "@cosimo/face";
+import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
 import ConsentOverlay from "./ConsentOverlay.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
@@ -83,100 +84,6 @@ const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
   thinking: { de: "Denkt nach …", en: "Thinking …" },
   speaking: { de: "", en: "" },
 };
-
-/**
- * CoSiMo's option card, shown IN THE SLIT (the physical interaction strip —
- * the circle stays the face, and stays touch-dead): the spoken question plus
- * tappable chips (kind "list") or the theme palette as swatches (kind
- * "themes"), one horizontal row. Voice remains the primary answer channel —
- * a tap simply sends the chosen label as the rider's next message.
- */
-function CardOverlay({
-  card,
-  scheme,
-  textScale,
-  onPick,
-}: {
-  card: SeatCard;
-  scheme: ColorScheme;
-  textScale: number;
-  onPick: (label: string) => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={card.question}
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "0 3%",
-        overflow: "hidden",
-        color: scheme.ink,
-      }}
-    >
-      <span
-        style={{
-          fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`,
-          fontWeight: 600,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          flexShrink: 1,
-          minWidth: 0,
-        }}
-      >
-        {card.question}
-      </span>
-      <span style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexShrink: 0 }}>
-        {card.kind === "themes"
-          ? schemes.map((sch) => (
-              <button
-                key={sch.id}
-                onClick={() => onPick(sch.label)}
-                aria-label={sch.label}
-                title={sch.label}
-                style={{
-                  appearance: "none",
-                  width: "clamp(22px, 5.5cqw, 34px)",
-                  height: "clamp(22px, 5.5cqw, 34px)",
-                  borderRadius: "50%",
-                  border: `2px solid ${sch.ink}`,
-                  background: sch.bg,
-                  cursor: "pointer",
-                  padding: 0,
-                  flexShrink: 0,
-                }}
-              />
-            ))
-          : card.options.map((label) => (
-              <button
-                key={label}
-                onClick={() => onPick(label)}
-                style={{
-                  appearance: "none",
-                  border: `1.5px solid ${scheme.ink}`,
-                  background: "transparent",
-                  color: scheme.ink,
-                  borderRadius: 999,
-                  padding: "0.3em 0.9em",
-                  fontFamily: "inherit",
-                  fontWeight: 600,
-                  fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-      </span>
-    </div>
-  );
-}
-
 
 /**
  * The seat as the rider sees it: a black stage with two cutouts — a circle
@@ -395,14 +302,27 @@ export default function SeatView({
           }}
         >
           {cosimo.card ? (
-            <CardOverlay
+            <SlitCard
               card={cosimo.card}
               scheme={scheme}
               textScale={textScale}
-              onPick={(label) => cosimo.send(label, lang, "tap")}
+              onLocal={(value) => cosimo.answerCard(cosimo.card!.id, value)}
+              onModel={(label) => cosimo.send(label, lang, "tap")}
             />
           ) : (
-            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              {seat.consentDecided && !cosimo.replying && (
+                <IdleHint lastActivityAt={cosimo.lastActivityAt} ink={scheme.ink} textScale={textScale} lang={lang} />
+              )}
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center" }}>
+                <div style={{ flex: 1, minWidth: 0, height: "100%" }}>
+                  <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
+                </div>
+                <div style={{ flexShrink: 0, paddingRight: "3%", display: "flex", alignItems: "center" }}>
+                  <RepeatAffordance lastReplyAt={cosimo.lastReplyAt} ink={scheme.ink} onRepeat={cosimo.repeatLast} lang={lang} />
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

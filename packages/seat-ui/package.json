@@ -14,7 +14,8 @@
   "dependencies": {
     "@cosimo/client": "workspace:*",
     "@cosimo/face": "workspace:*",
-    "@cosimo/shared": "workspace:*"
+    "@cosimo/shared": "workspace:*",
+    "lucide-react": "^1.33.0"
   },
   "peerDependencies": {
     "react": ">=18"

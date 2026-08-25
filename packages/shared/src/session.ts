@@ -11,21 +11,46 @@ import type { Locale } from "./telemetry.js";
 
 export type Modality = "voice" | "text" | "tap";
 
+/** How a card is answered: by the model (tap → user turn) or by the hub
+ *  itself (instant, no LLM round — themes, voices, scales, the wizard). */
+export type SeatCardKind = "confirm" | "list" | "themes" | "voices" | "scale";
+export type SeatCardIcon = "check" | "x" | "minus" | "plus" | "skip" | "done";
+
+export interface SeatCardOption {
+  /** What gets sent back (a label for model cards, a setting value for local ones). */
+  value: string;
+  label: string;
+  /** Icon-only chips (✓ ✗ − +) — the label becomes the aria-label. */
+  icon?: SeatCardIcon;
+}
+
+export interface SeatCardScale {
+  setting: "volume" | "speechRate" | "textSize";
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  /** slider = continuous (volume, tempo); stepper = −/+ (text size). */
+  control: "slider" | "stepper";
+}
+
 /**
- * A card CoSiMo can show in the seat circle: tappable options for a
- * clarification ("which light?") or a visual answer (the theme palette).
- * Always paired with the SPOKEN question — voice stays the primary channel;
- * a tap simply sends the chosen label back as a normal user turn. One card
- * per seat; a new turn (or a tap) clears it.
+ * A card CoSiMo shows IN THE SLIT: the spoken question as context on the
+ * left, tappable actions on the right. Always paired with the SPOKEN
+ * question — voice stays the primary channel. `local` cards are answered by
+ * the hub (`card:answer`), model cards send the chosen label as the rider's
+ * next message. One card per seat; a new turn, a tap, or `ttlMs` clears it.
  */
 export interface SeatCard {
-  /** "list": generic options. "themes": the client renders its own scheme
-   *  swatches (it owns the palette) — `options` is ignored. */
-  kind: "list" | "themes";
-  /** The question, as spoken — shown as the card caption. */
+  id: string;
+  kind: SeatCardKind;
   question: string;
-  /** 2–4 short labels for kind "list". Tapping sends the label as a turn. */
-  options: string[];
+  options: SeatCardOption[];
+  local: boolean;
+  scale?: SeatCardScale;
+  /** Wizard progress ("2/5") when the card is one step of the customizer. */
+  step?: { index: number; total: number };
+  ttlMs: number;
 }
 export type TurnRole = "user" | "cosimo";
 export type TurnOutcome =

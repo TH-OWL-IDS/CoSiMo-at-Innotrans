@@ -164,6 +164,10 @@ export interface ClientToServerEvents {
     lang: Locale;
     modality?: Modality;
   }) => void;
+  /** Answer to a LOCAL card (hub-handled: themes, voices, scales, wizard). */
+  "card:answer": (payload: { sessionId: string; cardId: string; value: string }) => void;
+  /** The ↻ affordance: say the last reply again (no LLM round). */
+  "reply:repeat": (payload: { sessionId: string }) => void;
   /** Visitor consent decision for recording. */
   "consent:set": (payload: { sessionId: string; consent: boolean }) => void;
   /** Outcome of a `cabin:actuate` — a failure marks the control degraded. */

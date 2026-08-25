@@ -26,6 +26,7 @@ import type { Hub } from "../hub.js";
 import type { PersonaProvider } from "./personas.js";
 import type { ProfileSink } from "./profileSink.js";
 import type { TelemetrySimulation } from "./telemetry.js";
+import { confirmCard, customizeCard, listCard, scaleCard, themesCard, voicesCard } from "./cards.js";
 
 export interface ToolResult {
   /** Text returned to Claude as the tool_result content. */
@@ -109,23 +110,30 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "show_choices",
     description:
-      "Show tappable options in the rider's view — ONLY when their request is genuinely ambiguous (e.g. 'mach eine Lampe an' and two lamps qualify) or when they ask to SEE something visual (colours/themes → kind 'themes'). Speak the question in the same reply; the rider answers by voice OR tap, both arrive as their next message. Never use this as a habit — when the request is clear, just act.",
+      "Put tappable options in the rider's slit — ALWAYS also ask the question aloud in the same reply, then END your turn. Kinds: 'confirm' = Ja/Nein for any yes/no question you ask; 'list' = 2–4 short options (ambiguity: 'mach eine Lampe an' → Innenlicht/Leselampe); 'themes' = colour palette; 'voices' = the voice catalog; 'scale' = a slider for volume/speechRate or −/+ for textSize. themes/voices/scale are applied by the system itself when tapped (it also confirms aloud) — do not call set_presentation for them. The rider may still answer by voice. Never use a card when the request is clear.",
     input_schema: {
       type: "object",
       properties: {
-        question: { type: "string", description: "The short question, exactly as you speak it (e.g. 'Das Innenlicht oder die Leselampe?')." },
+        question: { type: "string", description: "The short question, exactly as you speak it." },
+        kind: { type: "string", enum: ["confirm", "list", "themes", "voices", "scale"], description: "Default 'list'." },
         options: {
           type: "array",
           items: { type: "string" },
           minItems: 2,
           maxItems: 4,
-          description: "2–4 short tappable labels, in the rider's language. Omit for kind 'themes'.",
+          description: "For kind 'list' only: 2–4 short labels in the rider's language.",
         },
-        kind: { type: "string", enum: ["list", "themes"], description: "'themes' shows the colour palette as swatches (no options needed). Default 'list'." },
+        setting: { type: "string", enum: ["volume", "speechRate", "textSize"], description: "For kind 'scale': which setting the slider changes." },
       },
       required: ["question"],
       additionalProperties: false,
     },
+  },
+  {
+    name: "start_customizer",
+    description:
+      "Start the step-by-step look-and-voice customizer when the rider wants to personalise you ('ich möchte dein Aussehen individualisieren', 'kann ich dich anpassen'). The system walks them through colour → text size → contrast → voice → tempo with tappable steps and confirms each aloud. You only say a short intro plus the first question, then END your turn.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "remember",
@@ -311,19 +319,49 @@ export async function executeTool(
 
     case "show_choices": {
       const question = String(input.question ?? "").trim();
-      const kind = input.kind === "themes" ? ("themes" as const) : ("list" as const);
-      const options =
-        kind === "themes"
-          ? []
-          : (Array.isArray(input.options) ? input.options : []).map((o) => String(o).trim()).filter(Boolean).slice(0, 4);
       if (!question) return { text: "error: question is required", action: { tool: name } };
-      if (kind === "list" && options.length < 2) {
-        return { text: "error: kind 'list' needs 2–4 options", action: { tool: name } };
+      const kind = String(input.kind ?? "list");
+      const acc = ctx.hub.accommodationsOf(ctx.sessionId) ?? ctx.personas.get(ctx.persona).accommodations;
+      let card;
+      switch (kind) {
+        case "confirm":
+          card = confirmCard(question, ctx.lang);
+          break;
+        case "themes":
+          card = themesCard(question, ctx.lang);
+          break;
+        case "voices":
+          card = voicesCard(question, ctx.lang, ctx.voices);
+          break;
+        case "scale": {
+          const setting = input.setting === "speechRate" || input.setting === "textSize" ? input.setting : "volume";
+          card = scaleCard(question, setting, acc, ctx.lang);
+          break;
+        }
+        default: {
+          const options = (Array.isArray(input.options) ? input.options : []).map((o) => String(o).trim()).filter(Boolean);
+          if (options.length < 2) return { text: "error: kind 'list' needs 2–4 options", action: { tool: name } };
+          card = listCard(question, options);
+        }
       }
-      ctx.hub.showCard(ctx.sessionId, { kind, question, options }, ctx.turn);
+      ctx.hub.showCard(ctx.sessionId, card, ctx.turn);
       return {
-        text: "ok: options are on screen. Ask the question aloud in this same reply and END your turn — the rider's choice arrives as their next message.",
-        action: { tool: name, args: { kind, question, options } },
+        text: card.local
+          ? "ok: on screen. The system applies the rider's tap itself and confirms aloud. Ask the question aloud now and END your turn."
+          : "ok: options are on screen. Ask the question aloud in this same reply and END your turn — the rider's choice arrives as their next message.",
+        action: { tool: name, args: { kind: card.kind, question, options: card.options.map((o) => o.label) } },
+      };
+    }
+
+    case "start_customizer": {
+      const acc = ctx.hub.accommodationsOf(ctx.sessionId) ?? ctx.personas.get(ctx.persona).accommodations;
+      const first = customizeCard(0, ctx.lang, ctx.voices, acc);
+      if (!first) return { text: "error: customizer unavailable", action: { tool: name } };
+      ctx.hub.setWizardStep(ctx.sessionId, 0);
+      ctx.hub.showCard(ctx.sessionId, first, ctx.turn);
+      return {
+        text: `ok: the customizer is on screen (step 1: colour). Say a short friendly intro and then exactly this question aloud: "${first.question}" — then END your turn. The system handles every following step.`,
+        action: { tool: name },
       };
     }
 

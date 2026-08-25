@@ -107,6 +107,8 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 
 /** Composes the host inspector view for one seat (system prompt + turns). */
 export type InspectResolver = (deviceId: string) => SeatInspection | null;
+export type CardAnswerHandler = (payload: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey }) => void;
+export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey }) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
@@ -128,6 +130,13 @@ interface DeviceEntry {
   consent: boolean;
   lastUser: string;
   lastReply: string;
+  /** Untruncated last reply — for the ↻ "say it again" affordance. */
+  lastReplyFull: string;
+  /** The card currently in the slit (+ its auto-dismiss timer). */
+  card?: SeatCard;
+  cardTimer?: ReturnType<typeof setTimeout>;
+  /** Customizer wizard progress (step index) while it runs. */
+  wizardStep?: number;
   /** Accumulates streamed reply text until the turn is done. */
   replyBuffer: string;
   /** Monotonically increasing turn number — stale turns are dropped client-side. */
@@ -164,6 +173,8 @@ export class Hub {
   private personaLister: PersonaLister | undefined;
   private memoriesResolver: MemoriesResolver | undefined;
   private inspectResolver: InspectResolver | undefined;
+  private cardAnswerHandler: CardAnswerHandler | undefined;
+  private repeatHandler: RepeatHandler | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
   private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
@@ -284,6 +295,14 @@ export class Hub {
   }
 
   /** Register how a seat's deep inspection (prompt + turns) is composed. */
+  onCardAnswer(handler: CardAnswerHandler): void {
+    this.cardAnswerHandler = handler;
+  }
+
+  onRepeat(handler: RepeatHandler): void {
+    this.repeatHandler = handler;
+  }
+
   onInspect(resolver: InspectResolver): void {
     this.inspectResolver = resolver;
   }
@@ -354,6 +373,7 @@ export class Hub {
         consent: false,
         lastUser: "",
         lastReply: "",
+        lastReplyFull: "",
         replyBuffer: "",
         turn: 0,
         lastActivity: Date.now(),
@@ -399,6 +419,27 @@ export class Hub {
     });
 
     // Visitor consent for recording (GDPR) — starts the visible session.
+    socket.on("card:answer", ({ sessionId, cardId, value }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (!entry || !entry.card || entry.card.id !== cardId || !entry.card.local) return;
+      entry.lastActivity = Date.now();
+      entry.active = true;
+      this.cardAnswerHandler?.({
+        sessionId, deviceId, cardId, value: String(value),
+        lang: entry.persona.accommodations.language,
+        persona: this.personaOf(deviceId),
+      });
+    });
+
+    socket.on("reply:repeat", ({ sessionId }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (!entry) return;
+      entry.lastActivity = Date.now();
+      this.repeatHandler?.({ sessionId, deviceId, lang: entry.persona.accommodations.language, persona: this.personaOf(deviceId) });
+    });
+
     socket.on("consent:set", ({ sessionId, consent }) => {
       const deviceId = this.trackSession(socket, sessionId);
       this.countEvent("consent:set", deviceId);
@@ -739,14 +780,46 @@ export class Hub {
     const entry = this.entryOf(sessionId);
     if (!entry) return;
     if (turn !== -1 && turn < entry.turn) return;
+    if (entry.cardTimer) clearTimeout(entry.cardTimer);
+    entry.cardTimer = undefined;
+    if (!card && !entry.card) return; // nothing to clear — keep the wire quiet
+    entry.card = card ?? undefined;
+    if (!card) entry.wizardStep = undefined;
     entry.socket.emit("seat:card", { sessionId, card, turn });
     if (card) {
+      // auto-dismiss: a forgotten question must not stick in the slit
+      entry.cardTimer = setTimeout(() => {
+        if (entry.card?.id === card.id) this.showCard(sessionId, null, -1);
+      }, card.ttlMs);
+      entry.cardTimer.unref?.();
       logger.log(
         "card.show",
-        { kind: card.kind, question: card.question, options: card.options },
+        {
+          kind: card.kind, question: card.question, options: card.options.map((o) => o.label),
+          local: card.local, ...(card.step ? { step: `${card.step.index + 1}/${card.step.total}` } : {}),
+        },
         { sessionId, turn },
       );
     }
+  }
+
+  /** The card currently shown at a seat, if any. */
+  cardOf(sessionId: string): SeatCard | undefined {
+    return this.entryOf(sessionId)?.card;
+  }
+
+  wizardStepOf(sessionId: string): number | undefined {
+    return this.entryOf(sessionId)?.wizardStep;
+  }
+
+  setWizardStep(sessionId: string, step: number | undefined): void {
+    const entry = this.entryOf(sessionId);
+    if (entry) entry.wizardStep = step;
+  }
+
+  /** The seat's last complete reply (for ↻). */
+  lastReplyOf(sessionId: string): string {
+    return this.entryOf(sessionId)?.lastReplyFull ?? "";
   }
 
   /** The seat's LIVE accommodations (what the rider sees/hears right now).
@@ -783,7 +856,10 @@ export class Hub {
     if (turn !== -1 && turn < entry.turn) return;
     entry.socket.emit("chat:delta", { sessionId, text, done, turn });
     if (done) {
-      if (entry.replyBuffer) entry.lastReply = entry.replyBuffer.slice(0, SNIPPET_MAX);
+      if (entry.replyBuffer) {
+        entry.lastReply = entry.replyBuffer.slice(0, SNIPPET_MAX);
+        entry.lastReplyFull = entry.replyBuffer;
+      }
       entry.replyBuffer = "";
       this.pushSeats();
     } else {

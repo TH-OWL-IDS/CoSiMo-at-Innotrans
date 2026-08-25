@@ -106,6 +106,15 @@ hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
 });
 
+// Slit cards answered by the hub (themes, voices, sliders, the customizer)
+// and the ↻ "say it again" affordance — no LLM round, but a spoken reply.
+hub.onCardAnswer((p) => {
+  void agent.handleCardAnswer(p);
+});
+hub.onRepeat((p) => {
+  void agent.repeatLast(p);
+});
+
 // Barge-in: talk button pressed while a turn streams → abort that seat's turn
 // (the kiosk silences its audio locally at the same moment).
 hub.onInterrupt(({ deviceId }) => {
