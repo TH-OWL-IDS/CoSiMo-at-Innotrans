@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { BatteryMedium, Clock, Flag, MapPin, TriangleAlert, Users } from "lucide-react";
+import { BatteryMedium, Clock, Flag, MapPin, RotateCw, TriangleAlert, Users } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
-import { Banner, Brand, Button, Dot, Eyebrow, SeatGlyph, StatTile, cn } from "@cosimo/ui";
+import { Banner, Brand, Button, Card, Dot, Eyebrow, SeatGlyph, StatTile, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 
 /**
@@ -57,10 +57,29 @@ export default function App() {
 
   const L = (de: string, en: string) => (lang === "de" ? de : en);
 
+  // A console reset everything → this view should reload for a fresh state.
+  const reloadPanel = c.reloadRequired && (
+    <div role="alertdialog" aria-modal="true" aria-label={L("Bitte neu laden", "Please reload")} className="fixed inset-0 z-drawer flex items-center justify-center bg-ink/20 p-6">
+      <Card className="w-[min(420px,100%)] items-start gap-4">
+        <span className="text-2xl font-black">{L("Bitte neu laden", "Please reload")}</span>
+        <p className="m-0 text-md text-mute">
+          {L(
+            "Die Konsole hat alles zurückgesetzt. Diese Ansicht zeigt möglicherweise alten Stand.",
+            "The console reset everything. This view may be showing stale state.",
+          )}
+        </p>
+        <Button variant="primary" onClick={() => window.location.reload()}>
+          <RotateCw size={15} /> {L("Neu laden", "Reload")}
+        </Button>
+      </Card>
+    </div>
+  );
+
   if (!t) {
     return (
       <main className="grid min-h-screen place-items-center bg-bg text-mute">
         {c.connected ? L("Warte auf Telemetrie …", "Waiting for telemetry …") : L("Verbinde …", "Connecting …")}
+        {reloadPanel}
       </main>
     );
   }
@@ -202,6 +221,7 @@ export default function App() {
       {t.notes && (
         <footer className={cn("px-6 pb-6 text-md text-mute")}>{t.notes[lang]}</footer>
       )}
+      {reloadPanel}
     </main>
   );
 }

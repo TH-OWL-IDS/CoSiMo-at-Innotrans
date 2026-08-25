@@ -101,3 +101,7 @@ Since 2026-08-25 the view wears the same white MonoCab CI as the console
 (`@cosimo/ui`: tokens, Source Code Pro, the CoSiMo × MonoCab wordmark in
 the header). The SVG line reads the same CSS variables — the travelled
 track and the cab are CI red, a hold turns the cab amber.
+
+When a console runs "Alles zurücksetzen", the hub sends `host:reload` to
+every other host-role client — the journey view included — and this view
+shows a "Bitte neu laden" panel with a reload button.
