@@ -66,9 +66,9 @@ void operatorConfig.refresh().then(() => hub.broadcastConfig());
 // Keep the console's routing view honest: re-read on the provider's TTL
 // even when no turn is running, and push only if something changed.
 setInterval(() => void operatorConfig.refresh().then(() => hub.broadcastConfig()), 15_000);
-// The link check: ping every device socket, classify, push changes to the
-// console (hub.probeDevices logs transitions as device.health).
-setInterval(() => void hub.probeDevices(), 10_000);
+// The link check: ping every device socket every 2 s, classify, push
+// changes to the consoles only (hub.probeDevices logs transitions).
+setInterval(() => void hub.probeDevices(), 2_000);
 void personas.refresh().then(() => {
   hub.setPersona("default", "boot");
   hub.broadcastPersonas();

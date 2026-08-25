@@ -132,9 +132,12 @@ type ParkedState = Pick<
  *  so forgotten tabs can't pile up. */
 const MAX_HOST_CONSOLES = Number(process.env.MAX_HOST_CONSOLES ?? 3);
 
-/** Link check tuning (see probeDevices). */
-const PROBE_INTERVAL_MS = 10_000;
-const PROBE_TIMEOUT_MS = 3_000;
+/** Link check tuning (see probeDevices). A 2 s cadence is cheap — one tiny
+ *  ack per socket — as long as the result only goes to consoles. */
+const PROBE_INTERVAL_MS = 2_000;
+const PROBE_TIMEOUT_MS = 1_800;
+/** Consecutive unanswered pings before a device reads "stale". */
+const STALE_AFTER_MISSES = 2;
 const SLOW_RTT_MS = 250;
 const LOST_LINGER_MS = 30_000;
 
@@ -152,6 +155,8 @@ interface DeviceEntry {
   rttMs: number | null;
   probedAt: number | null;
   health: DeviceHealth;
+  /** Unanswered pings in a row (see STALE_AFTER_MISSES). */
+  misses: number;
   persona: PersonaBroadcast;
   emotion: FaceEmotion;
   phase: PipelinePhase;
@@ -444,6 +449,7 @@ export class Hub {
         rttMs: null,
         probedAt: null,
         health: "ok",
+        misses: 0,
       };
       // The same id coming back within PARK_MS is the same seat: a reloaded
       // emulator tab or a reconnecting iPad keeps its profile, consent,
@@ -804,12 +810,16 @@ export class Hub {
     };
   }
 
+  /** Only host-role clients (consoles, journey) read the device list — at a
+   *  2 s probe cadence, pushing it to every iPad would be pure waste. */
   private broadcastDevices(): void {
     const devices: ConnectedDevice[] = [
       ...Array.from(this.devices, ([deviceId, d]) => this.snapshot(deviceId, d)),
       ...this.lost.values(),
     ];
-    this.io.emit("devices:update", { devices });
+    for (const e of this.devices.values()) {
+      if (e.role === "host") e.socket.emit("devices:update", { devices });
+    }
   }
 
   /**
@@ -817,7 +827,18 @@ export class Hub {
    * answer. Runs every PROBE_INTERVAL_MS and on `host:probe`; broadcasts
    * only when a device's facts changed, logs only on health transitions.
    */
+  private probing = false;
   async probeDevices(): Promise<void> {
+    if (this.probing) return; // never overlap two rounds
+    this.probing = true;
+    try {
+      await this.probeRound();
+    } finally {
+      this.probing = false;
+    }
+  }
+
+  private async probeRound(): Promise<void> {
     const before = JSON.stringify(Array.from(this.devices, ([id, d]) => this.snapshot(id, d)));
     await Promise.all(
       Array.from(this.devices, ([id, d]) => {
@@ -827,8 +848,12 @@ export class Hub {
             // The entry may have disconnected meanwhile.
             if (this.devices.get(id) !== d) return resolve();
             const rtt = err ? null : Date.now() - started;
-            const health: DeviceHealth = err ? "stale" : rtt! > SLOW_RTT_MS ? "slow" : "ok";
-            d.rttMs = rtt;
+            d.misses = err ? d.misses + 1 : 0;
+            // One dropped ping is noise at this cadence; two in a row is a signal.
+            const health: DeviceHealth = err
+              ? d.misses >= STALE_AFTER_MISSES ? "stale" : d.health
+              : rtt! > SLOW_RTT_MS ? "slow" : "ok";
+            if (!err || d.misses >= STALE_AFTER_MISSES) d.rttMs = rtt;
             d.probedAt = Date.now();
             if (health !== d.health) {
               d.health = health;

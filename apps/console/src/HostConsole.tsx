@@ -280,7 +280,7 @@ function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStat
         <ServiceCard
           icon={Cable}
           name="Verbindungen"
-          detail="Wer gerade am Hub hängt. Der Hub pingt alle 10 s jede Verbindung über den Socket und misst die Antwortzeit. Konsolen: die Zahl der Bedien-Oberflächen, die zuletzt geantwortet haben (Details im Tooltip). Darunter jeder Kiosk-Sitz — iPad oder Browser-Emulator — mit Antwortzeit, Transport und Sitz-Status. „Jetzt prüfen“ löst die Messung sofort aus."
+          detail="Wer gerade am Hub hängt. Der Hub pingt alle 2 s jede Verbindung über den Socket und misst die Antwortzeit. Konsolen: die Zahl der Bedien-Oberflächen, die zuletzt geantwortet haben (Details im Tooltip). Darunter jeder Kiosk-Sitz — iPad oder Browser-Emulator — mit Antwortzeit, Transport und Sitz-Status. „Jetzt prüfen“ löst die Messung sofort aus."
           facts={[
             ["Konsolen", <Tip tip={consoleList}><span className="block truncate">{String(hosts.length)}</span></Tip>],
           ]}

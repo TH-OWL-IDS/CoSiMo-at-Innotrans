@@ -245,17 +245,18 @@ when the serialized config differs.
 
 ## Link check — `sys:ping`, `devices:update`, `host:probe`
 
-Every 10 s (and on `host:probe` from a console) the hub pings each
-connected socket with an ack timeout of 3 s (`socket.timeout().emit
+Every 2 s (and on `host:probe` from a console) the hub pings each
+connected socket with an ack timeout of 1.8 s (rounds never overlap) (`socket.timeout().emit
 ("sys:ping", ack)`; the shared client hook answers at once). The
 round-trip classifies the link: **ok** ≤ 250 ms, **slow** above, **stale**
-when the ack never comes although the socket is open (typically an app
+after two consecutive unanswered pings although the socket is open (typically an app
 build that predates `sys:ping`, or a frozen tab), **lost** once the socket
 disconnects — lost *kiosks* stay in `devices:update` for 30 s so a flapping
 iPad is visible on the console (a closed console tab just disappears). `ConnectedDevice` carries `connectedAt`,
 `transport` (websocket vs polling), `lastActivityAt`, `active`, `rttMs`,
-`probedAt`, `health`. The hub broadcasts only when a device's facts
-changed and logs a `device.health` event on every transition.
+`probedAt`, `health`. The hub pushes `devices:update` to host-role clients only (kiosks never
+read it), only when a device's facts changed, and logs a `device.health`
+event on every transition.
 
 `host:reset-device { deviceId }` (from a console) resets one device
 without dropping it: a kiosk-role target gets `session:reset` (back to
