@@ -20,7 +20,7 @@ import {
   type SeatSummary,
 } from "@cosimo/shared";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
-import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, Meter, SeatGlyph, Select, StatTile, cn } from "@cosimo/ui";
+import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, Meter, SeatGlyph, Select, StatTile, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 import LogView from "./LogView";
 import DiagramView from "./DiagramView";
@@ -88,95 +88,193 @@ function accommodationChips(a: Accommodations): string[] {
 }
 
 /* ────────────────────────────────────────────────────────────────
- * ÜBERSICHT — every dependency with a status and a sentence of detail
+ * ÜBERSICHT — one card per dependency: status, consequence, live facts
  * ──────────────────────────────────────────────────────────────── */
 
-function ServiceRow({ ok, warn, name, detail, icon: Icon }: { ok: boolean; warn?: boolean; name: string; detail: string; icon: LucideIcon }) {
+type ServiceState = "ok" | "warn" | "down";
+const STATE_LABEL: Record<ServiceState, string> = { ok: "läuft", warn: "eingeschränkt", down: "ausgefallen" };
+
+function ServiceCard({ state, name, detail, icon: Icon, facts }: {
+  state: ServiceState;
+  name: string;
+  /** One sentence: what this means for the demo right now. */
+  detail: string;
+  icon: LucideIcon;
+  /** Live facts, label → value; "—" when unknown. */
+  facts: [string, React.ReactNode][];
+}) {
   return (
-    <div className="flex items-center gap-3 border-b border-line-soft py-3">
-      <Dot state={ok ? "ok" : warn ? "warn" : "down"} />
-      <Icon size={16} className="shrink-0 text-mute" />
-      <span className="w-[130px] shrink-0 text-base font-semibold">{name}</span>
-      <span className="text-md text-mute">{detail}</span>
-    </div>
+    <Card active={state === "down"} className="gap-3">
+      <div className="flex items-center gap-2.5">
+        <Icon size={18} className="shrink-0 text-ink" />
+        <span className="flex-1 text-base font-semibold">{name}</span>
+        <span className={cn("inline-flex items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
+          <Dot state={state} /> {STATE_LABEL[state]}
+        </span>
+      </div>
+      <p className="m-0 text-md leading-snug text-mute">{detail}</p>
+      <KeyValue rows={facts} keyWidth="w-[88px]" className="border-t border-line-soft pt-2.5" />
+    </Card>
   );
 }
 
+const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+const ms = (v: number | null | undefined) => (v == null ? "—" : `${(v / 1000).toFixed(1)} s`);
+const clock = (ts: string | undefined) => (ts ? new Date(ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : "—");
+const ago = (ts: string | undefined, now: number) => {
+  if (!ts) return "—";
+  const s = Math.max(0, Math.round((now - new Date(ts).getTime()) / 1000));
+  return s < 60 ? `vor ${s} s` : s < 3600 ? `vor ${Math.round(s / 60)} min` : `um ${clock(ts)}`;
+};
+
 function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null }) {
-  // The log stream carries the richer facts: which brain answers, and
-  // whether the fallback is standing in for it.
-  const lastTurnLlm = [...c.logs].reverse().find((e) => e.kind === "turn.start" && e.data.llm !== null);
-  const llmName = lastTurnLlm?.kind === "turn.start" && lastTurnLlm.data.llm
-    ? `${lastTurnLlm.data.llm.provider} · ${lastTurnLlm.data.llm.model}` : "noch kein Turn";
-  const lastSvc = [...c.logs].reverse().find(
-    (e): e is Extract<LogEvent, { kind: "service.status" }> => e.kind === "service.status",
-  );
+  // A minute tick, so "vor 40 s" stays honest without the log changing.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // The log stream carries the richer facts: which brain answers, whether the
+  // fallback is standing in, how long the last turns took, what the light did.
+  const logs = c.logs;
+  const last = <K extends LogEvent["kind"]>(kind: K) =>
+    [...logs].reverse().find((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind);
+  const recent = <K extends LogEvent["kind"]>(kind: K, n = 10) =>
+    logs.filter((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind).slice(-n);
+
+  const lastTurnLlm = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "turn.start" }> => e.kind === "turn.start" && e.data.llm !== null);
+  const llmName = lastTurnLlm?.data.llm ? `${lastTurnLlm.data.llm.provider} · ${lastTurnLlm.data.llm.model}` : "noch kein Turn";
+  const lastSvc = last("service.status");
   const fallbackActive = Boolean(lastSvc && "llmFallbackActive" in lastSvc.data && lastSvc.data.llmFallbackActive);
-  const since = lastSvc ? new Date(lastSvc.ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) : null;
-  const kiosks = c.devices.filter((d) => d.role === "kiosk").length;
+  const turns = recent("turn.end");
+  const lastTurn = turns[turns.length - 1];
+  const turnsTotal = logs.filter((e) => e.kind === "turn.end").length;
+  const llmMs = mean(turns.map((t) => t.data.timings.llmMs).filter((x): x is number => x != null));
+  const sttMs = mean(turns.map((t) => t.data.timings.sttMs).filter((x): x is number => x != null));
+  const ttsMs = mean(turns.map((t) => t.data.timings.ttsMs).filter((x): x is number => x != null));
+  const lastStt = last("stt.result");
+  const lastTts = last("tts.done");
+  const cabinResults = logs.filter((e): e is Extract<LogEvent, { kind: "cabin.result" }> => e.kind === "cabin.result");
+  const cabinOk = cabinResults.filter((e) => e.data.ok).length;
+  const cabinFailed = cabinResults.length - cabinOk;
+  const lastCabin = cabinResults[cabinResults.length - 1];
+  const errors = logs.filter((e) => e.level === "error").length;
+  const kioskIds = c.devices.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
+  const consoles = c.devices.length - kioskIds.length;
+  const activeSeats = c.seats.filter((s) => s.active).length;
+
+  if (!st) {
+    return (
+      <div className="flex max-w-[1200px] flex-col gap-6">
+        <Card><span className="text-mute">warte auf Status …</span></Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex max-w-[860px] flex-col gap-6">
-      <Card>
-        <Eyebrow>Dienste</Eyebrow>
-        {st ? (
-          <div>
-            <ServiceRow
-              ok={c.connected}
-              icon={Cable}
-              name="Verbindung"
-              detail={c.connected ? `Hub verbunden · ${kiosks} Kiosk${kiosks === 1 ? "" : "s"}, ${c.devices.length - kiosks} Konsole(n)` : "keine Verbindung zum Hub"}
-            />
-            <ServiceRow
-              ok={st.llm}
-              warn={fallbackActive}
-              icon={Brain}
-              name="LLM"
-              detail={
-                st.llm
-                  ? `${llmName}${fallbackActive ? " — Fallback aktiv" : ""}${since ? ` · seit ${since}` : ""}`
-                  : "Gehirn nicht erreichbar — Antworten kommen aus dem Skript"
-              }
-            />
-            <ServiceRow
-              ok={st.serverStt}
-              warn={!st.serverStt}
-              icon={Mic}
-              name="Hören (STT)"
-              detail={st.serverStt ? "Deepgram (Server)" : "kein Server-STT — Browser-Erkennung, wo vorhanden"}
-            />
-            <ServiceRow
-              ok={st.serverTts}
-              warn={!st.serverTts}
-              icon={Volume2}
-              name="Sprechen (TTS)"
-              detail={st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"}
-            />
-            <ServiceRow
-              ok={st.cms}
-              warn={!st.cms}
-              icon={Database}
-              name="CMS"
-              detail={
-                st.cms
-                  ? "Payload erreichbar — Profile, Route und Sessions live"
-                  : "nicht erreichbar — eingebaute Defaults, keine Session-Aufzeichnung"
-              }
-            />
-            <ServiceRow ok={st.light} icon={Lightbulb} name="Licht" detail={st.light ? "Treiber verbunden (Kabine über die Sitze)" : "kein Licht-Treiber"} />
-            <ServiceRow ok={st.network} icon={Globe} name="Netzwerk" detail={st.network ? "Internet erreichbar" : "kein Internet — Offline-Modus"} />
-            <ServiceRow
-              ok={!st.offlineCanned}
-              warn={st.offlineCanned}
-              icon={FlaskConical}
-              name="Modus"
-              detail={st.offlineCanned ? "Demo-Modus: geskriptete Antworten" : "Live: der Agent antwortet"}
-            />
-          </div>
-        ) : (
-          <span className="text-mute">warte auf Status …</span>
-        )}
-      </Card>
+    <div className="flex max-w-[1200px] flex-col gap-4">
+      <Eyebrow>Dienste{lastSvc ? ` · Stand ${clock(lastSvc.ts)}` : ""}</Eyebrow>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ServiceCard
+          state={c.connected ? "ok" : "down"}
+          icon={Cable}
+          name="Verbindung"
+          detail={c.connected ? "Hub erreichbar — Sitze, Telemetrie und Log kommen live." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
+          facts={[
+            ["Kiosks", kioskIds.length ? `${kioskIds.length} · ${activeSeats} aktiv` : "keine"],
+            ["Konsolen", String(consoles)],
+            ["Geräte", kioskIds.length ? <span className="break-all">{kioskIds.join(", ")}</span> : "—"],
+            ["Hub", REALTIME_URL ? REALTIME_URL.replace(/^https?:\/\//, "") : "same-origin"],
+          ]}
+        />
+        <ServiceCard
+          state={st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
+          icon={Brain}
+          name="LLM"
+          detail={
+            st.llm
+              ? fallbackActive
+                ? "GX10 antwortet nicht — Claude übernimmt die Turns, bis die Probe wieder durchkommt."
+                : "Der Agent antwortet live; Tools und Erinnerungen sind aktiv."
+              : "Gehirn nicht erreichbar — Antworten kommen aus dem Skript."
+          }
+          facts={[
+            ["Modell", llmName],
+            ["Fallback", fallbackActive ? <span className="text-warn">aktiv (Claude)</span> : "bereit"],
+            ["Ø Denken", `${ms(llmMs)}${turns.length ? ` (${turns.length} Turns)` : ""}`],
+            ["Letzter Turn", lastTurn ? `${ago(lastTurn.ts, now)} · ${lastTurn.data.outcome}` : "—"],
+          ]}
+        />
+        <ServiceCard
+          state={st.serverStt ? "ok" : "warn"}
+          icon={Mic}
+          name="Hören (STT)"
+          detail={st.serverStt ? "Deepgram auf dem Server — jede Aufnahme wird hochgeladen und transkribiert." : "Kein Server-STT — die iPads erkennen selbst, wo der Browser es kann."}
+          facts={[
+            ["Pfad", st.serverStt ? "Deepgram (Server)" : "Browser-Erkennung"],
+            ["Ø Dauer", ms(sttMs)],
+            ["Zuletzt", lastStt ? `${ago(lastStt.ts, now)} · ${lastStt.data.chars} Zeichen aus ${Math.round(lastStt.data.bytes / 1024)} kB` : "—"],
+          ]}
+        />
+        <ServiceCard
+          state={st.serverTts ? "ok" : "warn"}
+          icon={Volume2}
+          name="Sprechen (TTS)"
+          detail={st.serverTts ? "ElevenLabs auf dem Server — die Stimme kommt satzweise als Audio zum Sitz." : "Browser-Synthese — die iPads sprechen mit der Systemstimme."}
+          facts={[
+            ["Pfad", st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"],
+            ["Ø Dauer", ms(ttsMs)],
+            ["Erstes Audio", lastTts?.data.firstChunkMs != null ? `nach ${ms(lastTts.data.firstChunkMs)}${lastTts.data.chunks ? ` · ${lastTts.data.chunks} Clips` : ""}` : "—"],
+            ["Zuletzt", lastTts ? `${ago(lastTts.ts, now)} · ${lastTts.data.chars} Zeichen` : "—"],
+          ]}
+        />
+        <ServiceCard
+          state={st.cms ? "ok" : "warn"}
+          icon={Database}
+          name="CMS"
+          detail={st.cms ? "Payload erreichbar — Profile, Route und Sessions live." : "Nicht erreichbar — eingebaute Defaults, keine Session-Aufzeichnung."}
+          facts={[
+            ["Profile", c.personas.length ? `${c.personas.length} (${st.cms ? "CMS" : "Defaults"})` : "—"],
+            ["Sessions", st.cms ? "werden geschrieben" : <span className="text-warn">nicht gespeichert</span>],
+            ["Probe", "alle 15 s, TTL-Cache"],
+          ]}
+        />
+        <ServiceCard
+          state={st.light ? "ok" : "warn"}
+          icon={Lightbulb}
+          name="Licht"
+          detail={st.light ? "Treiber verbunden — CoSiMo schaltet die Kabine über die Sitze (Kabinen-LAN)." : "Kein Licht-Treiber — Lichtwünsche werden nur bestätigt, nicht ausgeführt."}
+          facts={[
+            ["Aktionen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""}` : "noch keine"],
+            ["Zuletzt", lastCabin ? `${ago(lastCabin.ts, now)} · ${lastCabin.data.control} ${lastCabin.data.ok ? "ok" : "Fehler"}` : "—"],
+            ["Weg", "iPad → LPU-2 (HTTP)"],
+          ]}
+        />
+        <ServiceCard
+          state={st.network ? "ok" : "down"}
+          icon={Globe}
+          name="Netzwerk"
+          detail={st.network ? "Internet erreichbar — Cloud-Dienste (TTS, STT, Fallback) stehen bereit." : "Kein Internet — Offline-Modus, nur lokale Antworten."}
+          facts={[
+            ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
+            ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
+            ["Status", lastSvc ? `${ago(lastSvc.ts, now)} gemeldet` : "—"],
+          ]}
+        />
+        <ServiceCard
+          state={st.offlineCanned ? "warn" : "ok"}
+          icon={FlaskConical}
+          name="Modus"
+          detail={st.offlineCanned ? "Demo-Modus: geskriptete Antworten, kein Agent — umschalten unter Sessions › Betrieb." : "Live: der Agent antwortet."}
+          facts={[
+            ["Modus", st.offlineCanned ? "Demo (Skript)" : "Live (Agent)"],
+            ["Turns gesamt", String(turnsTotal)],
+            ["Fehler", errors ? <span className="text-accent">{errors}</span> : "0"],
+            ["Störung", c.telemetry?.faults?.[0] ? `${c.telemetry.faults[0].cause.de} (${c.telemetry.faults[0].remainingSec} s)` : "keine"],
+          ]}
+        />
+      </div>
     </div>
   );
 }

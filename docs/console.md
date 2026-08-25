@@ -6,12 +6,16 @@ header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
 separated from the content by a hairline — and five views (the active tab survives a reload
 via the URL hash):
 
-- **Übersicht** — every dependency as a row with a status dot and a detail
-  sentence: hub connection (+ device counts), LLM (provider · model, and
-  "Fallback aktiv" when the probe switched brains), STT, TTS, light,
-  network, and the mode (Live vs Demo). The operations that belong next to
-  a red dot live here too: recover, the demo/offline toggle, persona for
-  all seats. The tab label carries a red dot whenever something is down.
+- **Übersicht** — one card per dependency in a four-column grid (two on a
+  tablet): status word + dot, a sentence on what it means for the demo
+  right now, and live facts read from the socket state and the log stream
+  — hub (kiosk/console counts, device ids), LLM (provider · model,
+  fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
+  last result, time to first audio), CMS (profile count, session writes),
+  light (actuations ok/failed, last one), network, and the mode (Live vs
+  Demo, turns, errors, active fault). A down service gets a red card
+  border. The operations live under Sessions › Betrieb; the tab label
+  carries a red dot whenever something is down.
 - **Fahrzeug** — the MonoCab itself: the CI line drawing centred, live
   speed above it, destination/direction beneath, a fault banner with cause
   and countdown when a disruption is active, and stat tiles (position,
