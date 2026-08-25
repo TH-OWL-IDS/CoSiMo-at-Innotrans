@@ -118,10 +118,11 @@
    nothing to redefine here. Use `border-2` / `border-[3px]` for the rare
    heavier rule. */
 
-/* Interaction vocabulary, shared by every control. The ring is ink, not
-   accent — in this CI red means "down" or "live", never "focused". */
+/* Interaction vocabulary, shared by every control. Keyboard focus is a
+   thin 1px ink outline, offset from the element — not a heavy ring. Ink,
+   not accent: in this CI red means "down" or "live", never "focused". */
 @utility focus-ring {
-  outline: 2px solid transparent;
+  outline: 1px solid transparent;
   outline-offset: 2px;
   &:focus-visible {
     outline-color: var(--color-ink);

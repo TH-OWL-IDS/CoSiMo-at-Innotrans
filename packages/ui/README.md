@@ -51,7 +51,7 @@ or `border-[3px]` for the rare heavier rule.
 
 ## Interaction vocabulary
 
-`focus-ring` (custom utility): 2px **ink** outline on `:focus-visible` —
+`focus-ring` (custom utility): thin 1px **ink** outline, offset 2px, on `:focus-visible` —
 red means *down* or *live* in this CI, never *focused*. Hover is
 `bg-well` / `border-line-strong`; disabled is `opacity-45`. Hover styles
 only apply on devices that hover (Tailwind v4 default), so phones/iPads

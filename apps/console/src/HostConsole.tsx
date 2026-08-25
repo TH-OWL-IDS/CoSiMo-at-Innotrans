@@ -679,16 +679,16 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "logs", label: "Logs", icon: ScrollText },
 ];
 
-/** The view switcher: a small dropdown on the header's left. The closed
- *  button shows the current view (and its badge, so a red Übersicht is
- *  visible without opening); arrow keys, Esc and click-outside are Radix's. */
+/** The view switcher: a borderless dropdown on the header's right. The closed
+ *  button shows the current view and its count badge (active seats, log
+ *  errors); arrow keys, Esc and click-outside are Radix's. */
 function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => void; badge: (t: Tab) => React.ReactNode }) {
   const current = TABS.find((t) => t.id === tab)!;
   const CurrentIcon = current.icon;
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button size="sm" className="group px-3 py-[7px] text-base">
+        <Button variant="ghost" size="sm" className="group px-3 py-[7px] text-base text-ink">
           <CurrentIcon size={16} />
           {current.label}
           {badge(tab)}
@@ -697,7 +697,7 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          align="start"
+          align="end"
           sideOffset={6}
           className="z-menu flex min-w-[200px] flex-col rounded-lg border border-line bg-white p-1.5 shadow-float"
         >
@@ -744,10 +744,8 @@ export default function HostConsole() {
   };
   const errors = c.logs.filter((e) => e.level === "error").length;
   const activeSeats = c.seats.filter((s) => s.active).length;
-  const anyDown = Boolean(st && (!st.llm || !st.network || st.offlineCanned)) || !c.connected;
-
+  // No fault dot on the menu: the Übersicht cards carry the state.
   const badge = (t: Tab): React.ReactNode => {
-    if (t === "uebersicht" && anyDown) return <span className="text-accent"><span aria-hidden>●</span><span className="sr-only">Störung</span></span>;
     if (t === "sessions" && activeSeats > 0) return <span className="text-mute">{activeSeats}</span>;
     if (t === "logs" && errors > 0) return <span className="text-accent">{errors}<span className="sr-only"> Fehler</span></span>;
     return null;
@@ -755,16 +753,16 @@ export default function HostConsole() {
 
   return (
     <main className="min-h-screen bg-bg text-ink">
-      {/* ── the header: dropdown left, wordmark centred, an empty right zone as counterweight ── */}
+      {/* ── the header: wordmark centred, the view switcher on the right; the
+             empty left zone is its counterweight so the wordmark stays centred ── */}
       <header className="sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
-        <div className="flex flex-1 justify-start">
-          <TabMenu tab={tab} onSwitch={switchTab} badge={badge} />
-        </div>
+        <div className="flex-1" />
         <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Konsole">
           <Brand />
         </h1>
-        {/* right zone stays empty — it balances the dropdown so the wordmark is truly centred; connection state lives in Übersicht */}
-        <div className="flex-1" />
+        <div className="flex flex-1 justify-end">
+          <TabMenu tab={tab} onSwitch={switchTab} badge={badge} />
+        </div>
       </header>
 
       <div className={tab === "diagramm" ? "p-0" : "p-6"}>

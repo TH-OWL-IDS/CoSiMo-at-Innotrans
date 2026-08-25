@@ -3,7 +3,7 @@
 What booth staff have open on a phone or spare iPad during the show. One
 header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
 `@cosimo/ui`; CoSiMo and the × in Schoolbell, the hand-written face font),
-separated from the content by a hairline — and five views (the active tab survives a reload
+separated from the content by a hairline — and five views (the view switcher is a borderless dropdown on the header's right; the active tab survives a reload
 via the URL hash):
 
 - **Übersicht** — one card per dependency in a four-column grid (two on a
@@ -14,8 +14,8 @@ via the URL hash):
   last result, time to first audio), CMS (profile count, session writes),
   light (actuations ok/failed, last one), network, and the mode (Live vs
   Demo, turns, errors, active fault). A down service gets a red card
-  border. The operations live under Sessions › Betrieb; the tab label
-  carries a red dot whenever something is down.
+  border. The operations live under Sessions › Betrieb. The menu carries no
+  fault dot — the cards are the indicator.
 - **Fahrzeug** — the MonoCab itself: the CI line drawing centred, live
   speed above it, destination/direction beneath, a fault banner with cause
   and countdown when a disruption is active, and stat tiles (position,

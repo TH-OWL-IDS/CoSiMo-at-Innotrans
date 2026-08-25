@@ -280,7 +280,7 @@ export default function LogView({
               className={cn(
                 ROW,
                 "cursor-pointer border-l-[3px] border-transparent px-2.5 py-[3px] text-left",
-                "hover:bg-white/60 focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-ink",
+                "hover:bg-white/60 focus-ring",
                 "data-[band]:bg-well-raised",
                 "data-[level=debug]:text-mute data-[level=warn]:border-warn data-[level=warn]:text-warn data-[level=error]:border-accent data-[level=error]:text-accent",
               )}
