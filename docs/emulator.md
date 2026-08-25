@@ -68,12 +68,18 @@ pnpm --filter @cosimo/emulator dev     # :6103, socket proxied to :6101
 # prod: part of docker-compose.prod.yml → seat-cosimo.homannjohannes.de
 ```
 
-## Look
+## Look — and the hidden panel
 
-The side panel uses `@cosimo/ui` (white CI, Source Code Pro, `Button` /
-`Input` / `Eyebrow`); the seat column stays black like the iPad behind its
-panel. `SeatView` itself is untouched — rider-facing UI lives in
-`packages/seat-ui` and takes its colours from the persona schemes.
+The seat has the whole viewport (the iPad-aspect frame centres and scales,
+so a phone in portrait shows it whole). The developer panel is **hidden
+behind a near-invisible handle** in the bottom-right corner and the
+operator password (same SHA-256 as the console's lock, remembered per
+tab): a visitor on `seat-cosimo.…` just sees the seat. Open, it is a
+right-side drawer on a desktop and a bottom sheet (≤ 56 vh) on a phone, so
+the face stays visible while you hold to talk; Esc or the scrim closes it.
+The panel uses `@cosimo/ui` (white CI, Source Code Pro); `SeatView` itself
+is untouched — rider-facing UI lives in `packages/seat-ui` and takes its
+colours from the persona schemes.
 
 ## Reload keeps the seat
 

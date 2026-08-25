@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
 import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat } from "@cosimo/seat-ui";
+import { LockKeyhole, X } from "lucide-react";
 import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
+
+/** SHA-256 of the operator password — the console's page lock uses the same. */
+const HASH = "3bb21893fb23828e7ae7a66a38d67ae119525d12867310adfcb622d2742bb540";
+const UNLOCK_KEY = "cosimo.emulator.unlocked";
+async function sha256(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 import { resolveServerUrl } from "./serverUrl";
 
 /**
@@ -10,8 +19,11 @@ import { resolveServerUrl } from "./serverUrl";
  * SeatView the iPad renders — so what you see here is what a rider sees.
  * The physical parts are replaced by the side panel: the talk/info buttons,
  * the NFC reader, and the cabin-LAN light controller (which is logged, or
- * optionally fired for real when this machine can reach it). The panel
- * wears the console's white CI (@cosimo/ui); the seat column stays black.
+ * optionally fired for real when this machine can reach it). The panel is
+ * hidden behind a near-invisible corner handle and the operator password:
+ * a visitor on seat-cosimo.… just sees the seat. Right-side drawer on a
+ * desktop, bottom sheet on a phone. The seat itself stays black and in
+ * the kiosk's system font.
  */
 
 interface LogEntry {
@@ -100,25 +112,118 @@ export default function App() {
     setText("");
   }, [text, cosimo, lang]);
 
+  // The panel: hidden behind a near-invisible handle, password on first
+  // open (same hash as the console's lock), remembered for this tab.
+  const [open, setOpen] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem(UNLOCK_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [pw, setPw] = useState("");
+  const [wrong, setWrong] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const controls = cosimo.cabin;
   const Status = ({ ok, label }: { ok: boolean | undefined; label: string }) => (
     <span className="inline-flex items-center gap-1.5"><Dot size="sm" state={ok ? "ok" : "down"} />{label}</span>
   );
 
   return (
-    <div className="fixed inset-0 grid grid-cols-[1fr_340px]">
+    <div className="fixed inset-0 bg-black font-sans">
       {/* ── the seat, exactly as the iPad renders it — including the
-             kiosk's system font, which SeatView inherits ──────────── */}
-      <div className="relative bg-black font-sans">
-        <SeatView seat={seat} layout={DEFAULT_PANEL_LAYOUT} fullscreen={false} />
-      </div>
+             kiosk's system font, which SeatView inherits. It has the whole
+             viewport; the panel floats over it. ── */}
+      <SeatView seat={seat} layout={DEFAULT_PANEL_LAYOUT} fullscreen={false} />
 
-      {/* ── the side panel: everything the hardware would provide ── */}
-      <aside className="flex flex-col gap-4 overflow-y-auto border-l border-line bg-white p-4 text-md text-ink">
+      {/* ── the panel's handle: a small, almost invisible dot in the corner.
+             Visitors don't find it; staff know it is there. ── */}
+      {!open && (
+        <button
+          type="button"
+          aria-label="Emulator-Panel öffnen"
+          onClick={() => setOpen(true)}
+          className="fixed bottom-3 right-3 z-drawer size-7 cursor-pointer rounded-full border border-white/25 bg-transparent opacity-30 transition-opacity hover:opacity-90 focus-visible:opacity-90 motion-reduce:transition-none"
+        >
+          <span className="sr-only">Panel</span>
+        </button>
+      )}
+
+      {/* ── the panel: right-side drawer on desktop, bottom sheet on a phone
+             (the face stays visible above it while you hold to talk).
+             Behind the password on first open; remembered for this tab. ── */}
+      {open && (
+        <div className="fixed inset-0 z-drawer">
+          <div className="absolute inset-0 bg-ink/20 md:bg-transparent" onClick={() => setOpen(false)} aria-hidden />
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Seat emulator"
+            className={cn(
+              "absolute flex flex-col gap-4 overflow-y-auto bg-white p-4 font-mono text-md text-ink shadow-drawer",
+              "inset-x-0 bottom-0 max-h-[56vh] rounded-t-2xl border-t border-line",
+              "md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[360px] md:rounded-none md:border-l md:border-t-0",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Seat emulator">
+                <Brand size={32} />
+              </h1>
+              <Button icon variant="ghost" size="sm" aria-label="Panel schließen" onClick={() => setOpen(false)}>
+                <X size={18} />
+              </Button>
+            </div>
+            {!unlocked ? (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if ((await sha256(pw.trim())) === HASH) {
+                    try {
+                      sessionStorage.setItem(UNLOCK_KEY, "1");
+                    } catch {
+                      // private mode — unlocked for this page load
+                    }
+                    setUnlocked(true);
+                  } else {
+                    setWrong(true);
+                    setPw("");
+                  }
+                }}
+                className="flex flex-col gap-3"
+              >
+                <Eyebrow size="xs">Nur für das Standpersonal</Eyebrow>
+                <label className="flex flex-col gap-1.5 text-sm uppercase tracking-caps opacity-55">
+                  Passwort
+                  <Input
+                    type="password"
+                    size="lg"
+                    autoFocus
+                    autoComplete="current-password"
+                    value={pw}
+                    onChange={(e) => {
+                      setPw(e.target.value);
+                      setWrong(false);
+                    }}
+                    aria-invalid={wrong}
+                    className="normal-case tracking-normal opacity-100"
+                  />
+                </label>
+                <Button type="submit" variant="primary" size="lg">
+                  <LockKeyhole size={15} /> Entsperren
+                </Button>
+                <span role="status" className="min-h-4 text-sm text-accent">{wrong ? "Falsches Passwort" : ""}</span>
+              </form>
+            ) : (
+              <>
+
         <header className="flex flex-col gap-1.5">
-          <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Seat emulator">
-            <Brand size={32} />
-          </h1>
           <Eyebrow size="xs">Seat emulator</Eyebrow>
           <div className="leading-normal text-mute">
             <Status ok={cosimo.connected} label={cosimo.connected ? "connected" : "connecting…"} /> ·{" "}
@@ -313,7 +418,12 @@ export default function App() {
             </>
           )}
         </footer>
-      </aside>
+      
+              </>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
