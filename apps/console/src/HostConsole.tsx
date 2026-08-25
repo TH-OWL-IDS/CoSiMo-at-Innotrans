@@ -5,7 +5,7 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  RadioTower, TabletSmartphone, Unplug, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -262,9 +262,22 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
             {kiosks.length === 0 && <span className="text-sm text-mute">keine Kiosks verbunden</span>}
             {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} />)}
           </div>
-          <Button size="xs" variant="secondary" className="self-start" onClick={() => c.probeDevices()}>
-            <RadioTower size={13} /> Jetzt prüfen
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="xs" variant="secondary" onClick={() => c.probeDevices()}>
+              <RadioTower size={13} /> Jetzt prüfen
+            </Button>
+            <Button
+              size="xs"
+              variant="secondary"
+              tone="accent"
+              title="Trennt alle anderen Verbindungen — Kiosks, Emulatoren, Konsolen. Getrennte Tabs bleiben getrennt, bis sie neu laden; iPads bis zum Neustart der App."
+              onClick={() => {
+                if (window.confirm("Alle anderen Verbindungen trennen? Kiosks und Konsolen bleiben getrennt, bis sie neu laden (iPads: App neu starten).")) c.disconnectAll();
+              }}
+            >
+              <Unplug size={13} /> Alle trennen
+            </Button>
+          </div>
         </ServiceCard>
         <ServiceCard
           state={st.llm ? (fallbackActive ? "warn" : "ok") : "down"}

@@ -192,6 +192,8 @@ export class Hub {
   private configLister: (() => HostConfigBroadcast) | undefined;
   /** Recently disconnected devices, shown as "lost" for LOST_LINGER_MS. */
   private readonly lost = new Map<string, ConnectedDevice>();
+  /** True while host:disconnect-all runs — those drops are not faults. */
+  private kicking = false;
   /** Last config pushed, serialized — broadcastConfig() only emits on change. */
   private lastConfigJson = "";
   private memoriesResolver: MemoriesResolver | undefined;
@@ -454,6 +456,19 @@ export class Hub {
           logger.log("host.action", { action: "probe", args: {} }, { deviceId });
           void this.probeDevices();
         });
+        socket.on("host:disconnect-all", () => {
+          const others = Array.from(this.devices).filter(([id]) => id !== deviceId);
+          logger.log("host.action", { action: "disconnect-all", args: { count: others.length } }, { deviceId });
+          // Deliberate: no "lost" lingering for these, and clear old ghosts.
+          this.kicking = true;
+          try {
+            for (const [, e] of others) e.socket.disconnect(true);
+          } finally {
+            this.kicking = false;
+          }
+          this.lost.clear();
+          this.broadcastDevices();
+        });
       }
       // Hosts get the debug log: the buffer now, then live. A re-subscribe
       // (host:log:replay) swaps the sink so there is never a double stream.
@@ -671,7 +686,7 @@ export class Hub {
         this.turnBudget.delete(id);
         // Keep a "lost" line for 30 s so a flapping iPad is visible on the
         // console. Kiosks only: a console tab closing is not a fault.
-        if (e && e.role === "kiosk") {
+        if (e && e.role === "kiosk" && !this.kicking) {
           this.lost.set(id, { ...this.snapshot(id, e), health: "lost", rttMs: null });
           setTimeout(() => {
             this.lost.delete(id);

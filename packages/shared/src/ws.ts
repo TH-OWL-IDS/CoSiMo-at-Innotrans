@@ -229,6 +229,10 @@ export interface ClientToServerEvents {
   "host:inspect": (payload: { deviceId: string }) => void;
   /** Run the link check on every device now (the periodic one runs anyway). */
   "host:probe": (payload: Record<string, never>) => void;
+  /** Disconnect every other socket — kiosks, emulators, consoles. A
+   *  server-side disconnect is not auto-reconnected by clients, so kicked
+   *  tabs stay gone until reloaded (an iPad: app restart). */
+  "host:disconnect-all": (payload: Record<string, never>) => void;
   /** Re-request the log buffer, optionally only events after `since` (seq). */
   "host:log:replay": (payload: { since?: number }) => void;
 }
