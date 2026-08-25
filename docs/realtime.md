@@ -283,3 +283,14 @@ the role; old clients get the plain kind for their role. `MAX_HOST_CONSOLES`
 (default 3): on a console hello the hub evicts the oldest *console* sockets
 beyond the cap — `host:evicted` then a server-side
 disconnect (not auto-reconnected). Logged as `host.action evict`.
+
+## `host:services` — the deployables for the console
+
+`services.ts` probes the five deployables every 15 s from inside the hub:
+the CMS (`PAYLOAD_INTERNAL_URL`), the hub itself, and the three static
+sites via `SERVICE_URL_CONSOLE|EMULATOR|JOURNEY` (compose sets the
+service names; dev defaults to the local 61xx ports; unset inside Docker
+= "unknown"). Public hosts come from `COSIMO_*_DOMAIN` / `COSIMO_DOMAIN`.
+The hub cannot query Docker, so "container" is the compose service name
+(plus its own container hostname). Pushed to host consoles on hello and
+whenever a probe result changes.

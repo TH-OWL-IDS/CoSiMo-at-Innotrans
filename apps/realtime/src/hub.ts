@@ -36,6 +36,7 @@ import {
   type ClientKind,
   type DeviceHealth,
   type HostConfigBroadcast,
+  type ServiceInfo,
 } from "@cosimo/shared";
 
 /** Resolves a persona key to its client-facing broadcast slice. */
@@ -211,6 +212,7 @@ export class Hub {
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
+  private servicesLister: (() => ServiceInfo[]) | undefined;
   /** Recently disconnected devices, shown as "lost" for LOST_LINGER_MS. */
   private readonly lost = new Map<string, ConnectedDevice>();
   /** Dropped kiosks' state, waiting PARK_MS for the same id to return. */
@@ -416,6 +418,20 @@ export class Hub {
     }
   }
 
+  /** Register how the deployables' status is read (host console). */
+  setServicesLister(lister: () => ServiceInfo[]): void {
+    this.servicesLister = lister;
+  }
+
+  /** Push the deployables' status to every host console. */
+  broadcastServices(): void {
+    if (!this.servicesLister) return;
+    const services = this.servicesLister();
+    for (const e of this.devices.values()) {
+      if (e.role === "host") e.socket.emit("host:services", { services });
+    }
+  }
+
   /** Push the current authored persona set to every connected host console. */
   broadcastPersonas(): void {
     if (!this.personaLister) return;
@@ -494,6 +510,9 @@ export class Hub {
       }
       if (role === "host" && this.configLister) {
         socket.emit("host:config", this.configLister());
+      }
+      if (role === "host" && this.servicesLister) {
+        socket.emit("host:services", { services: this.servicesLister() });
       }
       if (role === "host") {
         socket.on("host:probe", () => {

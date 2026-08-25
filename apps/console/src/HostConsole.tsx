@@ -5,7 +5,7 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  AppWindow, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  AppWindow, Box, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -13,6 +13,7 @@ import {
   type ClientKind,
   type ConnectedDevice,
   type ConnectionStatus,
+  type ServiceInfo,
   type DeviceHealth,
   type LogEvent,
   type MonoCabTelemetry,
@@ -173,6 +174,39 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
   );
 }
 
+const SERVICE_ICON: Record<ServiceInfo["id"], LucideIcon> = { cms: Database, realtime: Cable, console: Monitor, emulator: AppWindow, journey: Route };
+
+/** One deployable, one line: name, public host, port, dot. Everything else in the tooltip. */
+function ServiceRow({ s, now }: { s: ServiceInfo; now: number }) {
+  const Icon = SERVICE_ICON[s.id];
+  const tip = [
+    s.label,
+    s.publicHost ? `öffentlich: https://${s.publicHost}` : "öffentlich: — (kein Domain-Env, Dev)",
+    s.internalUrl ? `intern: ${s.internalUrl}` : "intern: nicht konfiguriert (SERVICE_URL_*)",
+    s.port != null ? `Port: ${s.port}` : null,
+    s.container ? `Container: ${s.container}` : s.docker ? "Container: —" : "läuft ohne Docker (Dev)",
+    s.checkedAt ? `Probe: ${s.latencyMs != null ? `${s.latencyMs} ms` : "keine Antwort"} · ${ago(s.checkedAt, now)}` : "Probe: noch keine",
+  ].filter(Boolean).join("\n");
+  const state: ServiceState | null = s.status === "ok" ? "ok" : s.status === "down" ? "down" : null;
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-sm">
+      <Icon size={14} className="shrink-0 text-mute" />
+      <Tip tip={tip} className="min-w-0 flex-1">
+        <span className="block truncate">
+          {s.label}
+          {s.publicHost && <span className="text-mute"> · {s.publicHost}</span>}
+        </span>
+      </Tip>
+      <span className="shrink-0 tabular-nums text-mute">{s.port != null ? `:${s.port}` : ""}</span>
+      {s.container && <Box size={12} className="shrink-0 text-mute" aria-label="Docker" />}
+      <span className={cn("inline-flex shrink-0 items-center gap-1.5", state === "ok" ? "text-ok" : state === "down" ? "text-accent" : "text-mute")}>
+        {state ? <Dot size="sm" state={state} /> : <span className="inline-block size-[7px] rounded-full border border-line" aria-hidden />}
+        {state === "ok" ? "ok" : state === "down" ? "down" : "—"}
+      </span>
+    </div>
+  );
+}
+
 function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
   /** Omit for a card that has no single status of its own (Verbindungen: every row carries one). */
   state?: ServiceState;
@@ -199,8 +233,8 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
           </span>
         )}
       </div>
-      <KeyValue rows={facts} keyWidth="w-[88px]" className="border-t border-line-soft pt-2.5" />
-      {children}
+      {facts.length > 0 && <KeyValue rows={facts} keyWidth="w-[88px]" className="border-t border-line-soft pt-2.5" />}
+      {children && <div className={cn("flex flex-col gap-2.5", facts.length === 0 && "border-t border-line-soft pt-2.5")}>{children}</div>}
     </Card>
   );
 }
@@ -305,6 +339,18 @@ function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStat
             >
               <RotateCw size={13} /> Alles zurücksetzen
             </Button>
+          </div>
+        </ServiceCard>
+        <ServiceCard
+          state={c.services.length === 0 ? undefined : c.services.some((s) => s.status === "down") ? "down" : "ok"}
+          icon={Box}
+          name="Services"
+          detail="Die fünf Deployables aus Sicht des Hubs: CMS (Payload), WS (der Hub selbst), Konsole, Seat-Emulator und Fahrt-Ansicht — je mit öffentlichem Host, internem Port und Compose-Service. Der Hub prüft alle 15 s die interne Adresse; die Details stehen im Tooltip der Zeile."
+          facts={[]}
+        >
+          <div className="flex flex-col gap-1.5">
+            {c.services.length === 0 && <span className="text-sm text-mute">warte auf den Hub …</span>}
+            {c.services.map((s) => <ServiceRow key={s.id} s={s} now={now} />)}
           </div>
         </ServiceCard>
         <ServiceCard

@@ -128,6 +128,26 @@ export interface HostConfigBroadcast {
   cabin: { lpu2BaseUrl: string; mapped: number; controls: number; timeoutMs: number };
 }
 
+/** One deployable as the hub sees it, for the console's Services card. */
+export interface ServiceInfo {
+  id: "cms" | "realtime" | "console" | "emulator" | "journey";
+  label: string;
+  /** ok = answered the probe; down = probe failed; unknown = not configured here. */
+  status: "ok" | "down" | "unknown";
+  /** Public hostname (Cloudflare) — null when not configured (dev). */
+  publicHost: string | null;
+  /** Where the hub reaches it (compose service name or localhost). */
+  internalUrl: string | null;
+  /** The port the process listens on inside its container / on the dev box. */
+  port: number | null;
+  /** Compose service name, and the container hostname when known (the hub knows its own). */
+  container: string | null;
+  latencyMs: number | null;
+  checkedAt: string | null;
+  /** True when the hub itself runs inside Docker. */
+  docker: boolean;
+}
+
 /** Events the server pushes to clients. */
 export interface ServerToClientEvents {
   /** Current Face emotion to render (morph target). */
@@ -177,6 +197,8 @@ export interface ServerToClientEvents {
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
   /** Link check: the client answers by calling the ack — no payload. */
   "sys:ping": (ack: () => void) => void;
+  /** The deployables and their reachability — pushed to host consoles on hello and on change. */
+  "host:services": (payload: { services: ServiceInfo[] }) => void;
   /** A console should reload itself (another console reset everything). */
   "host:reload": (payload: { by: string }) => void;
   /** This console was the oldest of too many and is being disconnected. */

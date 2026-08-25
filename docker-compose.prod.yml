@@ -55,6 +55,9 @@ services:
       # Origins that open sockets to realtime: the native kiosk WebView, the
       # host console and the seat emulator. The CMS opens no sockets; ws- is
       # the target, not an origin, so it is not listed here.
+      SERVICE_URL_CONSOLE: http://console
+      SERVICE_URL_EMULATOR: http://emulator
+      SERVICE_URL_JOURNEY: http://journey
       CORS_ORIGINS: https://${COSIMO_CONSOLE_DOMAIN:-console-${COSIMO_DOMAIN}},https://${COSIMO_SEAT_DOMAIN:-seat-${COSIMO_DOMAIN}},https://${COSIMO_JOURNEY_DOMAIN:-journey-${COSIMO_DOMAIN}},capacitor://localhost
 
   # Both static bundles bake the ws- host at build time.

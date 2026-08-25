@@ -25,6 +25,7 @@ import type {
   SeatCard,
   HostConfigBroadcast,
   ClientKind,
+  ServiceInfo,
 } from "@cosimo/shared";
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -144,6 +145,8 @@ export interface CosimoState {
   personas: PersonaBroadcast[];
   /** The hub's resolved operator routing (operator console), null until pushed. */
   hostConfig: HostConfigBroadcast | null;
+  /** The deployables and their reachability (operator console). */
+  services: ServiceInfo[];
   /** Deep view of one seat (host inspector), latest host:inspect result. */
   inspection: SeatInspection | null;
   /** Request a seat's deep view (system prompt + turns). */
@@ -238,6 +241,7 @@ export function useCosimoSocket(
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
+  const [services, setServices] = useState<ServiceInfo[]>([]);
   const [reloadRequired, setReloadRequired] = useState(false);
   const [evicted, setEvicted] = useState<{ max: number } | null>(null);
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
@@ -384,6 +388,7 @@ export function useCosimoSocket(
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
+    socket.on("host:services", ({ services }) => setServices(services));
     socket.on("host:reload", () => setReloadRequired(true));
     socket.on("host:evicted", ({ max }) => setEvicted({ max }));
     socket.on("host:inspect:result", (r) => setInspection(r));
@@ -620,7 +625,7 @@ export function useCosimoSocket(
 
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
-    telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
+    telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     logs, clearLogs, replayLogs,

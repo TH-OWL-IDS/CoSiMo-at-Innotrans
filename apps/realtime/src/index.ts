@@ -25,6 +25,7 @@ import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
 import { startHealthMonitor } from "./health.js";
+import { ServicesMonitor } from "./services.js";
 import { logger } from "./log/logger.js";
 
 const app = express();
@@ -95,6 +96,8 @@ hub.onTelemetryPatch((patch) => {
 
 // Watch connectivity → auto-switch to offline canned mode when the cloud drops.
 startHealthMonitor(hub, llm);
+// The deployables' reachability for the console's Services card.
+new ServicesMonitor(hub).start();
 
 // Memory telemetry: one line per minute. A previous session died with a 4 GB
 // heap OOM — if it ever grows again, this makes the climb (and its slope)

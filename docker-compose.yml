@@ -60,6 +60,10 @@ services:
     environment:
       REALTIME_PORT: 6101
       PAYLOAD_INTERNAL_URL: ${PAYLOAD_INTERNAL_URL:-http://cms:6100}
+      # Where the hub probes the static sites for the console's Services card
+      # (nginx on :80 inside the network). No emulator service in this file.
+      SERVICE_URL_CONSOLE: http://console
+      SERVICE_URL_JOURNEY: http://journey
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:6100},http://localhost:6102,http://localhost:6103,http://localhost:6104,capacitor://localhost
     ports:
