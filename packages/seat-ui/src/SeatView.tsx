@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated } from "@cosimo/face";
 import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
@@ -95,6 +95,26 @@ const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
  * The circle is display-only: touch does nothing here by design. The one
  * gesture is the operator's — a 3s hold on the slit (`onSlitHold`).
  */
+/** Once shown, the thinking dot stays at least this long. */
+const THINK_MIN_MS = 760;
+
+/** `on`, but never dropping before `minMs` after it last rose. */
+function useMinPresence(on: boolean, minMs: number): boolean {
+  const [shown, setShown] = useState(on);
+  const since = useRef(0);
+  useEffect(() => {
+    if (on) {
+      since.current = Date.now();
+      setShown(true);
+      return;
+    }
+    const wait = Math.max(0, minMs - (Date.now() - since.current));
+    const t = setTimeout(() => setShown(false), wait);
+    return () => clearTimeout(t);
+  }, [on, minMs]);
+  return shown;
+}
+
 export default function SeatView({
   seat,
   layout,
@@ -149,13 +169,15 @@ export default function SeatView({
   /**
    * The circle's edge glow — on the "screen", i.e. beneath the panel's inset
    * shadow (z 4 < 5): a soft green rim while the microphone is live; while
-   * CoSiMo thinks the green fades into a faint greyish arc orbiting the
-   * edge. Plain elements (not inline components), so React keeps them
-   * mounted and the opacity transitions actually run. The arc stands
-   * still with reduced motion.
+   * CoSiMo thinks, a single soft greyish dot fades in, orbits the rim and
+   * fades out again. The dot stays at least THINK_MIN_MS once shown, so a
+   * fast turn reads as a thought, not a flicker. Plain elements (not inline
+   * components), so React keeps them mounted and the fades actually run.
+   * The dot stands still with reduced motion.
    */
   const listening = ptt.active || cosimo.phase === "listening";
   const thinking = !listening && cosimo.phase === "thinking";
+  const showDot = useMinPresence(thinking, THINK_MIN_MS);
   const glowRim = (
     <div
       aria-hidden
@@ -167,22 +189,26 @@ export default function SeatView({
       }}
     />
   );
-  const glowArc = (
+  const glowDot = (
     <div
       aria-hidden
       style={{
+        // the orbit: a full-size layer that rotates; the dot sits at its top edge
         position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
-        // a thin band at the edge: a conic arc, masked to the outer 3.5 %, softened
-        background: "conic-gradient(from 0deg, transparent 0deg, rgba(150, 168, 156, 0) 60deg, rgba(150, 168, 156, 0.45) 130deg, transparent 200deg)",
-        WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3.5%), #000 calc(100% - 3%))",
-        mask: "radial-gradient(farthest-side, transparent calc(100% - 3.5%), #000 calc(100% - 3%))",
-        filter: "blur(calc(var(--circle) * 0.012))",
-        opacity: thinking ? 1 : 0,
-        transition: "opacity 600ms ease",
-        animation: reduceMotion ? "none" : "cosimo-orbit 2.4s linear infinite",
-        animationPlayState: thinking ? "running" : "paused",
+        opacity: showDot ? 1 : 0,
+        transition: "opacity 350ms ease",
+        animation: reduceMotion ? "none" : "cosimo-orbit 2.6s linear infinite",
+        animationPlayState: showDot ? "running" : "paused",
       }}
-    />
+    >
+      <div
+        style={{
+          position: "absolute", left: "50%", top: "1.5%", transform: "translate(-50%, -50%)",
+          width: "calc(var(--circle) * 0.055)", height: "calc(var(--circle) * 0.055)", borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(150, 168, 156, 0.55) 0%, rgba(150, 168, 156, 0.25) 45%, rgba(150, 168, 156, 0) 70%)",
+        }}
+      />
+    </div>
   );
 
   return (
@@ -249,7 +275,7 @@ export default function SeatView({
         >
           <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }`}</style>
           {glowRim}
-          {glowArc}
+          {glowDot}
           <Inset radius="50%" />
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
