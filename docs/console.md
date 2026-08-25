@@ -14,7 +14,8 @@ via the URL hash):
   kiosk, emulator seat and journey view (the client says what it is on
   `hello`: `kind`): id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
-  on an active seat; each row has a ↺ that resets that device — a seat goes back to
+  on an active seat; each row has a log button (jumps to Logs filtered to that device)
+  and a ↺ that resets that device — a seat goes back to
   its consent screen, a journey view gets the reload panel; nothing is
   disconnected; a
   "Jetzt prüfen" button triggers the hub's link check on demand; "Alles zurücksetzen" sends every seat back to the consent

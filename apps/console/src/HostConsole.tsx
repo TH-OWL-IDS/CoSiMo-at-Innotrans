@@ -120,7 +120,7 @@ const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h ==
 const KIND_LABEL: Record<ClientKind, string> = { kiosk: "Kiosk", emulator: "Emulator", console: "Konsole", journey: "Fahrt-Ansicht" };
 const KIND_ICON: Record<ClientKind, LucideIcon> = { kiosk: TabletSmartphone, emulator: AppWindow, console: Monitor, journey: Route };
 
-function DeviceRow({ d, now, onReset }: { d: ConnectedDevice; now: number; onReset?: () => void }) {
+function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: number; onReset?: () => void; onLogs?: () => void }) {
   const Icon = KIND_ICON[d.kind];
   const recentActivity = d.lastActivityAt != null && now - new Date(d.lastActivityAt).getTime() < 60_000;
   const note =
@@ -149,6 +149,11 @@ function DeviceRow({ d, now, onReset }: { d: ConnectedDevice; now: number; onRes
       <span className={cn("inline-flex shrink-0 items-center gap-1.5", d.health === "ok" ? "text-ok" : d.health === "lost" ? "text-accent" : "text-warn")}>
         <Dot size="sm" state={healthState(d.health)} /> {HEALTH_LABEL[d.health]}
       </span>
+      {onLogs && (
+        <Button icon variant="ghost" size="xs" className="shrink-0 text-mute" aria-label={`Log von ${d.deviceId}`} onClick={onLogs}>
+          <ScrollText size={13} />
+        </Button>
+      )}
       {onReset && d.health !== "lost" && (
         <Button
           icon
@@ -209,7 +214,7 @@ const ago = (ts: string | undefined, now: number) => {
   return s < 60 ? `vor ${s} s` : s < 3600 ? `vor ${Math.round(s / 60)} min` : `um ${clock(ts)}`;
 };
 
-function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null }) {
+function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void }) {
   // A minute tick, so "vor 40 s" stays honest without the log changing.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -282,7 +287,9 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
         >
           <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
             {kiosks.length === 0 && <span className="text-sm text-mute">keine Sitze oder Ansichten verbunden</span>}
-            {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} onReset={() => c.resetDevice(d.deviceId)} />)}
+            {kiosks.map((d) => (
+              <DeviceRow key={d.deviceId} d={d} now={now} onReset={() => c.resetDevice(d.deviceId)} onLogs={() => onShowLogs(d.deviceId)} />
+            ))}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="xs" variant="secondary" onClick={() => c.probeDevices()}>
@@ -886,6 +893,11 @@ export default function HostConsole() {
     setTab(t);
     window.location.hash = t;
   };
+  /** Jump to the Logs view pre-filtered to one device (Übersicht rows, Diagramm popups). */
+  const showLogsFor = (deviceId: string) => {
+    setLogSeatFilter((f) => ({ seat: deviceId, n: (f?.n ?? 0) + 1 }));
+    switchTab("logs");
+  };
   const errors = c.logs.filter((e) => e.level === "error").length;
   const activeSeats = c.seats.filter((s) => s.active).length;
   // No fault dot on the menu: the Übersicht cards carry the state.
@@ -910,19 +922,11 @@ export default function HostConsole() {
       </header>
 
       <div className={tab === "diagramm" ? "p-0" : "p-6"}>
-        {tab === "uebersicht" && <OverviewTab c={c} st={st} />}
+        {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor} />}
         {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
         {tab === "sessions" && <SessionsTab c={c} />}
         {tab === "diagramm" && (
-          <DiagramView
-            c={c}
-            st={st}
-            t={c.telemetry}
-            onShowLogs={(deviceId) => {
-              setLogSeatFilter((f) => ({ seat: deviceId, n: (f?.n ?? 0) + 1 }));
-              switchTab("logs");
-            }}
-          />
+          <DiagramView c={c} st={st} t={c.telemetry} onShowLogs={showLogsFor} />
         )}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
