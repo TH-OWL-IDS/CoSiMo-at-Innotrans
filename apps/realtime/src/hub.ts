@@ -33,6 +33,7 @@ import {
   type SeatSummary,
   type ServerToClientEvents,
   type TtsChunk,
+  type HostConfigBroadcast,
 } from "@cosimo/shared";
 
 /** Resolves a persona key to its client-facing broadcast slice. */
@@ -171,6 +172,9 @@ export class Hub {
   private lpu2Config: (() => Lpu2Config) | undefined;
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
+  private configLister: (() => HostConfigBroadcast) | undefined;
+  /** Last config pushed, serialized — broadcastConfig() only emits on change. */
+  private lastConfigJson = "";
   private memoriesResolver: MemoriesResolver | undefined;
   private inspectResolver: InspectResolver | undefined;
   private cardAnswerHandler: CardAnswerHandler | undefined;
@@ -351,6 +355,25 @@ export class Hub {
     this.pushSeats();
   }
 
+  /** Register how the resolved operator routing is read (host console). */
+  setConfigLister(lister: () => HostConfigBroadcast): void {
+    this.configLister = lister;
+    this.broadcastConfig(true);
+  }
+
+  /** Push the operator routing to every host console — only when it changed,
+   *  so the 15 s refresh doesn't spam. `force` re-sends regardless. */
+  broadcastConfig(force = false): void {
+    if (!this.configLister) return;
+    const cfg = this.configLister();
+    const json = JSON.stringify(cfg);
+    if (!force && json === this.lastConfigJson) return;
+    this.lastConfigJson = json;
+    for (const e of this.devices.values()) {
+      if (e.role === "host") e.socket.emit("host:config", cfg);
+    }
+  }
+
   /** Push the current authored persona set to every connected host console. */
   broadcastPersonas(): void {
     if (!this.personaLister) return;
@@ -394,6 +417,9 @@ export class Hub {
       // Host consoles need the authored persona set to populate their pickers.
       if (role === "host" && this.personaLister) {
         socket.emit("host:personas", { personas: this.personaLister() });
+      }
+      if (role === "host" && this.configLister) {
+        socket.emit("host:config", this.configLister());
       }
       // Hosts get the debug log: the buffer now, then live. A re-subscribe
       // (host:log:replay) swaps the sink so there is never a double stream.

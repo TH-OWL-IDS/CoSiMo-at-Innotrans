@@ -8,7 +8,7 @@
 
 import { config } from "../config.js";
 import type { Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, type CabinControlId, type VoiceCatalogEntry } from "@cosimo/shared";
+import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type VoiceCatalogEntry } from "@cosimo/shared";
 
 export type LlmProviderKind = "anthropic" | "openai-compatible";
 
@@ -104,10 +104,30 @@ export class OperatorConfigProvider {
   private cache: ResolvedOperatorConfig = envDefaults();
   private lastFetch = 0;
   private readonly ttlMs = 15_000;
+  /** When the CMS copy was last loaded successfully; null = still on env defaults. */
+  private loadedAt: string | null = null;
 
   /** Current resolved config (cached, env defaults applied). Never throws. */
   get(): ResolvedOperatorConfig {
     return this.cache;
+  }
+
+  /** The routing as the operator console shows it — URLs and models, no keys. */
+  toBroadcast(): HostConfigBroadcast {
+    const c = this.cache;
+    return {
+      source: this.loadedAt ? "cms" : "defaults",
+      loadedAt: this.loadedAt,
+      llm: { provider: c.llm.provider, baseUrl: c.llm.baseUrl, model: c.llm.model, fallback: c.llm.fallback ? { ...c.llm.fallback } : null },
+      stt: { baseUrl: c.stt.baseUrl, model: c.stt.model },
+      tts: { baseUrl: c.tts.baseUrl, model: c.tts.model, voices: c.tts.voices.length },
+      cabin: {
+        lpu2BaseUrl: c.cabin.lpu2BaseUrl,
+        mapped: Object.keys(c.cabin.lpu2Mapping).length,
+        controls: CABIN_CONTROLS.length,
+        timeoutMs: c.cabin.lpu2TimeoutMs,
+      },
+    };
   }
 
   /** Refresh from Payload, merging over env defaults. Best-effort. */
@@ -166,6 +186,7 @@ export class OperatorConfigProvider {
           lpu2TimeoutMs: base.cabin.lpu2TimeoutMs,
         },
       };
+      this.loadedAt = new Date().toISOString();
     } catch {
       // Payload down — keep defaults / last-known.
     }

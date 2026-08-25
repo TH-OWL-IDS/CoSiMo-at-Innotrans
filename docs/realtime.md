@@ -230,3 +230,15 @@ do must log.
   recorded in memory and upserted best-effort into the CMS `sessions`
   collection, honoring the visitor's consent flag. Fire-and-forget — the
   live path never waits on Payload.
+
+## `host:config` — the routing, for the console
+
+The hub pushes its resolved operator config (`HostConfigBroadcast` in
+`packages/shared/src/ws.ts`) to every host console on hello and whenever
+it changes: which CMS/env values it is actually routing to — LLM provider,
+base URL, model, fallback; STT and TTS base URLs and models; the voice
+catalog size; the LPU-2 address and how many cabin controls are mapped;
+and whether the CMS copy ever loaded (`source`, `loadedAt`). URLs and
+model names only — keys never leave the environment. The provider is
+re-read on its TTL every 15 s even without a turn, and the hub only emits
+when the serialized config differs.

@@ -89,6 +89,21 @@ export interface TtsChunk {
   mime: string;
 }
 
+/**
+ * What the hub is actually routing to right now, for the operator console:
+ * the CMS operator-config merged over the env defaults. `source` says
+ * whether the CMS copy was ever loaded (a CMS outage keeps the last one).
+ */
+export interface HostConfigBroadcast {
+  source: "cms" | "defaults";
+  /** ISO time the CMS copy was last loaded; null while on defaults. */
+  loadedAt: string | null;
+  llm: { provider: string; baseUrl: string; model: string; fallback: { provider: string; baseUrl: string; model: string } | null };
+  stt: { baseUrl: string; model: string };
+  tts: { baseUrl: string; model: string; voices: number };
+  cabin: { lpu2BaseUrl: string; mapped: number; controls: number; timeoutMs: number };
+}
+
 /** Events the server pushes to clients. */
 export interface ServerToClientEvents {
   /** Current Face emotion to render (morph target). */
@@ -136,6 +151,10 @@ export interface ServerToClientEvents {
   /** The set of authored personas (host consoles only) — drives the pickers.
    *  Sent on host connect and whenever the persona set is refreshed from CMS. */
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
+  /** The resolved operator routing (CMS operator-config over env defaults) —
+   *  pushed to host consoles on hello and whenever it changes. URLs and
+   *  model names only; keys never leave the hub's environment. */
+  "host:config": (payload: HostConfigBroadcast) => void;
   /** Reply to host:inspect — sent only to the requesting host socket. */
   "host:inspect:result": (payload: SeatInspection) => void;
   /** The structured debug log (host consoles only): a replay batch on

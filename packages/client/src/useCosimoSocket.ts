@@ -23,6 +23,7 @@ import type {
   SeatSummary,
   ServerToClientEvents,
   SeatCard,
+  HostConfigBroadcast,
 } from "@cosimo/shared";
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -99,6 +100,8 @@ export interface CosimoState {
   seats: SeatSummary[];
   /** The authored persona set (operator console; drives the persona pickers). */
   personas: PersonaBroadcast[];
+  /** The hub's resolved operator routing (operator console), null until pushed. */
+  hostConfig: HostConfigBroadcast | null;
   /** Deep view of one seat (host inspector), latest host:inspect result. */
   inspection: SeatInspection | null;
   /** Request a seat's deep view (system prompt + turns). */
@@ -173,6 +176,7 @@ export function useCosimoSocket(
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
+  const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
@@ -313,6 +317,7 @@ export function useCosimoSocket(
     socket.on("devices:update", ({ devices }) => setDevices(devices));
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
+    socket.on("host:config", (cfg) => setHostConfig(cfg));
     socket.on("host:inspect:result", (r) => setInspection(r));
     socket.on("host:log", ({ events }) => {
       // Merge by seq (a replay may overlap what we already have), keep order,
@@ -544,7 +549,7 @@ export function useCosimoSocket(
 
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
-    telemetry, status, cabin, persona, heard, devices, seats, personas, resetNonce,
+    telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection,
     logs, clearLogs, replayLogs,

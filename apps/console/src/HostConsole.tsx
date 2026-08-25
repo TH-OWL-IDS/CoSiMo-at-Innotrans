@@ -44,6 +44,19 @@ import cabUrl from "./assets/monocab-base.svg";
  */
 
 const REALTIME_URL = resolveServerUrl();
+/** The CMS admin, for the link on the CMS card. The console never talks to it. */
+const CMS_ADMIN_URL = "https://cosimo.homannjohannes.de/admin";
+
+/** A base URL as the operator reads it: host (+ port), no scheme or path. */
+function hostOf(url: string): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.host + (u.pathname !== "/" ? u.pathname.replace(/\/+$/, "") : "");
+  } catch {
+    return url;
+  }
+}
 
 const TOGGLE_CONTROLS = CABIN_CONTROLS.filter((c) => c.kind === "toggle");
 
@@ -146,6 +159,8 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const lastTurnLlm = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "turn.start" }> => e.kind === "turn.start" && e.data.llm !== null);
   const llmName = lastTurnLlm?.data.llm ? `${lastTurnLlm.data.llm.provider} · ${lastTurnLlm.data.llm.model}` : "noch kein Turn";
   const lastSvc = last("service.status");
+  const lastCmsSvc = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "service.status" }> => e.kind === "service.status" && "cms" in e.data);
+  const cfg = c.hostConfig;
   const fallbackActive = Boolean(lastSvc && "llmFallbackActive" in lastSvc.data && lastSvc.data.llmFallbackActive);
   const turns = recent("turn.end");
   const lastTurn = turns[turns.length - 1];
@@ -232,11 +247,18 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           state={st.cms ? "ok" : "warn"}
           icon={Database}
           name="CMS"
-          detail={st.cms ? "Payload erreichbar — Profile, Route und Sessions live." : "Nicht erreichbar — eingebaute Defaults, keine Session-Aufzeichnung."}
+          detail={st.cms ? "Payload erreichbar — Profile, Route und Sessions live." : "Nicht erreichbar — der Hub fährt mit der zuletzt geladenen Konfiguration weiter."}
           facts={[
-            ["Profile", c.personas.length ? `${c.personas.length} (${st.cms ? "CMS" : "Defaults"})` : "—"],
-            ["Sessions", st.cms ? "werden geschrieben" : <span className="text-warn">nicht gespeichert</span>],
-            ["Probe", "alle 15 s, TTL-Cache"],
+            ["Status", lastCmsSvc ? `${st.cms ? "erreichbar" : "getrennt"} seit ${clock(lastCmsSvc.ts)}` : st.cms ? "erreichbar" : "getrennt"],
+            ["Profile", c.personas.length ? String(c.personas.length) : "—"],
+            ["Konfig", cfg ? (cfg.source === "cms" ? `aus dem CMS · ${clock(cfg.loadedAt ?? undefined)}` : <span className="text-warn">env-Defaults</span>) : "—"],
+            ["LLM", cfg ? `${cfg.llm.provider} · ${cfg.llm.model}` : "—"],
+            ["LLM-Route", cfg ? hostOf(cfg.llm.baseUrl) || (cfg.llm.provider === "anthropic" ? "api.anthropic.com (SDK)" : "—") : "—"],
+            ["Fallback", cfg ? (cfg.llm.fallback ? `${cfg.llm.fallback.provider} · ${cfg.llm.fallback.model}` : "keiner") : "—"],
+            ["STT-Route", cfg ? `${hostOf(cfg.stt.baseUrl)} · ${cfg.stt.model}` : "—"],
+            ["TTS-Route", cfg ? `${hostOf(cfg.tts.baseUrl)} · ${cfg.tts.model}${cfg.tts.voices ? ` · ${cfg.tts.voices} Stimmen` : ""}` : "—"],
+            ["LPU-2", cfg ? `${hostOf(cfg.cabin.lpu2BaseUrl) || "—"} · ${cfg.cabin.mapped}/${cfg.cabin.controls} gemappt` : "—"],
+            ["Admin", <a href={CMS_ADMIN_URL} target="_blank" rel="noreferrer" className="text-accent no-underline hover:underline">Payload öffnen ↗</a>],
           ]}
         />
         <ServiceCard

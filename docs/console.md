@@ -11,7 +11,10 @@ via the URL hash):
   right now, and live facts read from the socket state and the log stream
   — hub (kiosk/console counts, device ids), LLM (provider · model,
   fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
-  last result, time to first audio), CMS (profile count, session writes),
+  last result, time to first audio), CMS (reachable since when, profile count, and the hub's resolved
+  **operator routing** from `host:config` — config source CMS/env-defaults
+  and when it loaded, LLM provider · model · route, fallback, STT and TTS
+  routes, LPU-2 address + mapped controls, Payload admin link),
   light (actuations ok/failed, last one), network, and the mode (Live vs
   Demo, turns, errors, active fault). A down service gets a red card
   border. The operations live under Sessions › Betrieb. The menu carries no

@@ -52,6 +52,7 @@ hub.setCabinActuator(() => {
     timeoutMs: cabin.lpu2TimeoutMs,
   };
 });
+hub.setConfigLister(() => operatorConfig.toBroadcast());
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setPersonaLister(() => personas.list());
 hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));
@@ -61,7 +62,10 @@ const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig
 // Load personas + operator config from the CMS (best-effort; env/built-in
 // defaults otherwise), then re-resolve the active persona for the clients and
 // push the authored persona set to any connected host consoles.
-void operatorConfig.refresh();
+void operatorConfig.refresh().then(() => hub.broadcastConfig());
+// Keep the console's routing view honest: re-read on the provider's TTL
+// even when no turn is running, and push only if something changed.
+setInterval(() => void operatorConfig.refresh().then(() => hub.broadcastConfig()), 15_000);
 void personas.refresh().then(() => {
   hub.setPersona("default", "boot");
   hub.broadcastPersonas();
