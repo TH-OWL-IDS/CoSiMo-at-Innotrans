@@ -83,7 +83,7 @@ export default function ServerSetup({
           autoCorrect="off"
           spellCheck={false}
           inputMode="url"
-          placeholder="https://cosimo.homannjohannes.de"
+          placeholder="https://ws-cosimo.homannjohannes.de"
         />
 
         <Card className="items-center">

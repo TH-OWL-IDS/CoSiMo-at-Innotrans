@@ -129,7 +129,7 @@ client against :6101 works well — see the smoke pattern in git history).
 - Ports: cms 6100, realtime 6101, console dev 6102, emulator dev 6103,
   journey dev 6104. The kiosk has no browser dev server — it is the native
   app; use the emulator.
-- Prod hosts (Cloudflare Tunnel): `cosimo.homannjohannes.de` → CMS,
+- Prod hosts (Cloudflare Tunnel): `cms-cosimo.homannjohannes.de` → CMS,
   `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,
   `seat-cosimo.…` → emulator, `journey-cosimo.…` → journey view. The kiosk is socket-only, so it bakes the ws-
   host in `serverUrl.ts`; the two static apps bake it at build

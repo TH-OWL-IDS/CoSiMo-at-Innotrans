@@ -45,7 +45,7 @@ import cabUrl from "./assets/monocab-base.svg";
 
 const REALTIME_URL = resolveServerUrl();
 /** The CMS admin, for the link on the CMS card. The console never talks to it. */
-const CMS_ADMIN_URL = "https://cosimo.homannjohannes.de/admin";
+const CMS_ADMIN_URL = "https://cms-cosimo.homannjohannes.de/admin";
 
 /** A base URL as the operator reads it: host (+ port), no scheme or path. */
 function hostOf(url: string): string {

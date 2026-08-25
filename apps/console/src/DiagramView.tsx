@@ -256,7 +256,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
           ],
           links: [
             ["ws-cosimo (Hub)", "https://ws-cosimo.homannjohannes.de/health"],
-            ["cosimo (CMS)", "https://cosimo.homannjohannes.de"],
+            ["cms-cosimo (CMS)", "https://cms-cosimo.homannjohannes.de"],
             ["console-cosimo", "https://console-cosimo.homannjohannes.de"],
             ["seat-cosimo (Emulator)", "https://seat-cosimo.homannjohannes.de"],
             ["journey-cosimo (Fahrt)", "https://journey-cosimo.homannjohannes.de"],
@@ -271,7 +271,7 @@ export default function DiagramView({ c, st, t, onShowLogs }: { c: CosimoState; 
             ["Hält", "Profile (NFC-Karten), Route + Störungs-Szenario, Operator-Config, Sessions"],
             ["Live-Pfad", "nie — der Hub liest per TTL und degradiert auf Defaults"],
           ],
-          links: [["Payload Admin", "https://cosimo.homannjohannes.de/admin"]],
+          links: [["Payload Admin", "https://cms-cosimo.homannjohannes.de/admin"]],
         };
       case "console":
         return {

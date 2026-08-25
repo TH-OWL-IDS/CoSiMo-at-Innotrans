@@ -2,7 +2,7 @@
 # (cloudflared runs there with --network host, token/dashboard-managed).
 #
 # Model: five public hostnames, exactly like every other app on the box —
-#   cosimo.homannjohannes.de      -> CMS      (admin + API only)
+#   cms-cosimo.homannjohannes.de  -> CMS      (admin + API only)
 #   ws-cosimo.homannjohannes.de   -> realtime (the WebSocket)
 #   console-cosimo.homannjohannes.de -> host console (the operator's control surface)
 #   seat-cosimo.homannjohannes.de -> seat emulator (a browser iPad)
@@ -18,7 +18,7 @@
 # Then add FIVE public hostnames in the Cloudflare dashboard (Zero Trust ->
 # Networks -> Tunnels -> your tunnel -> Public Hostnames), same as your other
 # services:
-#   cosimo.homannjohannes.de      -> http://localhost:${COSIMO_CMS_PORT:-6220}
+#   cms-cosimo.homannjohannes.de  -> http://localhost:${COSIMO_CMS_PORT:-6220}
 #   ws-cosimo.homannjohannes.de   -> http://localhost:${COSIMO_RT_PORT:-6221}
 #   console-cosimo.homannjohannes.de -> http://localhost:${COSIMO_CONSOLE_PORT:-6222}
 #   seat-cosimo.homannjohannes.de -> http://localhost:${COSIMO_EMU_PORT:-6223}
@@ -33,7 +33,7 @@ services:
     build:
       # NEXT_PUBLIC_* must be inlined at build time (see apps/cms/Dockerfile).
       args:
-        NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}
+        NEXT_PUBLIC_SERVER_URL: https://${COSIMO_CMS_DOMAIN:-cms-${COSIMO_DOMAIN:?set COSIMO_DOMAIN in .env.prod}}
     # `--env-file .env.prod` only feeds compose interpolation; the CONTAINER
     # gets its secrets from env_file. The base file names .env.local (dev),
     # which does not exist on the VPS — so here the prod file is the one.
@@ -43,7 +43,7 @@ services:
     ports: !override
       - "127.0.0.1:${COSIMO_CMS_PORT:-6220}:6100"
     environment:
-      NEXT_PUBLIC_SERVER_URL: https://${COSIMO_DOMAIN}
+      NEXT_PUBLIC_SERVER_URL: https://${COSIMO_CMS_DOMAIN:-cms-${COSIMO_DOMAIN}}
 
   realtime:
     env_file:

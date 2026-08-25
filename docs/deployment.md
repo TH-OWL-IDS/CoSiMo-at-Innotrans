@@ -48,7 +48,7 @@ The VPS is already fronted by a Cloudflare Tunnel (`cloudflared` runs with
 ports — the same pattern every other app on the box uses. CoSiMo takes **five
 hostnames**:
 
-- `cosimo.homannjohannes.de` → CMS (admin + REST API — nothing live)
+- `cms-cosimo.homannjohannes.de` → CMS (admin + REST API — nothing live)
 - `ws-cosimo.homannjohannes.de` → realtime (the WebSocket the kiosks use)
 - `console-cosimo.homannjohannes.de` → the operator console ([console.md](console.md))
 - `seat-cosimo.homannjohannes.de` → the seat emulator, a browser iPad
@@ -61,7 +61,7 @@ nothing is published to the public internet — cms and realtime bind to
 `127.0.0.1` only, where the tunnel reaches them.
 
 ```bash
-cp .env.example .env.prod   # set COSIMO_DOMAIN, COSIMO_WS_DOMAIN + real secrets
+cp .env.example .env.prod   # set COSIMO_DOMAIN (+ the *_DOMAIN overrides) + real secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --env-file .env.prod up -d --build
 ```
@@ -70,7 +70,7 @@ Then add the five public hostnames in the Cloudflare dashboard (Zero Trust →
 Networks → Tunnels → your tunnel → Public Hostnames), just like the other
 services on the box:
 
-- `cosimo.homannjohannes.de` → `http://localhost:6220`
+- `cms-cosimo.homannjohannes.de` → `http://localhost:6220`
 - `ws-cosimo.homannjohannes.de` → `http://localhost:6221`
 - `console-cosimo.homannjohannes.de` → `http://localhost:6222`
 - `seat-cosimo.homannjohannes.de` → `http://localhost:6223`
