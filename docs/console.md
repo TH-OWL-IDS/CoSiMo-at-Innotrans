@@ -23,9 +23,9 @@ via the URL hash):
   **operator routing** from `host:config` — config source CMS/env-defaults
   and when it loaded, LLM provider · model · route, fallback, STT and TTS
   routes, LPU-2 address + mapped controls, Payload admin link),
-  light (actuations ok/failed, last one), network, and the mode (Live vs
-  Demo, turns, errors, active fault). A down service gets a red card
-  border. The operations live under Sessions › Betrieb. The menu carries no
+  light (actuations ok/failed, last one), and network. A down service
+  gets a red card border. (The Live/Demo toggle lives under Sessions ›
+  Betrieb, the active fault on Fahrzeug, errors on the Logs badge.) The operations live under Sessions › Betrieb. The menu carries no
   fault dot — the cards are the indicator.
 - **Fahrzeug** — the MonoCab itself: the CI line drawing centred, live
   speed above it, destination/direction beneath, a fault banner with cause

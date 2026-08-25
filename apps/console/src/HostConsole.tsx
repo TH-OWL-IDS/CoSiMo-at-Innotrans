@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
-  DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
+  DoorClosed, DoorOpen, Ear, Flag, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
   AppWindow, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
@@ -218,7 +218,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const fallbackActive = Boolean(lastSvc && "llmFallbackActive" in lastSvc.data && lastSvc.data.llmFallbackActive);
   const turns = recent("turn.end");
   const lastTurn = turns[turns.length - 1];
-  const turnsTotal = logs.filter((e) => e.kind === "turn.end").length;
   const llmMs = mean(turns.map((t) => t.data.timings.llmMs).filter((x): x is number => x != null));
   const sttMs = mean(turns.map((t) => t.data.timings.sttMs).filter((x): x is number => x != null));
   const ttsMs = mean(turns.map((t) => t.data.timings.ttsMs).filter((x): x is number => x != null));
@@ -228,7 +227,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const cabinOk = cabinResults.filter((e) => e.data.ok).length;
   const cabinFailed = cabinResults.length - cabinOk;
   const lastCabin = cabinResults[cabinResults.length - 1];
-  const errors = logs.filter((e) => e.level === "error").length;
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
   // Rows: real kiosks, then emulators, then journey views (lost ones last
@@ -360,18 +358,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
             ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
             ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
             ["Status", lastSvc ? `${ago(lastSvc.ts, now)} gemeldet` : "—"],
-          ]}
-        />
-        <ServiceCard
-          state={st.offlineCanned ? "warn" : "ok"}
-          icon={FlaskConical}
-          name="Modus"
-          detail="Betriebsart des Agenten: Live (der Agent antwortet) oder Demo (geskriptete Antworten). Dazu die Zahl der Turns und Fehler seit Start und ob gerade eine Störung auf der Strecke simuliert wird."
-          facts={[
-            ["Modus", st.offlineCanned ? "Demo (Skript)" : "Live (Agent)"],
-            ["Turns gesamt", String(turnsTotal)],
-            ["Fehler", errors ? <span className="text-accent">{errors}</span> : "0"],
-            ["Störung", c.telemetry?.faults?.[0] ? `${c.telemetry.faults[0].cause.de} (${c.telemetry.faults[0].remainingSec} s)` : "keine"],
           ]}
         />
       </div>
