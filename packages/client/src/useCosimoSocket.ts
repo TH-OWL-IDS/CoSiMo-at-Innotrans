@@ -481,7 +481,7 @@ export function useCosimoSocket(
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId, role]);
+  }, [realtimeUrl, deviceId, role, kind]);
 
   const clearCard = () => setCard(null);
 
