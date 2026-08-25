@@ -13,9 +13,9 @@ via the URL hash):
   each one with RTT and health in its tooltip; then one line per *kiosk*: id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
   on an active seat; a "Jetzt prüfen" button triggers the hub's link check
-  on demand; "Alle trennen" kicks every other connection off the hub —
-  kicked clients don't auto-reconnect, so stale tabs stop costing CPU;
-  iPads reconnect on app restart), LLM (provider · model,
+  on demand; "Alles zurücksetzen" sends every seat back to the consent
+  screen and tells every other console to reload — those show a blocking
+  "Konsole neu laden" panel with a reload button), LLM (provider · model,
   fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
   last result, time to first audio), CMS (reachable since when, profile count, and the hub's resolved
   **operator routing** from `host:config` — config source CMS/env-defaults

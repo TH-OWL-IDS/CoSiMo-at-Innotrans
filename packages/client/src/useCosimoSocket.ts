@@ -124,8 +124,10 @@ export interface CosimoState {
   inspectSeat: (deviceId: string) => void;
   /** Run the hub's link check on every device now (operator console). */
   probeDevices: () => void;
-  /** Kick every other connection off the hub (operator console). */
-  disconnectAll: () => void;
+  /** Reset everything: seats to consent, other consoles reload (operator console). */
+  resetAll: () => void;
+  /** Another console reset everything — this page should reload. */
+  reloadRequired: boolean;
   clearInspection: () => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
@@ -201,6 +203,7 @@ export function useCosimoSocket(
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
+  const [reloadRequired, setReloadRequired] = useState(false);
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
@@ -345,6 +348,7 @@ export function useCosimoSocket(
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
+    socket.on("host:reload", () => setReloadRequired(true));
     socket.on("host:inspect:result", (r) => setInspection(r));
     socket.on("host:log", ({ events }) => {
       // Merge by seq (a replay may overlap what we already have), keep order,
@@ -530,7 +534,7 @@ export function useCosimoSocket(
   const resetSession = (target: string) =>
     sockRef.current?.emit("host:resetSession", { deviceId: target });
   const probeDevices = () => sockRef.current?.emit("host:probe", {});
-  const disconnectAll = () => sockRef.current?.emit("host:disconnect-all", {});
+  const resetAll = () => sockRef.current?.emit("host:reset-all", {});
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
@@ -580,7 +584,7 @@ export function useCosimoSocket(
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
     setCabinActuator,
-    inspection, inspectSeat, clearInspection, probeDevices, disconnectAll, deviceId,
+    inspection, inspectSeat, clearInspection, probeDevices, resetAll, reloadRequired, deviceId,
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,

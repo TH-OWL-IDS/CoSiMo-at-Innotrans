@@ -257,8 +257,8 @@ iPad is visible on the console (a closed console tab just disappears). `Connecte
 `probedAt`, `health`. The hub broadcasts only when a device's facts
 changed and logs a `device.health` event on every transition.
 
-`host:disconnect-all` (from a console) disconnects every *other* socket
-server-side. socket.io clients do not auto-reconnect after an
-`io server disconnect`, so kicked tabs stay gone until reloaded — the
-point of the button is to shed forgotten tabs. No "lost" lingering for
-these drops; the action is logged as `host.action disconnect-all`.
+`host:reset-all` (from a console) resets everything without dropping
+sockets: `session:reset "*"` sends every seat back to the consent screen
+(as "Alle Sitze zurücksetzen" does), and every *other* console receives
+`host:reload` and shows a blocking reload panel. Logged as `host.action
+reset-all`.

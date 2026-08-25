@@ -5,7 +5,7 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  RadioTower, TabletSmartphone, Unplug, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -270,12 +270,11 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
               size="xs"
               variant="secondary"
               tone="accent"
-              title="Trennt alle anderen Verbindungen — Kiosks, Emulatoren, Konsolen. Getrennte Tabs bleiben getrennt, bis sie neu laden; iPads bis zum Neustart der App."
               onClick={() => {
-                if (window.confirm("Alle anderen Verbindungen trennen? Kiosks und Konsolen bleiben getrennt, bis sie neu laden (iPads: App neu starten).")) c.disconnectAll();
+                if (window.confirm("Alles zurücksetzen? Jeder Sitz geht zurück zum Consent-Screen, alle anderen Konsolen werden zum Neuladen aufgefordert. Gespeicherte Sessions bleiben.")) c.resetAll();
               }}
             >
-              <Unplug size={13} /> Alle trennen
+              <RotateCw size={13} /> Alles zurücksetzen
             </Button>
           </div>
         </ServiceCard>
@@ -917,6 +916,20 @@ export default function HostConsole() {
         )}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
+
+      {c.reloadRequired && (
+        <div role="alertdialog" aria-modal="true" aria-label="Neu laden" className="fixed inset-0 z-drawer flex items-center justify-center bg-ink/20 p-6">
+          <Card className="w-[min(420px,100%)] items-start gap-4">
+            <span className="text-2xl font-black">Konsole neu laden</span>
+            <p className="m-0 text-md text-mute">
+              Eine andere Konsole hat alles zurückgesetzt. Diese Seite zeigt möglicherweise alten Stand — bitte neu laden.
+            </p>
+            <Button variant="primary" onClick={() => window.location.reload()}>
+              <RotateCw size={15} /> Neu laden
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {c.inspection && (
         <InspectorDrawer

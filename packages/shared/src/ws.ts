@@ -172,6 +172,8 @@ export interface ServerToClientEvents {
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
   /** Link check: the client answers by calling the ack — no payload. */
   "sys:ping": (ack: () => void) => void;
+  /** A console should reload itself (another console reset everything). */
+  "host:reload": (payload: { by: string }) => void;
   /** The resolved operator routing (CMS operator-config over env defaults) —
    *  pushed to host consoles on hello and whenever it changes. URLs and
    *  model names only; keys never leave the hub's environment. */
@@ -229,10 +231,9 @@ export interface ClientToServerEvents {
   "host:inspect": (payload: { deviceId: string }) => void;
   /** Run the link check on every device now (the periodic one runs anyway). */
   "host:probe": (payload: Record<string, never>) => void;
-  /** Disconnect every other socket — kiosks, emulators, consoles. A
-   *  server-side disconnect is not auto-reconnected by clients, so kicked
-   *  tabs stay gone until reloaded (an iPad: app restart). */
-  "host:disconnect-all": (payload: Record<string, never>) => void;
+  /** Reset everything: every seat back to the consent screen (session:reset
+   *  "*"), every *other* console told to reload (host:reload). */
+  "host:reset-all": (payload: Record<string, never>) => void;
   /** Re-request the log buffer, optionally only events after `since` (seq). */
   "host:log:replay": (payload: { since?: number }) => void;
 }
