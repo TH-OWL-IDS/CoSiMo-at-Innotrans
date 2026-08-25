@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
-import { CosimoFaceAnimated } from "@cosimo/face";
+import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
 import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
 import ConsentOverlay from "./ConsentOverlay.js";
@@ -168,26 +168,32 @@ export default function SeatView({
 
   /**
    * The circle's edge glow — on the "screen", i.e. beneath the panel's inset
-   * shadow (z 4 < 5): a soft green rim while the microphone is live; while
-   * CoSiMo thinks, a single soft greyish dot fades in, orbits the rim and
-   * fades out again. The dot stays at least THINK_MIN_MS once shown, so a
-   * fast turn reads as a thought, not a flicker. Plain elements (not inline
-   * components), so React keeps them mounted and the fades actually run.
-   * The dot stands still with reduced motion.
+   * shadow (z 4 < 5), in the scheme's state colours: a soft rim while the
+   * microphone is live (listening), a softer one while the voice plays
+   * (speaking), the error colour when the mic failed; while CoSiMo thinks,
+   * a single soft dot fades in, orbits the rim and fades out (kept at
+   * least THINK_MIN_MS). Plain elements, so the fades actually run; the
+   * dot stands still with reduced motion.
    */
   const listening = ptt.active || cosimo.phase === "listening";
   const thinking = !listening && cosimo.phase === "thinking";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
+  const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : cosimo.speaking ? "speaking" : null;
+  // The rim keeps its last colour while fading out, so the fade is not a colour jump.
+  const lastRim = useRef<keyof StateColors>("listening");
+  if (rimState) lastRim.current = rimState;
+  const rimColor = scheme.states[lastRim.current];
+  const rimStrength = lastRim.current === "speaking" ? 0.6 : 1;
   const glowRim = (
     <div
       aria-hidden
       style={{
         position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
         // not a box-shadow (that paints a band): a radial falloff that only
-        // rises in the outer few percent — a thin, soft green breath at the rim
-        background: "radial-gradient(circle, rgba(72,199,108,0) 0%, rgba(72,199,108,0) 91%, rgba(72,199,108,0.28) 97.5%, rgba(72,199,108,0.38) 100%)",
-        opacity: listening ? 1 : 0,
-        transition: "opacity 500ms ease",
+        // rises in the outer few percent — a thin, soft breath at the rim
+        background: `radial-gradient(circle, ${withAlpha(rimColor, 0)} 0%, ${withAlpha(rimColor, 0)} 89%, ${withAlpha(rimColor, 0.38 * rimStrength)} 96.5%, ${withAlpha(rimColor, 0.58 * rimStrength)} 100%)`,
+        opacity: rimState ? 1 : 0,
+        transition: "opacity 500ms ease, background 300ms ease",
       }}
     />
   );
@@ -207,7 +213,7 @@ export default function SeatView({
         style={{
           position: "absolute", left: "50%", top: "1.5%", transform: "translate(-50%, -50%)",
           width: "calc(var(--circle) * 0.055)", height: "calc(var(--circle) * 0.055)", borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(150, 168, 156, 0.55) 0%, rgba(150, 168, 156, 0.25) 45%, rgba(150, 168, 156, 0) 70%)",
+          background: `radial-gradient(circle, ${withAlpha(scheme.states.thinking, 0.6)} 0%, ${withAlpha(scheme.states.thinking, 0.28)} 45%, ${withAlpha(scheme.states.thinking, 0)} 70%)`,
         }}
       />
     </div>

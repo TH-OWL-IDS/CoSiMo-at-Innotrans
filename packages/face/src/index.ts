@@ -9,7 +9,7 @@ export {
   type Pt,
   type ScribbleEntityProps,
 } from "./shared.js";
-export { schemes, schemeById, defaultSchemeId, type ColorScheme } from "./schemes.js";
+export { schemes, schemeById, defaultSchemeId, type ColorScheme, withAlpha, type StateColors } from "./schemes.js";
 export {
   computeScribbleFrame,
   faceAmbient,
