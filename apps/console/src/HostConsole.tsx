@@ -154,7 +154,8 @@ function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
 }
 
 function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
-  state: ServiceState;
+  /** Omit for a card that has no single status of its own (Verbindungen: every row carries one). */
+  state?: ServiceState;
   name: string;
   /** What this card is about — descriptive, never status (the title's tooltip). */
   detail: string;
@@ -172,9 +173,11 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
         <Tip tip={detail} className="min-w-0 flex-1">
           <span className="block truncate text-2xl font-black">{name}</span>
         </Tip>
-        <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
-          <Dot state={state} /> {STATE_LABEL[state]}
-        </span>
+        {state && (
+          <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
+            <Dot state={state} /> {STATE_LABEL[state]}
+          </span>
+        )}
       </div>
       <KeyValue rows={facts} keyWidth="w-[88px]" className="border-t border-line-soft pt-2.5" />
       {children}
@@ -257,7 +260,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard
-          state={!c.connected ? "down" : kiosks.some((d) => d.kind === "kiosk" && d.health === "lost") ? "down" : live.some((d) => d.health !== "ok") ? "warn" : "ok"}
           icon={Cable}
           name="Verbindungen"
           detail="Wer gerade am Hub hängt. Der Hub pingt alle 10 s jede Verbindung über den Socket und misst die Antwortzeit. Konsolen: die Zahl der Bedien-Oberflächen, die zuletzt geantwortet haben (Details im Tooltip). Darunter jeder Kiosk-Sitz — iPad oder Browser-Emulator — mit Antwortzeit, Transport und Sitz-Status. „Jetzt prüfen“ löst die Messung sofort aus."
