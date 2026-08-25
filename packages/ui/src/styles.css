@@ -119,6 +119,49 @@
    nothing to redefine here. Use `border-2` / `border-[3px]` for the rare
    heavier rule. */
 
+/* The tooltip (`Tip` / `Truncated`): a pseudo-element reading data-tip,
+   shown on hover, keyboard focus, and — the touch case — focus from a tap
+   (the host is focusable). Sits above its host, left-aligned, wraps at a
+   sane width, keeps newlines. */
+@layer components {
+  .tip {
+    position: relative;
+    outline: none;
+  }
+  .tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    z-index: var(--z-popover);
+    width: max-content;
+    max-width: min(380px, 80vw);
+    white-space: pre-line;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    background: var(--color-ink);
+    color: var(--color-white);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    line-height: 1.45;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0;
+    transform: translateY(-3px);
+    pointer-events: none;
+    transition: opacity 120ms ease-out, transform 120ms ease-out;
+  }
+  .tip:hover::after,
+  .tip:focus-within::after {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tip::after { transition: none; }
+  }
+}
+
 /* Interaction vocabulary, shared by every control. No focus ring, by
    decision: the console is a touch surface (phones, iPads) and the
    browser's default outline is suppressed too. `focus-ring` stays as the

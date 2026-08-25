@@ -251,8 +251,8 @@ connected socket with an ack timeout of 3 s (`socket.timeout().emit
 round-trip classifies the link: **ok** ≤ 250 ms, **slow** above, **stale**
 when the ack never comes although the socket is open (typically an app
 build that predates `sys:ping`, or a frozen tab), **lost** once the socket
-disconnects — lost devices stay in `devices:update` for 30 s so a flapping
-iPad is visible on the console. `ConnectedDevice` carries `connectedAt`,
+disconnects — lost *kiosks* stay in `devices:update` for 30 s so a flapping
+iPad is visible on the console (a closed console tab just disappears). `ConnectedDevice` carries `connectedAt`,
 `transport` (websocket vs polling), `lastActivityAt`, `active`, `rttMs`,
 `probedAt`, `health`. The hub broadcasts only when a device's facts
 changed and logs a `device.health` event on every transition.

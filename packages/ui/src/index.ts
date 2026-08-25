@@ -12,3 +12,4 @@ export { Meter } from "./components/Meter";
 export { SeatGlyph } from "./components/SeatGlyph";
 export { KeyValue } from "./components/KeyValue";
 export { Brand } from "./components/Brand";
+export { Tip, Truncated } from "./components/Tip";

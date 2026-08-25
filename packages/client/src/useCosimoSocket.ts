@@ -28,6 +28,20 @@ import type {
 
 type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
+/** A per-tab device id that survives reloads (falls back to a fresh one). */
+function stableDeviceId(role: "kiosk" | "host"): string {
+  const key = `cosimo.deviceId.${role}`;
+  try {
+    const kept = sessionStorage.getItem(key);
+    if (kept) return kept;
+    const id = makeId(role === "host" ? "host" : "ipad");
+    sessionStorage.setItem(key, id);
+    return id;
+  } catch {
+    return makeId(role === "host" ? "host" : "ipad");
+  }
+}
+
 export interface CosimoState {
   connected: boolean;
   /** This client's own device id, as the hub lists it. */
@@ -149,7 +163,11 @@ export function useCosimoSocket(
   role: "kiosk" | "host" = "kiosk",
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
-  const deviceId = useMemo(() => makeId(role === "host" ? "host" : "ipad"), [role]);
+  // Stable across reloads of this tab, unique per tab: sessionStorage. A
+  // fresh id per reload made every reload look like a new device on the
+  // console; a localStorage id would collide across two open tabs (the hub
+  // keys entries by id, so the second tab's disconnect would drop the first).
+  const deviceId = useMemo(() => stableDeviceId(role), [role]);
   const sessionRef = useRef<string>(makeId("s"));
 
   /** Set by the kiosk (see setCabinActuator) — the host console leaves it null. */

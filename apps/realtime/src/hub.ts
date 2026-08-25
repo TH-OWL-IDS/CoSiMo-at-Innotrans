@@ -427,6 +427,8 @@ export class Hub {
       };
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
+      // The same id coming back is the "lost" device returning — not a new one.
+      this.lost.delete(deviceId);
       this.broadcastDevices();
       // First ping right away, so the console's row gets an RTT within a
       // second instead of waiting for the next 10 s tick.
@@ -667,8 +669,9 @@ export class Hub {
         }
         this.clearDecay(id);
         this.turnBudget.delete(id);
-        if (e) {
-          // Keep a "lost" line for 30 s so a flapping iPad is visible on the console.
+        // Keep a "lost" line for 30 s so a flapping iPad is visible on the
+        // console. Kiosks only: a console tab closing is not a fault.
+        if (e && e.role === "kiosk") {
           this.lost.set(id, { ...this.snapshot(id, e), health: "lost", rttMs: null });
           setTimeout(() => {
             this.lost.delete(id);

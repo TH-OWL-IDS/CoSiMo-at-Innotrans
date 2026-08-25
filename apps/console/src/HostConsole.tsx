@@ -5,7 +5,7 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  Monitor, RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -21,7 +21,7 @@ import {
   type SeatSummary,
 } from "@cosimo/shared";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
-import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, Meter, SeatGlyph, Select, StatTile, cn } from "@cosimo/ui";
+import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, Meter, SeatGlyph, Select, StatTile, Tip, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 import LogView from "./LogView";
 import DiagramView from "./DiagramView";
@@ -116,28 +116,29 @@ const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h ==
  * health, when it was last heard from. "stale" with recent activity is
  * almost always an old app build that doesn't answer sys:ping yet.
  */
-function DeviceRow({ d, self, now }: { d: ConnectedDevice; self: boolean; now: number }) {
-  const Icon = d.role === "host" ? Monitor : TabletSmartphone;
+function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
+  const Icon = TabletSmartphone;
   const recentActivity = d.lastActivityAt != null && now - new Date(d.lastActivityAt).getTime() < 60_000;
   const note =
     d.health === "stale" && recentActivity ? "aktiv, aber kein Ping — alte App-Version?" :
     d.health === "lost" ? "Verbindung verloren" :
     d.transport === "polling" ? "kein WebSocket — nur Polling" : "";
   const title = [
-    `${d.role === "host" ? "Konsole" : "Kiosk"} ${d.deviceId}`,
+    `Kiosk ${d.deviceId}`,
     `verbunden seit ${clock(d.connectedAt)} · ${d.transport}`,
     d.probedAt ? `Ping ${d.rttMs != null ? `${d.rttMs} ms` : "ohne Antwort"} (${ago(d.probedAt, now)})` : "noch nicht geprüft",
     d.lastActivityAt ? `letzte Aktivität ${ago(d.lastActivityAt, now)}` : null,
     note || null,
   ].filter(Boolean).join("\n");
   return (
-    <div className={cn("flex min-w-0 items-center gap-2 text-sm", d.health === "lost" && "opacity-55")} title={title}>
+    <div className={cn("flex min-w-0 items-center gap-2 text-sm", d.health === "lost" && "opacity-55")}>
       <Icon size={14} className="shrink-0 text-mute" />
-      <span className="min-w-0 flex-1 truncate">
-        {d.deviceId}
-        {self && <span className="text-mute"> · diese Konsole</span>}
-        {d.active && <span className="text-accent"> · Session</span>}
-      </span>
+      <Tip tip={title} className="min-w-0 flex-1">
+        <span className="block truncate">
+          {d.deviceId}
+          {d.active && <span className="text-accent"> · Session</span>}
+        </span>
+      </Tip>
       <span className="shrink-0 tabular-nums text-mute">{d.rttMs != null ? `${d.rttMs} ms` : "—"}</span>
       {d.transport === "polling" && d.health !== "lost" && <Chip size="xs" className="shrink-0 text-warn">polling</Chip>}
       <span className={cn("inline-flex shrink-0 items-center gap-1.5", d.health === "ok" ? "text-ok" : d.health === "lost" ? "text-accent" : "text-warn")}>
@@ -161,9 +162,11 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
   return (
     <Card active={state === "down"} className="gap-3">
       {/* the consequence sentence lives in the title's tooltip, not on the card */}
-      <div className="flex min-w-0 items-center gap-2.5" title={detail}>
+      <div className="flex min-w-0 items-center gap-2.5">
         <Icon size={20} className="shrink-0 text-ink" />
-        <span className="min-w-0 flex-1 truncate text-2xl font-black">{name}</span>
+        <Tip tip={detail} className="min-w-0 flex-1">
+          <span className="block truncate text-2xl font-black">{name}</span>
+        </Tip>
         <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
           <Dot state={state} /> {STATE_LABEL[state]}
         </span>
@@ -220,10 +223,15 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const errors = logs.filter((e) => e.level === "error").length;
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
-  const consoles = live.length - kioskIds.length;
-  // Kiosks first, then consoles; lost ones last — the list reads as the cab.
-  const rank = (d: ConnectedDevice) => (d.health === "lost" ? 2 : d.role === "kiosk" ? 0 : 1);
-  const devices = [...c.devices].sort((a, b) => rank(a) - rank(b) || a.deviceId.localeCompare(b.deviceId));
+  // Rows are kiosks only (live first, lost last) — the list reads as the cab.
+  // Consoles are a counter; the individual ones live in its tooltip.
+  const kiosks = c.devices
+    .filter((d) => d.role === "kiosk")
+    .sort((a, b) => Number(a.health === "lost") - Number(b.health === "lost") || a.deviceId.localeCompare(b.deviceId));
+  const hosts = live.filter((d) => d.role === "host").sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+  const consoleList = hosts.length
+    ? hosts.map((d) => `${d.deviceId}${d.deviceId === c.deviceId ? " (diese)" : ""} · ${d.rttMs != null ? `${d.rttMs} ms` : "—"} · ${HEALTH_LABEL[d.health]}`).join("\n")
+    : "keine";
   const lastProbe = c.devices.map((d) => d.probedAt).filter((x): x is string => Boolean(x)).sort().pop();
   const activeSeats = c.seats.filter((s) => s.active).length;
 
@@ -239,20 +247,20 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard
-          state={!c.connected ? "down" : devices.some((d) => d.health === "lost") ? "down" : devices.some((d) => d.health !== "ok") ? "warn" : "ok"}
+          state={!c.connected ? "down" : kiosks.some((d) => d.health === "lost") ? "down" : live.some((d) => d.health !== "ok") ? "warn" : "ok"}
           icon={Cable}
           name="Verbindungen"
           detail={c.connected ? "Hub erreichbar — jede Zeile ist ein Gerät; der Hub pingt alle 10 s." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
           facts={[
-            ["Hub", REALTIME_URL ? REALTIME_URL.replace(/^https?:\/\//, "") : "same-origin"],
+            ["Hub", REALTIME_URL ? hostOf(REALTIME_URL) : `${window.location.host} (Proxy)`],
             ["Kiosks", kioskIds.length ? `${kioskIds.length} · ${activeSeats} aktiv` : "keine"],
-            ["Konsolen", String(consoles)],
+            ["Konsolen", <Tip tip={consoleList}><span className="block truncate">{String(hosts.length)}</span></Tip>],
             ["Geprüft", lastProbe ? ago(lastProbe, now) : "noch nicht"],
           ]}
         >
           <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
-            {devices.length === 0 && <span className="text-sm text-mute">keine Geräte</span>}
-            {devices.map((d) => <DeviceRow key={d.deviceId} d={d} self={d.deviceId === c.deviceId} now={now} />)}
+            {kiosks.length === 0 && <span className="text-sm text-mute">keine Kiosks verbunden</span>}
+            {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} />)}
           </div>
           <Button size="xs" variant="secondary" className="self-start" onClick={() => c.probeDevices()}>
             <RadioTower size={13} /> Jetzt prüfen
