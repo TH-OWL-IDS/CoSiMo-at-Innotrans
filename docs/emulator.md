@@ -70,8 +70,12 @@ pnpm --filter @cosimo/emulator dev     # :6103, socket proxied to :6101
 
 ## Look — and the hidden panel
 
-The seat has the whole viewport (the iPad-aspect frame centres and scales,
-so a phone in portrait shows it whole). The developer panel is **hidden
+The seat has the whole viewport on an **off-white ground** — no visible
+iPad frame (the iPad-aspect stage is still there for the calibrated
+geometry, just the same colour as the page) — and the circle and slit are
+drawn **inset**, with an inner shadow and a faint halo, the way holes in a
+real panel read (`SeatView surface="panel"`; the kiosk keeps `"cabin"`,
+pitch black behind the physical panel). The developer panel is **hidden
 behind a near-invisible handle** in the bottom-right corner and the
 operator password (same SHA-256 as the console's lock, remembered per
 tab): a visitor on `seat-cosimo.…` just sees the seat. Open, it is a

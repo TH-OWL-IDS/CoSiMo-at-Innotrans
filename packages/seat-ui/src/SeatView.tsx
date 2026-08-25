@@ -99,6 +99,7 @@ export default function SeatView({
   seat,
   layout,
   fullscreen,
+  surface = "cabin",
   onSlitHold,
   children,
 }: {
@@ -110,6 +111,13 @@ export default function SeatView({
    * calibrated layout never overlaps in a landscape window.
    */
   fullscreen: boolean;
+  /**
+   * What surrounds the cutouts. "cabin" (the iPad): pitch black, so light
+   * bleed around the physical panel is invisible. "panel" (the emulator): an
+   * off-white ground with the circle and slit inset — a soft inner shadow and
+   * a faint halo, the way holes in a real panel read.
+   */
+  surface?: "cabin" | "panel";
   /** Operator gesture: the slit was held for 3 seconds. */
   onSlitHold?: () => void;
   /** Overlays drawn on top of the stage (e.g. the hidden test console). */
@@ -130,6 +138,13 @@ export default function SeatView({
   // not the viewport — on the iPad the two coincide.
   const circleSize = `min(${layout.circleD}cqw, 96cqh)`;
   const guide = layout.guides ? "2px dashed rgba(255,80,80,0.9)" : "none";
+  const panel = surface === "panel";
+  /** The inset look: an inner shadow drawn above the content (so nothing
+   *  covers its edge) plus a soft halo on the ground around the hole. */
+  const insetShadow = "inset 0 3px 12px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(0,0,0,0.08)";
+  const halo = "0 0 0 1px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06), 0 0 14px rgba(0,0,0,0.05)";
+  const Inset = ({ radius }: { radius: string | number }) =>
+    panel ? <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: radius, boxShadow: insetShadow, pointerEvents: "none", zIndex: 5 }} /> : null;
 
   return (
     <main
@@ -138,8 +153,9 @@ export default function SeatView({
         // host page gives us — never the viewport, or we'd paint over its UI.
         position: fullscreen ? "fixed" : "absolute",
         inset: 0,
-        // Behind the panel: pitch black, so light bleed around cutouts is invisible.
-        background: "#000",
+        // Behind the panel: pitch black, so light bleed around cutouts is
+        // invisible. The emulator shows the panel itself: off-white.
+        background: panel ? "#f4f3f0" : "#000",
         color: scheme.ink,
         overflow: "hidden",
         // Kiosk surface: long-pressing must never select text or pop the
@@ -166,7 +182,9 @@ export default function SeatView({
                 width: `min(100%, calc(100vh * (${IPAD_MINI_ASPECT})))`,
                 aspectRatio: IPAD_MINI_ASPECT,
                 maxHeight: "100%",
-                outline: "1px solid rgba(255,255,255,0.12)",
+                // The iPad's edge — only when the ground is black. On the
+                // panel surface the stage is invisible: same off-white.
+                outline: panel ? "none" : "1px solid rgba(255,255,255,0.12)",
               }),
         }}
       >
@@ -184,10 +202,12 @@ export default function SeatView({
             background: scheme.bg,
             overflow: "hidden",
             outline: guide,
+            boxShadow: panel ? halo : undefined,
             touchAction: "none",
             transition: "background 300ms",
           }}
         >
+          <Inset radius="50%" />
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
           <div
@@ -298,9 +318,11 @@ export default function SeatView({
             color: scheme.ink,
             overflow: "hidden",
             outline: guide,
+            boxShadow: panel ? halo : undefined,
             transition: "background 300ms",
           }}
         >
+          <Inset radius={layout.slitR} />
           {cosimo.card ? (
             <SlitCard
               card={cosimo.card}

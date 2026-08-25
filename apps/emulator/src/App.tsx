@@ -137,11 +137,12 @@ export default function App() {
   );
 
   return (
-    <div className="fixed inset-0 bg-black font-sans">
+    <div className="fixed inset-0 bg-[#f4f3f0] font-sans">
       {/* ── the seat, exactly as the iPad renders it — including the
              kiosk's system font, which SeatView inherits. It has the whole
-             viewport; the panel floats over it. ── */}
-      <SeatView seat={seat} layout={DEFAULT_PANEL_LAYOUT} fullscreen={false} />
+             viewport on an off-white ground, the cutouts inset like holes in
+             a real panel; the developer panel floats over it. ── */}
+      <SeatView seat={seat} layout={DEFAULT_PANEL_LAYOUT} fullscreen={false} surface="panel" />
 
       {/* ── the panel's handle: a small, almost invisible dot in the corner.
              Visitors don't find it; staff know it is there. ── */}
@@ -150,7 +151,7 @@ export default function App() {
           type="button"
           aria-label="Emulator-Panel öffnen"
           onClick={() => setOpen(true)}
-          className="fixed bottom-3 right-3 z-drawer size-7 cursor-pointer rounded-full border border-white/25 bg-transparent opacity-30 transition-opacity hover:opacity-90 focus-visible:opacity-90 motion-reduce:transition-none"
+          className="fixed bottom-3 right-3 z-drawer size-7 cursor-pointer rounded-full border border-ink/25 bg-transparent opacity-30 transition-opacity hover:opacity-90 focus-visible:opacity-90 motion-reduce:transition-none"
         >
           <span className="sr-only">Panel</span>
         </button>
