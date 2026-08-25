@@ -702,20 +702,25 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
 
 /**
  * The view switcher: a hamburger on the header's right, nothing else. Open,
- * a full-width panel slides out from beneath the header (it sits behind the
- * header's own background in the same stacking context, so the motion reads
- * as "from under"), one row per view with icon, label and count badge.
- * Esc, a click outside and a choice close it.
+ * a fit-to-content panel slides out from beneath the header — it animates
+ * inside a clip box that starts at the header's bottom edge, so the part
+ * still "under" the header is simply not painted. One row per view with
+ * icon, label and count badge. Esc, a click outside and a choice close it.
  */
 function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => void; badge: (t: Tab) => React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+  // "closing" keeps the panel mounted while it slides back up; the
+  // animationend of that pass unmounts it.
+  const [phase, setPhase] = useState<"closed" | "open" | "closing">("closed");
+  const open = phase === "open";
+  const close = () => setPhase((p) => (p === "open" ? "closing" : p));
+  const toggle = () => setPhase((p) => (p === "open" ? "closing" : "open"));
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("pointerdown", onDown);
     window.addEventListener("keydown", onKey);
     return () => {
@@ -733,16 +738,25 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={open ? "Menü schließen" : "Menü öffnen"}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
       >
         {open ? <X size={22} /> : <Menu size={22} />}
       </Button>
-      {open && (
-        <nav
-          role="menu"
-          aria-label="Ansichten"
-          className="absolute inset-x-0 top-full -z-10 border-b border-line bg-white px-6 py-2 shadow-card animate-[menu-down_180ms_ease-out] motion-reduce:animate-none"
-        >
+      {phase !== "closed" && (
+        /* The clip box: sits flush under the header's bottom edge; anything
+           above its top is hidden, so the panel sliding down from -100%
+           genuinely emerges from beneath the header. The padding leaves
+           room for the panel's shadow on the sides and below. */
+        <div className="absolute right-6 top-full overflow-hidden pb-6 pl-6">
+          <nav
+            role="menu"
+            aria-label="Ansichten"
+            onAnimationEnd={() => phase === "closing" && setPhase("closed")}
+            className={cn(
+              "w-max min-w-[220px] rounded-b-xl border border-t-0 border-line bg-white px-4 py-1 shadow-float motion-reduce:animate-none",
+              phase === "closing" ? "animate-[menu-up_160ms_ease-in_forwards]" : "animate-[menu-down_200ms_ease-out]",
+            )}
+          >
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = t.id === tab;
@@ -754,7 +768,7 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
                 aria-current={active ? "page" : undefined}
                 onClick={() => {
                   onSwitch(t.id);
-                  setOpen(false);
+                  close();
                 }}
                 className={cn(
                   "flex w-full cursor-pointer items-center gap-3 border-b border-line-soft py-3 text-left text-base last:border-b-0",
@@ -763,12 +777,13 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
                 )}
               >
                 <Icon size={18} className={active ? "text-accent" : "text-mute"} />
-                <span className="flex-1">{t.label}</span>
+                <span className="flex-1 pr-6">{t.label}</span>
                 {badge(t.id)}
               </button>
             );
           })}
-        </nav>
+          </nav>
+        </div>
       )}
     </div>
   );
@@ -802,9 +817,8 @@ export default function HostConsole() {
   return (
     <main className="min-h-screen bg-bg text-ink">
       {/* ── the header: wordmark centred, the hamburger on the right; the empty
-             left zone is its counterweight. `relative` + `isolate` give the menu
-             panel a stacking context to slide out from beneath. ── */}
-      <header className="relative isolate sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
+             left zone is its counterweight. `relative` anchors the menu's clip box. ── */}
+      <header className="relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
         <div className="flex-1" />
         <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Konsole">
           <Brand />
