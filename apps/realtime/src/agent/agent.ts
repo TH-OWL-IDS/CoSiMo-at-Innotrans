@@ -478,7 +478,7 @@ export class CosimoAgent {
     // A local card put on screen this turn must be heard, whatever the model
     // said ("Erledigt." happens): append its question deterministically.
     const shownCard = this.hub.cardOf(sessionId);
-    if (!streamClosed && shownCard?.local && !assistantText.includes(shownCard.question)) {
+    if (!streamClosed && shownCard?.local && !assistantText.includes(shownCard.question) && !/[?？]\s*$/.test(assistantText.trim())) {
       const add = (assistantText.trim() ? " " : "") + shownCard.question;
       assistantText += add;
       if (!startedSpeaking) {
