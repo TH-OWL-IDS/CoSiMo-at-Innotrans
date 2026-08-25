@@ -3,8 +3,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   Activity,
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
-  DoorClosed, DoorOpen, Ear, Flag, Frown, Globe, IdCard,
-  Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
+  DoorClosed, DoorOpen, Ear, Flag, Frown, IdCard,
+  Database, LayoutDashboard, LifeBuoy, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
   AppWindow, Box, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
@@ -108,8 +108,9 @@ function accommodationChips(a: Accommodations): string[] {
  * ÜBERSICHT — one card per dependency: status, consequence, live facts
  * ──────────────────────────────────────────────────────────────── */
 
-type ServiceState = "ok" | "warn" | "down";
-const STATE_LABEL: Record<ServiceState, string> = { ok: "läuft", warn: "eingeschränkt", down: "ausgefallen" };
+type ServiceState = "ok" | "warn" | "down" | "starting";
+/** Docker-style states: healthy / degraded / unhealthy, starting until the first signal. */
+const STATE_LABEL: Record<ServiceState, string> = { ok: "healthy", warn: "degraded", down: "unhealthy", starting: "starting" };
 
 const HEALTH_LABEL: Record<DeviceHealth, string> = { ok: "ok", slow: "langsam", stale: "antwortet nicht", lost: "getrennt" };
 const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h === "lost" ? "down" : "warn");
@@ -249,7 +250,7 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
           <span className="block truncate text-2xl font-black">{name}</span>
         </Tip>
         {state && (
-          <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
+          <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : state === "starting" ? "text-mute" : "text-accent")}>
             <Dot state={state} /> {STATE_LABEL[state]}
           </span>
         )}
@@ -271,16 +272,19 @@ const ago = (ts: string | undefined, now: number) => {
 
 /** The last system-level events — no seat, no session: boots, config
  *  (re)loads, service status flips, restarts, journey faults. */
-function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; onOpenLogs: () => void }) {
+function SystemCard({ logs, now, st, onOpenLogs }: { logs: LogEvent[]; now: number; st: ConnectionStatus; onOpenLogs: () => void }) {
   const system = logs.filter((e) => !e.deviceId && !e.sessionId).slice(-8).reverse();
-  const worst = system.some((e) => e.level === "error") ? "down" : system.some((e) => e.level === "warn") ? "warn" : "ok";
+  const lastSvc = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "service.status" }> => e.kind === "service.status");
   return (
     <ServiceCard
-      state={system.length ? worst : undefined}
       icon={Activity}
       name="System"
-      detail="Was der Hub selbst erlebt hat — ohne Bezug zu einem Sitz oder einer Session: Starts, geladene Konfiguration (und was sich darin geändert hat), Statuswechsel von LLM/CMS/Netz, Container-Neustarts, Störungen der Fahrt. Die letzten acht, neueste oben; „Alle“ öffnet die Logs mit dem Filter „System“."
-      facts={[]}
+      detail="Was der Hub selbst erlebt hat — ohne Bezug zu einem Sitz oder einer Session: Internet und Sprachdienste aus seiner Sicht, dann Starts, geladene Konfiguration (und was sich darin geändert hat), Statuswechsel von LLM/CMS/Netz, Container-Neustarts, Störungen der Fahrt. Die letzten acht, neueste oben; „Alle“ öffnet die Logs mit dem Filter „System“."
+      facts={[
+        ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
+        ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
+        ["Gemeldet", lastSvc ? ago(lastSvc.ts, now) : "—"],
+      ]}
     >
       <div className="flex flex-col gap-1.5">
         {system.length === 0 && <span className="text-sm text-mute">noch keine System-Ereignisse</span>}
@@ -354,6 +358,8 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
     ? hosts.map((d) => `${d.deviceId}${d.deviceId === c.deviceId ? " (diese)" : ""} · ${d.rttMs != null ? `${d.rttMs} ms` : "—"} · ${HEALTH_LABEL[d.health]}`).join("\n")
     : "keine";
   const activeSeats = c.seats.filter((s) => s.active).length;
+  const t = c.telemetry;
+  const fault = t?.faults?.[0];
 
   if (!st) {
     return (
@@ -397,7 +403,6 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           </div>
         </ServiceCard>
         <ServiceCard
-          state={c.services.length === 0 ? undefined : c.services.some((s) => s.status === "down") ? "down" : "ok"}
           icon={Box}
           name="Services"
           detail="Die fünf Deployables aus Sicht des Hubs: CMS (Payload), WS (der Hub selbst), Konsole, Seat-Emulator und Fahrt-Ansicht — je mit öffentlichem Host, internem Port und Compose-Service. Der Hub prüft alle 15 s die interne Adresse; die Details stehen im Tooltip der Zeile."
@@ -410,43 +415,9 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             ))}
           </div>
         </ServiceCard>
+        <SystemCard logs={c.logs} now={now} st={st} onOpenLogs={onShowSystemLogs} />
         <ServiceCard
-          state={st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
-          icon={Brain}
-          name="LLM"
-          detail="Das Gehirn: welches Modell die Antworten schreibt, ob gerade der Fallback einspringt, wie lange das Denken im Schnitt dauert und wann der letzte Turn lief. Die Werte kommen aus den Turn-Ereignissen des Logs."
-          facts={[
-            ["Modell", llmName],
-            ["Fallback", fallbackActive ? <span className="text-warn">aktiv (Claude)</span> : "bereit"],
-            ["Ø Denken", `${ms(llmMs)}${turns.length ? ` (${turns.length} Turns)` : ""}`],
-            ["Letzter Turn", lastTurn ? `${ago(lastTurn.ts, now)} · ${lastTurn.data.outcome}` : "—"],
-          ]}
-        />
-        <ServiceCard
-          state={st.serverStt ? "ok" : "warn"}
-          icon={Mic}
-          name="Hören (STT)"
-          detail="Spracherkennung: ob die Aufnahmen der Sitze auf dem Server (Deepgram) transkribiert werden oder das iPad selbst erkennt. Ø Dauer und „Zuletzt“ beziehen sich auf die letzten Erkennungen."
-          facts={[
-            ["Pfad", st.serverStt ? "Deepgram (Server)" : "Browser-Erkennung"],
-            ["Ø Dauer", ms(sttMs)],
-            ["Zuletzt", lastStt ? `${ago(lastStt.ts, now)} · ${lastStt.data.chars} Zeichen aus ${Math.round(lastStt.data.bytes / 1024)} kB` : "—"],
-          ]}
-        />
-        <ServiceCard
-          state={st.serverTts ? "ok" : "warn"}
-          icon={Volume2}
-          name="Sprechen (TTS)"
-          detail="Sprachausgabe: ob die Stimme auf dem Server (ElevenLabs) erzeugt und als Audio an den Sitz gestreamt wird oder das iPad mit der Systemstimme spricht. „Erstes Audio“ ist die Zeit bis zum ersten hörbaren Satz."
-          facts={[
-            ["Pfad", st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"],
-            ["Ø Dauer", ms(ttsMs)],
-            ["Erstes Audio", lastTts?.data.firstChunkMs != null ? `nach ${ms(lastTts.data.firstChunkMs)}${lastTts.data.chunks ? ` · ${lastTts.data.chunks} Clips` : ""}` : "—"],
-            ["Zuletzt", lastTts ? `${ago(lastTts.ts, now)} · ${lastTts.data.chars} Zeichen` : "—"],
-          ]}
-        />
-        <ServiceCard
-          state={st.cms ? "ok" : "warn"}
+          state={!lastCmsSvc && !cfg ? "starting" : st.cms ? "ok" : "warn"}
           icon={Database}
           name="CMS"
           detail="Die Redaktion: Payload hält Profile (NFC-Karten), Route, Sessions und die Operator-Konfiguration. Der Hub liest sie mit Cache und fährt bei Ausfall mit dem zuletzt Geladenen weiter. Die Zeilen zeigen, welche Routen (LLM, STT, TTS, LPU-2) der Hub daraus gerade fährt."
@@ -464,34 +435,61 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           ]}
         />
         <ServiceCard
-          state={st.light ? "ok" : "warn"}
-          icon={Lightbulb}
-          name="Licht"
-          detail="Kabinenlicht: CoSiMo schaltet Lampen über die Sitze — das iPad ruft den LPU-2 im Kabinen-LAN per HTTP auf. Die Zeilen zählen die Aktionen und zeigen die letzte."
+          state={!lastSvc ? "starting" : st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
+          icon={Brain}
+          name="LLM"
+          detail="Das Gehirn: welches Modell die Antworten schreibt, ob gerade der Fallback einspringt, wie lange das Denken im Schnitt dauert und wann der letzte Turn lief. Die Werte kommen aus den Turn-Ereignissen des Logs."
           facts={[
-            ["Aktionen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""}` : "noch keine"],
-            ["Zuletzt", lastCabin ? `${ago(lastCabin.ts, now)} · ${lastCabin.data.control} ${lastCabin.data.ok ? "ok" : "Fehler"}` : "—"],
-            ["Weg", "iPad → LPU-2 (HTTP)"],
+            ["Modell", llmName],
+            ["Fallback", fallbackActive ? <span className="text-warn">aktiv (Claude)</span> : "bereit"],
+            ["Ø Denken", `${ms(llmMs)}${turns.length ? ` (${turns.length} Turns)` : ""}`],
+            ["Letzter Turn", lastTurn ? `${ago(lastTurn.ts, now)} · ${lastTurn.data.outcome}` : "—"],
           ]}
         />
         <ServiceCard
-          state={st.network ? "ok" : "down"}
-          icon={Globe}
-          name="Netzwerk"
-          detail="Internet und Sprachdienste vom Hub aus gesehen: ohne Internet gibt es keine Cloud-Dienste (TTS, STT, Fallback), und der Hub schaltet in den Offline-Modus. „Status“: wann der Hub zuletzt gemeldet hat."
+          state={!t ? "starting" : fault ? "warn" : t.simPaused ? "warn" : "ok"}
+          icon={TramFront}
+          name="Fahrzeug"
+          detail="Das MonoCab, wie der Hub es fährt: Fahrt-Simulation (Ort, Tempo, nächster Halt), aktive Störung und Verspätung, Fahrgäste — und das Kabinenlicht, das CoSiMo über die Sitze schaltet (das iPad ruft den LPU-2 im Kabinen-LAN per HTTP auf)."
           facts={[
-            ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
-            ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
-            ["Status", lastSvc ? `${ago(lastSvc.ts, now)} gemeldet` : "—"],
+            ["Fahrt", t ? `${t.location.de} · ${Math.round(t.speedKmh)} km/h${t.simPaused ? " · pausiert" : ""}` : "—"],
+            ["Nächster Halt", t?.nextStops[0] ? `${t.nextStops[0].name.de} · ${t.nextStops[0].etaMinutes} min` : "—"],
+            ["Störung", fault ? <span className="text-warn">{fault.cause.de} ({fault.remainingSec}s)</span> : "keine"],
+            ["Verspätung", t?.delayMinutes ? `+${t.delayMinutes} min` : "pünktlich"],
+            ["Fahrgäste", t ? `${t.occupancy}/${t.capacity} (${t.seats?.liveSessions ?? 0} echt)` : "—"],
+            ["Licht", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""}${lastCabin ? ` · zuletzt ${ago(lastCabin.ts, now)}` : ""}` : "noch keine Aktion"],
           ]}
         />
-        <SystemCard logs={c.logs} now={now} onOpenLogs={onShowSystemLogs} />
+      </div>
+      {/* the last two share a row so nothing dangles alone in a 3-column grid */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ServiceCard
+          state={st.serverTts ? "ok" : "warn"}
+          icon={Volume2}
+          name="Sprechen (TTS)"
+          detail="Sprachausgabe: ob die Stimme auf dem Server (ElevenLabs) erzeugt und als Audio an den Sitz gestreamt wird oder das iPad mit der Systemstimme spricht. „Erstes Audio“ ist die Zeit bis zum ersten hörbaren Satz."
+          facts={[
+            ["Pfad", st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"],
+            ["Ø Dauer", ms(ttsMs)],
+            ["Erstes Audio", lastTts?.data.firstChunkMs != null ? `nach ${ms(lastTts.data.firstChunkMs)}${lastTts.data.chunks ? ` · ${lastTts.data.chunks} Clips` : ""}` : "—"],
+            ["Zuletzt", lastTts ? `${ago(lastTts.ts, now)} · ${lastTts.data.chars} Zeichen` : "—"],
+          ]}
+        />
+        <ServiceCard
+          state={st.serverStt ? "ok" : "warn"}
+          icon={Mic}
+          name="Hören (STT)"
+          detail="Spracherkennung: ob die Aufnahmen der Sitze auf dem Server (Deepgram) transkribiert werden oder das iPad selbst erkennt. Ø Dauer und „Zuletzt“ beziehen sich auf die letzten Erkennungen."
+          facts={[
+            ["Pfad", st.serverStt ? "Deepgram (Server)" : "Browser-Erkennung"],
+            ["Ø Dauer", ms(sttMs)],
+            ["Zuletzt", lastStt ? `${ago(lastStt.ts, now)} · ${lastStt.data.chars} Zeichen aus ${Math.round(lastStt.data.bytes / 1024)} kB` : "—"],
+          ]}
+        />
       </div>
     </div>
   );
-}
-
-/* ────────────────────────────────────────────────────────────────
+}/* ────────────────────────────────────────────────────────────────
  * FAHRZEUG — the MonoCab itself, state arranged around the CI drawing
  * ──────────────────────────────────────────────────────────────── */
 
