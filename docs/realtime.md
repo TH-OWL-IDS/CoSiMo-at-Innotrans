@@ -294,3 +294,20 @@ service names; dev defaults to the local 61xx ports; unset inside Docker
 The hub cannot query Docker, so "container" is the compose service name
 (plus its own container hostname). Pushed to host consoles on hello and
 whenever a probe result changes.
+
+## Host token and container restarts
+
+`HOST_TOKEN` (the operator password): consoles send its SHA-256 as
+`token` on `hello`; a console without the right token is refused
+(`host:unauthorized`, then disconnected). Every `host:*` command is gated
+by a per-socket packet middleware on `entry.authed` — a journey view
+(host-role, no token) receives broadcasts but can't command. Unset =
+dev, everything accepted, warned at boot.
+
+`host:restart-service { id }` restarts a deployable's container via
+`DOCKER_PROXY_URL` — the `docker-proxy` sidecar in docker-compose.prod.yml
+(tecnativa/docker-socket-proxy, `CONTAINERS=1 POST=1 ALLOW_RESTARTS=1`,
+nothing else, no published port). The hub finds the container by its
+`com.docker.compose.service` label and POSTs `/restart?t=5`; the outcome
+comes back as `host:restart-result` and is logged. Without the proxy
+(dev) rows are not restartable.

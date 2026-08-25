@@ -55,6 +55,9 @@ services:
       # Origins that open sockets to realtime: the native kiosk WebView, the
       # host console and the seat emulator. The CMS opens no sockets; ws- is
       # the target, not an origin, so it is not listed here.
+      # Restart buttons on the console's Services card go through the
+      # restart-only Docker socket proxy below — never the raw socket.
+      DOCKER_PROXY_URL: http://docker-proxy:2375
       SERVICE_URL_CONSOLE: http://console
       SERVICE_URL_EMULATOR: http://emulator
       SERVICE_URL_JOURNEY: http://journey
@@ -84,6 +87,27 @@ services:
 
   # Nightly pg_dump into ./backups (sessions are the research dataset —
   # copy this directory off the box regularly).
+  # A restart-only window onto the Docker socket for the hub: the proxy
+  # exposes the Engine API on the compose network but allows nothing except
+  # listing containers and POST …/restart. The raw socket never reaches the
+  # hub — an unauthenticated console could otherwise root the box.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.3
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONTAINERS: 1
+      POST: 1
+      ALLOW_RESTARTS: 1
+      # everything else stays at the image default (0)
+      IMAGES: 0
+      NETWORKS: 0
+      VOLUMES: 0
+      EXEC: 0
+      INFO: 0
+    # no ports: reachable only as docker-proxy:2375 inside the network
+
   pg-backup:
     image: postgres:16-alpine
     restart: unless-stopped

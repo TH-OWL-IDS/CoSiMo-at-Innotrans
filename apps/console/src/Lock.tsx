@@ -27,10 +27,21 @@ function remembered(): boolean {
   }
 }
 
-export default function Lock({ children }: { children: React.ReactNode }) {
+export default function Lock({ children }: { children: (token: string, relock: () => void) => React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(remembered);
   const [value, setValue] = useState("");
   const [wrong, setWrong] = useState(false);
+  /** The hub refused the token: forget it and ask again, with a hint. */
+  const [refused, setRefused] = useState(false);
+  const relock = () => {
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      // fine
+    }
+    setRefused(true);
+    setUnlocked(false);
+  };
 
   // A wrong attempt shakes off after a moment so the next try starts clean.
   useEffect(() => {
@@ -39,7 +50,7 @@ export default function Lock({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [wrong]);
 
-  if (unlocked) return <>{children}</>;
+  if (unlocked) return <>{children(HASH, relock)}</>;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +93,7 @@ export default function Lock({ children }: { children: React.ReactNode }) {
           <LockKeyhole size={15} /> Entsperren
         </Button>
         <span role="status" className="min-h-4 text-sm text-accent">
-          {wrong ? "Falsches Passwort" : ""}
+          {wrong ? "Falsches Passwort" : refused ? "Der Hub hat das Passwort abgelehnt — stimmt HOST_TOKEN?" : ""}
         </span>
       </form>
     </main>

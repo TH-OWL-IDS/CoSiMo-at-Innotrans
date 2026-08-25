@@ -146,6 +146,8 @@ export interface ServiceInfo {
   checkedAt: string | null;
   /** True when the hub itself runs inside Docker. */
   docker: boolean;
+  /** True when the hub can restart this container (Docker proxy configured). */
+  restartable: boolean;
 }
 
 /** Events the server pushes to clients. */
@@ -197,6 +199,10 @@ export interface ServerToClientEvents {
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
   /** Link check: the client answers by calling the ack — no payload. */
   "sys:ping": (ack: () => void) => void;
+  /** A console's token was refused — the page should lock again. */
+  "host:unauthorized": (payload: { reason: "token" }) => void;
+  /** Outcome of a host:restart-service. */
+  "host:restart-result": (payload: { id: ServiceInfo["id"]; ok: boolean; error?: string }) => void;
   /** The deployables and their reachability — pushed to host consoles on hello and on change. */
   "host:services": (payload: { services: ServiceInfo[] }) => void;
   /** A console should reload itself (another console reset everything). */
@@ -217,7 +223,9 @@ export interface ServerToClientEvents {
 /** Events clients send to the server. */
 export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind }) => void;
+  /** `token`: consoles send the SHA-256 of the operator password; the hub
+   *  compares it with its HOST_TOKEN. Journey views and seats send none. */
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;
@@ -264,6 +272,8 @@ export interface ClientToServerEvents {
    *  (session:reset), a journey view or console gets host:reload. Nothing
    *  is disconnected — the device shows what happened. */
   "host:reset-device": (payload: { deviceId: string }) => void;
+  /** Restart a deployable's container via the Docker socket proxy (prod). */
+  "host:restart-service": (payload: { id: ServiceInfo["id"] }) => void;
   /** Reset everything: every seat back to the consent screen (session:reset
    *  "*"), every *other* console told to reload (host:reload). */
   "host:reset-all": (payload: Record<string, never>) => void;

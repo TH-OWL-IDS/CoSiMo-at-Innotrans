@@ -61,7 +61,7 @@ nothing is published to the public internet — cms and realtime bind to
 `127.0.0.1` only, where the tunnel reaches them.
 
 ```bash
-cp .env.example .env.prod   # set COSIMO_DOMAIN (+ the *_DOMAIN overrides) + real secrets
+cp .env.example .env.prod   # set COSIMO_DOMAIN (+ the *_DOMAIN overrides), HOST_TOKEN + real secrets
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   --env-file .env.prod up -d --build
 ```

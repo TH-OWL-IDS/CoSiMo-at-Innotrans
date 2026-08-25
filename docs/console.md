@@ -58,11 +58,12 @@ diagram node positions, the battery fill, the log grid template.
 The page sits behind a password (`apps/console/src/Lock.tsx`): a SHA-256
 hash in the bundle, the unlock remembered in localStorage per device. To
 change it, replace `HASH` with `printf 'new-password' | shasum -a 256`.
-This keeps visitors who find the URL out of the operator controls — but
-**the socket is still unauthenticated**: anyone who connects as
-`role: "host"` can reset seats, wherever the page is served from. The
-real fix is a host token checked by the hub on `hello`. Add it before the
-fair.
+The same hash is the **hub token**: the console sends it on `hello`, the
+hub compares it with the SHA-256 of its `HOST_TOKEN` and refuses the
+connection (`host:unauthorized` → the page locks again) or, for other
+host-role clients such as the journey view, refuses every `host:*`
+command. With `HOST_TOKEN` unset (dev) every console is accepted and the
+hub warns at boot. Set `HOST_TOKEN` in `.env.prod` to the same password.
 
 ## Where it connects
 

@@ -161,6 +161,12 @@ export interface CosimoState {
   reloadRequired: boolean;
   /** This console was evicted (too many consoles); null = not evicted. */
   evicted: { max: number } | null;
+  /** The hub refused this console's token — lock the page again. */
+  unauthorized: boolean;
+  /** Restart a deployable's container (operator console; prod only). */
+  restartService: (id: ServiceInfo["id"]) => void;
+  /** Last restart outcome, keyed by service id. */
+  restartResults: Partial<Record<ServiceInfo["id"], { ok: boolean; error?: string; at: number }>>;
   clearInspection: () => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
@@ -200,6 +206,8 @@ export function useCosimoSocket(
   role: "kiosk" | "host" = "kiosk",
   /** What this client is, for the console's device list (defaults by role). */
   kind: ClientKind = role === "host" ? "console" : "kiosk",
+  /** Consoles: the operator password's SHA-256 — the hub's HOST_TOKEN check. */
+  token?: string,
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
   // Stable across reloads of this tab, unique per tab: sessionStorage. A
@@ -244,6 +252,8 @@ export function useCosimoSocket(
   const [services, setServices] = useState<ServiceInfo[]>([]);
   const [reloadRequired, setReloadRequired] = useState(false);
   const [evicted, setEvicted] = useState<{ max: number } | null>(null);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const [restartResults, setRestartResults] = useState<CosimoState["restartResults"]>({});
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
@@ -377,7 +387,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
-      socket.emit("hello", { deviceId, role, kind });
+      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}) });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -391,6 +401,8 @@ export function useCosimoSocket(
     socket.on("host:services", ({ services }) => setServices(services));
     socket.on("host:reload", () => setReloadRequired(true));
     socket.on("host:evicted", ({ max }) => setEvicted({ max }));
+    socket.on("host:unauthorized", () => setUnauthorized(true));
+    socket.on("host:restart-result", ({ id, ok, error }) => setRestartResults((r) => ({ ...r, [id]: { ok, error, at: Date.now() } })));
     socket.on("host:inspect:result", (r) => setInspection(r));
     socket.on("host:log", ({ events }) => {
       // Merge by seq (a replay may overlap what we already have), keep order,
@@ -494,7 +506,7 @@ export function useCosimoSocket(
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId, role, kind]);
+  }, [realtimeUrl, deviceId, role, kind, token]);
 
   const clearCard = () => setCard(null);
 
@@ -578,6 +590,7 @@ export function useCosimoSocket(
   const probeDevices = () => sockRef.current?.emit("host:probe", {});
   const resetAll = () => sockRef.current?.emit("host:reset-all", {});
   const resetDevice = (deviceId: string) => sockRef.current?.emit("host:reset-device", { deviceId });
+  const restartService = (id: ServiceInfo["id"]) => sockRef.current?.emit("host:restart-service", { id });
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
@@ -628,6 +641,7 @@ export function useCosimoSocket(
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
+    unauthorized, restartService, restartResults,
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,

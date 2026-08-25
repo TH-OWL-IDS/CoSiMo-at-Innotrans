@@ -97,7 +97,9 @@ hub.onTelemetryPatch((patch) => {
 // Watch connectivity → auto-switch to offline canned mode when the cloud drops.
 startHealthMonitor(hub, llm);
 // The deployables' reachability for the console's Services card.
-new ServicesMonitor(hub).start();
+const services = new ServicesMonitor(hub);
+hub.setServiceRestarter((id) => services.restart(id));
+services.start();
 
 // Memory telemetry: one line per minute. A previous session died with a 4 GB
 // heap OOM — if it ever grows again, this makes the climb (and its slope)

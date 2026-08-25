@@ -7,6 +7,7 @@
  * per-seat summary stream (host:seats).
  */
 
+import { createHash } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import type { LightDriver } from "./cabin/driver.js";
 import { buildActuation, type Lpu2Config } from "./cabin/lpu2.js";
@@ -133,6 +134,10 @@ type ParkedState = Pick<
  *  so forgotten tabs can't pile up. */
 const MAX_HOST_CONSOLES = Number(process.env.MAX_HOST_CONSOLES ?? 3);
 
+/** The operator password, hashed once — consoles send the same hash. */
+const HOST_TOKEN_SHA256 = config.hostToken ? createHash("sha256").update(config.hostToken).digest("hex") : "";
+if (!config.hostToken) console.warn("[hub] HOST_TOKEN not set — every console is accepted (dev only)");
+
 /** Link check tuning (see probeDevices). A 2 s cadence is cheap — one tiny
  *  ack per socket — as long as the result only goes to consoles. */
 const PROBE_INTERVAL_MS = 2_000;
@@ -150,6 +155,8 @@ function transportOf(socket: Sock): "websocket" | "polling" {
 interface DeviceEntry {
   role: "kiosk" | "host";
   kind: ClientKind;
+  /** May send host:* commands (a console with a valid token; or dev without HOST_TOKEN). */
+  authed: boolean;
   socket: Sock;
   /** Link facts for the console's Verbindung card. */
   connectedAt: number;
@@ -213,6 +220,7 @@ export class Hub {
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
   private servicesLister: (() => ServiceInfo[]) | undefined;
+  private serviceRestarter: ((id: ServiceInfo["id"]) => Promise<{ ok: boolean; error?: string }>) | undefined;
   /** Recently disconnected devices, shown as "lost" for LOST_LINGER_MS. */
   private readonly lost = new Map<string, ConnectedDevice>();
   /** Dropped kiosks' state, waiting PARK_MS for the same id to return. */
@@ -423,6 +431,11 @@ export class Hub {
     this.servicesLister = lister;
   }
 
+  /** Register how a deployable is restarted (docker-socket-proxy). */
+  setServiceRestarter(fn: (id: ServiceInfo["id"]) => Promise<{ ok: boolean; error?: string }>): void {
+    this.serviceRestarter = fn;
+  }
+
   /** Push the deployables' status to every host console. */
   broadcastServices(): void {
     if (!this.servicesLister) return;
@@ -442,11 +455,23 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role, kind }) => {
+    socket.on("hello", ({ deviceId, role, kind, token }) => {
+      const resolvedKind: ClientKind = kind ?? (role === "host" ? "console" : "kiosk");
+      // Consoles must present the operator password (as SHA-256); without
+      // HOST_TOKEN configured (dev) everything passes. Seats and journey
+      // views never authenticate — they get no host:* commands either way.
+      const tokenOk = !config.hostToken || token === HOST_TOKEN_SHA256;
+      if (resolvedKind === "console" && !tokenOk) {
+        logger.log("host.action", { action: "unauthorized", args: {} }, { deviceId, level: "warn" });
+        socket.emit("host:unauthorized", { reason: "token" });
+        socket.disconnect(true);
+        return;
+      }
       const entry: DeviceEntry = {
         role,
         // Old clients say nothing — assume the plain thing for their role.
-        kind: kind ?? (role === "host" ? "console" : "kiosk"),
+        kind: resolvedKind,
+        authed: resolvedKind === "console" && tokenOk,
         socket,
         persona: this.resolvePersona("default"),
         emotion: "sleeping",
@@ -489,6 +514,15 @@ export class Hub {
       }
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
+      // Every host:* command needs an authenticated console — one gate for
+      // all of them, however each handler is registered.
+      socket.use(([event], next) => {
+        if (typeof event === "string" && event.startsWith("host:") && !entry.authed) {
+          logger.log("host.action", { action: "refused", args: { event } }, { deviceId, level: "warn" });
+          return next(new Error("unauthorized"));
+        }
+        next();
+      });
       // The same id coming back is the "lost" device returning — not a new one.
       this.lost.delete(deviceId);
       this.broadcastDevices();
@@ -530,6 +564,13 @@ export class Hub {
           } else {
             e.socket.emit("host:reload", { by: deviceId });
           }
+        });
+        socket.on("host:restart-service", ({ id }) => {
+          logger.log("host.action", { action: "restart-service", args: { id } }, { deviceId, level: "warn" });
+          void this.serviceRestarter?.(id).then((r) => {
+            logger.log("host.action", { action: "restart-result", args: { id, ...r } }, { deviceId, level: r.ok ? "info" : "error" });
+            socket.emit("host:restart-result", { id, ...r });
+          });
         });
         socket.on("host:reset-all", () => {
           logger.log("host.action", { action: "reset-all", args: {} }, { deviceId });

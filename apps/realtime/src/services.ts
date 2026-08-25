@@ -80,6 +80,7 @@ export class ServicesMonitor {
     latencyMs: null,
     checkedAt: null,
     docker: IN_DOCKER,
+    restartable: Boolean(config.dockerProxyUrl) && IN_DOCKER,
   }));
 
   constructor(private readonly hub: Hub) {
@@ -98,6 +99,30 @@ export class ServicesMonitor {
       }),
     );
     if (JSON.stringify(this.services) !== before) this.hub.broadcastServices();
+  }
+
+  /**
+   * Restart a deployable's container through the docker-socket-proxy: find
+   * the container by its compose service label, POST /restart. The proxy is
+   * configured to allow nothing else. Never throws — returns the error text.
+   */
+  async restart(id: ServiceInfo["id"]): Promise<{ ok: boolean; error?: string }> {
+    const base = config.dockerProxyUrl.replace(/\/+$/, "");
+    if (!base) return { ok: false, error: "kein Docker-Proxy konfiguriert" };
+    const service = id === "cms" ? "cms" : id === "realtime" ? "realtime" : id;
+    try {
+      const filters = encodeURIComponent(JSON.stringify({ label: [`com.docker.compose.service=${service}`] }));
+      const list = await fetch(`${base}/containers/json?filters=${filters}`, { signal: AbortSignal.timeout(4000) });
+      if (!list.ok) return { ok: false, error: `Proxy ${list.status}` };
+      const containers = (await list.json()) as { Id: string; Names?: string[] }[];
+      const c = containers[0];
+      if (!c) return { ok: false, error: `kein Container für ${service}` };
+      const res = await fetch(`${base}/containers/${c.Id}/restart?t=5`, { method: "POST", signal: AbortSignal.timeout(30_000) });
+      if (!res.ok && res.status !== 204) return { ok: false, error: `Docker ${res.status}` };
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   start(intervalMs = 15_000): void {

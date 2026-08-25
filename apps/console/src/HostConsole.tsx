@@ -177,7 +177,7 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
 const SERVICE_ICON: Record<ServiceInfo["id"], LucideIcon> = { cms: Database, realtime: Cable, console: Monitor, emulator: AppWindow, journey: Route };
 
 /** One deployable, one line: name, public host, port, dot. Everything else in the tooltip. */
-function ServiceRow({ s, now }: { s: ServiceInfo; now: number }) {
+function ServiceRow({ s, now, onRestart, result }: { s: ServiceInfo; now: number; onRestart?: () => void; result?: { ok: boolean; error?: string; at: number } }) {
   const Icon = SERVICE_ICON[s.id];
   const tip = [
     s.label,
@@ -203,6 +203,26 @@ function ServiceRow({ s, now }: { s: ServiceInfo; now: number }) {
         {state ? <Dot size="sm" state={state} /> : <span className="inline-block size-[7px] rounded-full border border-line" aria-hidden />}
         {state === "ok" ? "ok" : state === "down" ? "down" : "—"}
       </span>
+      {result && now - result.at < 15_000 && (
+        <span className={cn("shrink-0 text-xs", result.ok ? "text-ok" : "text-accent")} title={result.error}>{result.ok ? "neu gestartet" : "Fehler"}</span>
+      )}
+      {onRestart && s.restartable && (
+        <Button
+          icon
+          variant="ghost"
+          size="xs"
+          className="shrink-0 text-mute hover:text-accent"
+          aria-label={`${s.label} neu starten`}
+          onClick={() => {
+            const warn = s.id === "realtime"
+              ? "Der Hub startet neu: alle Sitze verlieren kurz die Verbindung, laufende Turns brechen ab."
+              : s.id === "cms" ? "Payload braucht 10–30 s; der Hub fährt derweil mit der geladenen Konfiguration weiter." : "Die Seite ist kurz nicht erreichbar.";
+            if (window.confirm(`Container „${s.label}“ neu starten? ${warn}`)) onRestart();
+          }}
+        >
+          <RotateCw size={13} />
+        </Button>
+      )}
     </div>
   );
 }
@@ -350,7 +370,9 @@ function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStat
         >
           <div className="flex flex-col gap-1.5">
             {c.services.length === 0 && <span className="text-sm text-mute">warte auf den Hub …</span>}
-            {c.services.map((s) => <ServiceRow key={s.id} s={s} now={now} />)}
+            {c.services.map((s) => (
+              <ServiceRow key={s.id} s={s} now={now} onRestart={() => c.restartService(s.id)} result={c.restartResults[s.id]} />
+            ))}
           </div>
         </ServiceCard>
         <ServiceCard
@@ -929,8 +951,11 @@ function tabFromHash(): Tab {
   return (TABS.some((t) => t.id === hash) ? hash : "uebersicht") as Tab;
 }
 
-export default function HostConsole() {
-  const c = useCosimoSocket(REALTIME_URL, "host", "console");
+export default function HostConsole({ token, onUnauthorized }: { token: string; onUnauthorized: () => void }) {
+  const c = useCosimoSocket(REALTIME_URL, "host", "console", token);
+  useEffect(() => {
+    if (c.unauthorized) onUnauthorized();
+  }, [c.unauthorized]);
   const st = c.status;
   // The tab survives a reload — during the show that is the one you left open.
   const [tab, setTab] = useState<Tab>(tabFromHash);

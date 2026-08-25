@@ -81,6 +81,11 @@ export const config = {
   /** Allowed CORS origins: cms (6100), console dev (6102), emulator dev
    *  (6103), journey dev (6104) and the native kiosk WebView. Override via
    *  CORS_ORIGINS in prod. */
+  /** Operator password for consoles (hello token = its SHA-256). Empty = no
+   *  check (dev only — the hub warns at boot). */
+  hostToken: process.env.HOST_TOKEN ?? "",
+  /** docker-socket-proxy (restart-only) for the console's restart buttons; empty = disabled. */
+  dockerProxyUrl: process.env.DOCKER_PROXY_URL ?? "",
   corsOrigins: (
     process.env.CORS_ORIGINS ??
     "http://localhost:6100,http://localhost:6102,http://localhost:6103,http://localhost:6104,capacitor://localhost"
