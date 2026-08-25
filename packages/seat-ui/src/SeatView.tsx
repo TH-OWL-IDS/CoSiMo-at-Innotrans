@@ -335,20 +335,6 @@ export default function SeatView({
             </div>
           )}
 
-          {/* listening ring while push-to-talk is held */}
-          {ptt.active && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                border: "6px solid currentColor",
-                opacity: 0.35,
-                pointerEvents: "none",
-              }}
-            />
-          )}
-
           {/* connection state, tucked at the top of the circle */}
           {!cosimo.connected && (
             <div
