@@ -146,6 +146,42 @@ export default function SeatView({
   const Inset = ({ radius }: { radius: string | number }) =>
     panel ? <div aria-hidden style={{ position: "absolute", inset: 0, borderRadius: radius, boxShadow: insetShadow, pointerEvents: "none", zIndex: 5 }} /> : null;
 
+  /**
+   * The circle's edge glow — on the "screen", i.e. beneath the panel's inset
+   * shadow (z 4 < 5): green while the microphone is live, and while CoSiMo
+   * thinks the green turns greyish and becomes a soft arc orbiting the edge.
+   * Both fade in and out; the arc stands still with reduced motion.
+   */
+  const listening = ptt.active || cosimo.phase === "listening";
+  const thinking = !listening && cosimo.phase === "thinking";
+  const Glow = () => (
+    <>
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
+          boxShadow: "inset 0 0 calc(var(--circle) * 0.12) calc(var(--circle) * 0.01) rgba(72, 199, 108, 0.85)",
+          opacity: listening ? 1 : 0,
+          transition: "opacity 250ms",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
+          // a ring band at the edge: conic arc, masked to the outer 9 %, blurred soft
+          background: "conic-gradient(from 0deg, transparent 0deg, rgba(150, 168, 156, 0.0) 40deg, rgba(150, 168, 156, 0.85) 120deg, transparent 200deg)",
+          WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 9%), #000 calc(100% - 8%))",
+          mask: "radial-gradient(farthest-side, transparent calc(100% - 9%), #000 calc(100% - 8%))",
+          filter: "blur(calc(var(--circle) * 0.02))",
+          opacity: thinking ? 1 : 0,
+          transition: "opacity 400ms",
+          animation: thinking && !reduceMotion ? "cosimo-orbit 1.8s linear infinite" : "none",
+        }}
+      />
+    </>
+  );
+
   return (
     <main
       style={{
@@ -205,8 +241,11 @@ export default function SeatView({
             boxShadow: panel ? halo : undefined,
             touchAction: "none",
             transition: "background 300ms",
+            ["--circle" as string]: circleSize,
           }}
         >
+          <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }`}</style>
+          <Glow />
           <Inset radius="50%" />
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
