@@ -174,6 +174,8 @@ export interface ServerToClientEvents {
   "sys:ping": (ack: () => void) => void;
   /** A console should reload itself (another console reset everything). */
   "host:reload": (payload: { by: string }) => void;
+  /** This console was the oldest of too many and is being disconnected. */
+  "host:evicted": (payload: { max: number; by: string }) => void;
   /** The resolved operator routing (CMS operator-config over env defaults) —
    *  pushed to host consoles on hello and whenever it changes. URLs and
    *  model names only; keys never leave the hub's environment. */

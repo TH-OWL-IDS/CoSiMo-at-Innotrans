@@ -127,6 +127,10 @@ type ParkedState = Pick<
   "persona" | "emotion" | "consent" | "active" | "sessionId" | "lastUser" | "lastReply" | "lastReplyFull" | "controls" | "turn" | "lastActivity"
 > & { parkedAt: number };
 
+/** At most this many consoles at once — the oldest is evicted for a new one,
+ *  so forgotten tabs can't pile up. */
+const MAX_HOST_CONSOLES = Number(process.env.MAX_HOST_CONSOLES ?? 3);
+
 /** Link check tuning (see probeDevices). */
 const PROBE_INTERVAL_MS = 10_000;
 const PROBE_TIMEOUT_MS = 3_000;
@@ -448,6 +452,15 @@ export class Hub {
         logger.log("seat.connect", { role, restored: true }, { deviceId, sessionId: state.sessionId || undefined });
       }
       this.parked.delete(deviceId);
+      // Console cap: evict the oldest console(s) to make room for this one.
+      if (role === "host") {
+        const hosts = Array.from(this.devices).filter(([id, e]) => e.role === "host" && id !== deviceId).sort((a, b) => a[1].connectedAt - b[1].connectedAt);
+        for (const [id, e] of hosts.slice(0, Math.max(0, hosts.length - (MAX_HOST_CONSOLES - 1)))) {
+          logger.log("host.action", { action: "evict", args: { evicted: id, max: MAX_HOST_CONSOLES } }, { deviceId });
+          e.socket.emit("host:evicted", { max: MAX_HOST_CONSOLES, by: deviceId });
+          e.socket.disconnect(true);
+        }
+      }
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
       // The same id coming back is the "lost" device returning — not a new one.

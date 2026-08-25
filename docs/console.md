@@ -72,3 +72,11 @@ the realtime CORS list must include the origin (prod overlay adds `https://$COSI
 pnpm --filter @cosimo/console dev         # :6102, socket proxied to :6101
 # prod: part of docker-compose.prod.yml → console-cosimo.homannjohannes.de
 ```
+
+## Console cap
+
+The hub allows at most **3** consoles at once (`MAX_HOST_CONSOLES`). A
+fourth evicts the oldest: it gets `host:evicted`, shows a "Konsole
+ersetzt" panel and is disconnected; reloading it takes a slot back from
+the then-oldest. Forgotten tabs therefore can't pile up. Note the journey
+view also connects as a host-role client and counts against the cap.

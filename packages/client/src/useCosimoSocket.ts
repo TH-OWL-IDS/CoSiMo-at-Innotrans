@@ -147,6 +147,8 @@ export interface CosimoState {
   resetAll: () => void;
   /** Another console reset everything — this page should reload. */
   reloadRequired: boolean;
+  /** This console was evicted (too many consoles); null = not evicted. */
+  evicted: { max: number } | null;
   clearInspection: () => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
@@ -226,6 +228,7 @@ export function useCosimoSocket(
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
   const [reloadRequired, setReloadRequired] = useState(false);
+  const [evicted, setEvicted] = useState<{ max: number } | null>(null);
   const [inspection, setInspection] = useState<SeatInspection | null>(null);
   const [logs, setLogs] = useState<LogEvent[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
@@ -371,6 +374,7 @@ export function useCosimoSocket(
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
     socket.on("host:reload", () => setReloadRequired(true));
+    socket.on("host:evicted", ({ max }) => setEvicted({ max }));
     socket.on("host:inspect:result", (r) => setInspection(r));
     socket.on("host:log", ({ events }) => {
       // Merge by seq (a replay may overlap what we already have), keep order,
@@ -606,7 +610,7 @@ export function useCosimoSocket(
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
     setCabinActuator,
-    inspection, inspectSeat, clearInspection, probeDevices, resetAll, reloadRequired, deviceId,
+    inspection, inspectSeat, clearInspection, probeDevices, resetAll, reloadRequired, evicted, deviceId,
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,

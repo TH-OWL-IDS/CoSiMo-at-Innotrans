@@ -917,12 +917,14 @@ export default function HostConsole() {
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
 
-      {c.reloadRequired && (
-        <div role="alertdialog" aria-modal="true" aria-label="Neu laden" className="fixed inset-0 z-drawer flex items-center justify-center bg-ink/20 p-6">
+      {(c.reloadRequired || c.evicted) && (
+        <div role="alertdialog" aria-modal="true" aria-label={c.evicted ? "Konsole ersetzt" : "Neu laden"} className="fixed inset-0 z-drawer flex items-center justify-center bg-ink/20 p-6">
           <Card className="w-[min(420px,100%)] items-start gap-4">
-            <span className="text-2xl font-black">Konsole neu laden</span>
+            <span className="text-2xl font-black">{c.evicted ? "Konsole ersetzt" : "Konsole neu laden"}</span>
             <p className="m-0 text-md text-mute">
-              Eine andere Konsole hat alles zurückgesetzt. Diese Seite zeigt möglicherweise alten Stand — bitte neu laden.
+              {c.evicted
+                ? `Es sind höchstens ${c.evicted.max} Konsolen gleichzeitig erlaubt — eine neue hat diese (die älteste) abgelöst. Neu laden holt sie zurück und löst dafür die dann älteste ab.`
+                : "Eine andere Konsole hat alles zurückgesetzt. Diese Seite zeigt möglicherweise alten Stand — bitte neu laden."}
             </p>
             <Button variant="primary" onClick={() => window.location.reload()}>
               <RotateCw size={15} /> Neu laden
