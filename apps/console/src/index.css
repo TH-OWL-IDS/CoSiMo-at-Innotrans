@@ -1,3 +1,9 @@
 /* Tokens, fonts, reset and utilities all come from the shared package —
    see packages/ui/src/styles.css. Console-only rules go below. */
 @import "@cosimo/ui/styles.css";
+
+/* The view menu slides out from beneath the sticky header. */
+@keyframes menu-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}

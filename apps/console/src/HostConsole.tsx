@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, ChevronDown, Clock,
+  Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
-  Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, MessageCircle, Mic, Moon,
+  Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
   Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
@@ -701,50 +700,77 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "logs", label: "Logs", icon: ScrollText },
 ];
 
-/** The view switcher: a borderless dropdown on the header's right. The closed
- *  button shows the current view and its count badge (active seats, log
- *  errors); arrow keys, Esc and click-outside are Radix's. */
+/**
+ * The view switcher: a hamburger on the header's right, nothing else. Open,
+ * a full-width panel slides out from beneath the header (it sits behind the
+ * header's own background in the same stacking context, so the motion reads
+ * as "from under"), one row per view with icon, label and count badge.
+ * Esc, a click outside and a choice close it.
+ */
 function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => void; badge: (t: Tab) => React.ReactNode }) {
-  const current = TABS.find((t) => t.id === tab)!;
-  const CurrentIcon = current.icon;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button variant="ghost" size="sm" className="group px-3 py-[7px] text-base text-ink">
-          <CurrentIcon size={16} />
-          {current.label}
-          {badge(tab)}
-          <ChevronDown size={14} className="transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
-        </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          sideOffset={6}
-          className="z-menu flex min-w-[200px] flex-col rounded-lg border border-line bg-white p-1.5 shadow-float"
+    <div ref={ref} className="contents">
+      <Button
+        variant="ghost"
+        size="sm"
+        icon
+        className="text-ink"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={open ? "Menü schließen" : "Menü öffnen"}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? <X size={22} /> : <Menu size={22} />}
+      </Button>
+      {open && (
+        <nav
+          role="menu"
+          aria-label="Ansichten"
+          className="absolute inset-x-0 top-full -z-10 border-b border-line bg-white px-6 py-2 shadow-card animate-[menu-down_180ms_ease-out] motion-reduce:animate-none"
         >
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = t.id === tab;
             return (
-              <DropdownMenu.Item
+              <button
                 key={t.id}
-                onSelect={() => onSwitch(t.id)}
+                type="button"
+                role="menuitem"
+                aria-current={active ? "page" : undefined}
+                onClick={() => {
+                  onSwitch(t.id);
+                  setOpen(false);
+                }}
                 className={cn(
-                  "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-base outline-none",
-                  "data-[highlighted]:bg-well data-[highlighted]:text-ink",
-                  active ? "bg-well font-semibold text-ink" : "text-mute",
+                  "flex w-full cursor-pointer items-center gap-3 border-b border-line-soft py-3 text-left text-base last:border-b-0",
+                  "hover:text-ink",
+                  active ? "font-semibold text-ink" : "text-mute",
                 )}
               >
-                <Icon size={16} className={active ? "text-accent" : "text-mute"} />
+                <Icon size={18} className={active ? "text-accent" : "text-mute"} />
                 <span className="flex-1">{t.label}</span>
                 {badge(t.id)}
-              </DropdownMenu.Item>
+              </button>
             );
           })}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+        </nav>
+      )}
+    </div>
   );
 }
 
@@ -775,9 +801,10 @@ export default function HostConsole() {
 
   return (
     <main className="min-h-screen bg-bg text-ink">
-      {/* ── the header: wordmark centred, the view switcher on the right; the
-             empty left zone is its counterweight so the wordmark stays centred ── */}
-      <header className="sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
+      {/* ── the header: wordmark centred, the hamburger on the right; the empty
+             left zone is its counterweight. `relative` + `isolate` give the menu
+             panel a stacking context to slide out from beneath. ── */}
+      <header className="relative isolate sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
         <div className="flex-1" />
         <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Konsole">
           <Brand />

@@ -3,7 +3,7 @@
 What booth staff have open on a phone or spare iPad during the show. One
 header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
 `@cosimo/ui`; CoSiMo and the × in Schoolbell, the hand-written face font),
-separated from the content by a hairline — and five views (the view switcher is a borderless dropdown on the header's right; the active tab survives a reload
+separated from the content by a hairline — and five views (the view switcher is a hamburger on the header's right; open, a full-width panel slides out from beneath the header; the active tab survives a reload
 via the URL hash):
 
 - **Übersicht** — one card per dependency in a four-column grid (two on a
@@ -38,7 +38,7 @@ via the URL hash):
 
 Tailwind v4 utilities on the `@cosimo/ui` tokens (white MonoCab CI, Source
 Code Pro, self-hosted fonts — see [packages/ui/README.md](../packages/ui/README.md)).
-The view switcher is a Radix `DropdownMenu`, the seat inspector a Radix
+The view switcher is a hand-rolled slide-down panel (Esc / outside click close it), the seat inspector a Radix
 `Dialog` (focus trap, Esc, scrim). Only data-driven values remain inline:
 diagram node positions, the battery fill, the log grid template.
 
