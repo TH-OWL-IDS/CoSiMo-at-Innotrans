@@ -7,6 +7,7 @@
  * WebSocket plumbing so the PWA can connect and stay in sync.
  */
 
+import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import express from "express";
 import { Server } from "socket.io";
@@ -214,4 +215,13 @@ app.get("/health", (_req, res) => {
 httpServer.listen(config.port, () => {
   // eslint-disable-next-line no-console
   console.log(`[cosimo-realtime] listening on :${config.port}`);
+  // The first system event of a process — a restart is visible in the log
+  // as such, not just as a gap.
+  logger.log("service.boot", {
+    port: config.port,
+    docker: existsSync("/.dockerenv"),
+    llm: { provider: operatorConfig.get().llm.provider, model: operatorConfig.get().llm.model },
+    light: config.light.driver,
+    node: process.version,
+  });
 });

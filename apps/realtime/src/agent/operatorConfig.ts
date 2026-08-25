@@ -7,6 +7,7 @@
  */
 
 import { config } from "../config.js";
+import { logger } from "../log/logger.js";
 import type { Lpu2Mapping } from "../cabin/lpu2.js";
 import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type VoiceCatalogEntry } from "@cosimo/shared";
 
@@ -112,6 +113,31 @@ export class OperatorConfigProvider {
     return this.cache;
   }
 
+  /** Fingerprint of what the hub routes to; a change is a system event. */
+  private lastFingerprint: Record<string, string> | null = null;
+  private logIfChanged(source: "cms" | "defaults"): void {
+    const c = this.cache;
+    const fp: Record<string, string> = {
+      llm: `${c.llm.provider} · ${c.llm.model} @ ${c.llm.baseUrl}`,
+      fallback: c.llm.fallback ? `${c.llm.fallback.provider} · ${c.llm.fallback.model}` : "—",
+      stt: `${c.stt.model} @ ${c.stt.baseUrl}`,
+      tts: `${c.tts.model} · voice ${c.tts.voiceId}/${c.tts.voiceIdMale || "—"} · ${c.tts.voices.length} voices`,
+      lpu2: `${c.cabin.lpu2BaseUrl || "—"} · ${Object.keys(c.cabin.lpu2Mapping).length} mapped`,
+      prompt: `${c.agent.systemPrompt.length} chars`,
+    };
+    const changed = Object.keys(fp).filter((k) => this.lastFingerprint?.[k] !== fp[k]);
+    if (this.lastFingerprint && changed.length === 0) return;
+    this.lastFingerprint = fp;
+    logger.log("config.loaded", {
+      source,
+      llm: fp.llm!,
+      fallback: c.llm.fallback ? fp.fallback! : null,
+      voices: c.tts.voices.length,
+      lpu2Mapped: Object.keys(c.cabin.lpu2Mapping).length,
+      changed,
+    });
+  }
+
   /** The routing as the operator console shows it — URLs and models, no keys. */
   toBroadcast(): HostConfigBroadcast {
     const c = this.cache;
@@ -187,6 +213,7 @@ export class OperatorConfigProvider {
         },
       };
       this.loadedAt = new Date().toISOString();
+      this.logIfChanged("cms");
     } catch {
       // Payload down — keep defaults / last-known.
     }

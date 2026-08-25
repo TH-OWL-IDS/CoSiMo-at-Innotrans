@@ -65,6 +65,10 @@ export type LogEvent = Base &
       }
     | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
     | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
+    /* ── system events: no seat, no session ─────────────────────────── */
+    | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; light: string; node: string } }
+    | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }
+    | { kind: "service.restart"; data: { id: string; ok: boolean; error?: string; durationMs: number } }
     | { kind: "card.show"; data: { kind: string; question: string; options: string[]; local: boolean; step?: string } }
     | { kind: "card.answer"; data: { kind: string; value: string; applied?: Record<string, unknown> } }
     | {
@@ -113,6 +117,9 @@ export const LOG_KINDS: readonly LogKind[] = [
   "tool.call",
   "cabin.actuate",
   "cabin.result",
+  "service.boot",
+  "config.loaded",
+  "service.restart",
   "card.show",
   "card.answer",
   "tts.done",

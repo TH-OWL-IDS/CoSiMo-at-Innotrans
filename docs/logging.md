@@ -102,3 +102,23 @@ collection stays consent-gated regardless.
 - `device.health` — a device's link health changed (`ok` / `slow` / `stale`
   / `lost`, with the ping RTT and transport); `deviceId` names the device.
   Emitted by the hub's link check, see [realtime.md](realtime.md).
+
+## System events (no seat, no session)
+
+Events without `deviceId`/`sessionId` are the hub's own story and feed the
+Übersicht's **System** card (last eight, newest first) and the Logs filter
+"System (ohne Sitz)":
+
+- `service.boot` — the process came up: port, Docker or not, LLM
+  provider/model at boot, light driver, node version. A restart is visible
+  as such, not just as a gap.
+- `config.loaded` — the resolved operator-config (CMS over env defaults)
+  was loaded and its routing fingerprint changed: LLM/fallback/STT/TTS
+  routes, voice count, LPU-2 mapping, prompt size, plus `changed` naming the
+  differing keys. Logged on first load and on every change, never on
+  identical refreshes.
+- `service.restart` — result of a console-triggered container restart via
+  the Docker proxy (id, ok, error, duration). `warn` when ok, `error` when
+  not; the host's request itself stays a `host.action`.
+- `service.status` — LLM/CMS/network reachability flips (already existed).
+- `fault.start` / `fault.end` — journey-sim disruptions (already existed).

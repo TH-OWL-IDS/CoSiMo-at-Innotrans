@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
+  Activity,
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
   DoorClosed, DoorOpen, Ear, Flag, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
@@ -25,7 +26,7 @@ import {
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, Meter, SeatGlyph, Select, StatTile, Tip, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
-import LogView from "./LogView";
+import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
 import DiagramView from "./DiagramView";
 import cabUrl from "./assets/monocab-base.svg";
 
@@ -268,7 +269,41 @@ const ago = (ts: string | undefined, now: number) => {
   return s < 60 ? `vor ${s} s` : s < 3600 ? `vor ${Math.round(s / 60)} min` : `um ${clock(ts)}`;
 };
 
-function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void }) {
+/** The last system-level events — no seat, no session: boots, config
+ *  (re)loads, service status flips, restarts, journey faults. */
+function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; onOpenLogs: () => void }) {
+  const system = logs.filter((e) => !e.deviceId && !e.sessionId).slice(-8).reverse();
+  const worst = system.some((e) => e.level === "error") ? "down" : system.some((e) => e.level === "warn") ? "warn" : "ok";
+  return (
+    <ServiceCard
+      state={system.length ? worst : undefined}
+      icon={Activity}
+      name="System"
+      detail="Was der Hub selbst erlebt hat — ohne Bezug zu einem Sitz oder einer Session: Starts, geladene Konfiguration (und was sich darin geändert hat), Statuswechsel von LLM/CMS/Netz, Container-Neustarts, Störungen der Fahrt. Die letzten acht, neueste oben; „Alle“ öffnet die Logs mit dem Filter „System“."
+      facts={[]}
+    >
+      <div className="flex flex-col gap-1.5">
+        {system.length === 0 && <span className="text-sm text-mute">noch keine System-Ereignisse</span>}
+        {system.map((e) => (
+          <div key={e.seq} className={cn("flex min-w-0 items-center gap-2 text-sm", e.level === "error" ? "text-accent" : e.level === "warn" ? "text-warn" : "text-ink")}>
+            <span className="shrink-0 tabular-nums text-mute">{clock(e.ts)}</span>
+            <Kind k={e.kind} />
+            <Tip tip={`${e.kind} · ${ago(e.ts, now)}\n${summarize(e)}`} className="min-w-0 flex-1">
+              <span className="block truncate">{summarize(e)}</span>
+            </Tip>
+          </div>
+        ))}
+      </div>
+      <div>
+        <Button size="xs" variant="secondary" onClick={onOpenLogs}>
+          <ScrollText size={13} /> Alle System-Logs
+        </Button>
+      </div>
+    </ServiceCard>
+  );
+}
+
+function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void; onShowSystemLogs: () => void }) {
   // A minute tick, so "vor 40 s" stays honest without the log changing.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -450,6 +485,7 @@ function OverviewTab({ c, st, onShowLogs }: { c: CosimoState; st: ConnectionStat
             ["Status", lastSvc ? `${ago(lastSvc.ts, now)} gemeldet` : "—"],
           ]}
         />
+        <SystemCard logs={c.logs} now={now} onOpenLogs={onShowSystemLogs} />
       </div>
     </div>
   );
@@ -993,7 +1029,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
       </header>
 
       <div className={tab === "diagramm" ? "p-0" : "p-6"}>
-        {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor} />}
+        {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor}  onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} />}
         {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
         {tab === "sessions" && <SessionsTab c={c} />}
         {tab === "diagramm" && (

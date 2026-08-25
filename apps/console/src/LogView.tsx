@@ -6,6 +6,8 @@ import {
   type LucideIcon,
   ListTodo,
   MousePointerClick,
+  Power,
+  Settings2,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 import { Button, ChipButton, Input, Select, cn } from "@cosimo/ui";
@@ -32,6 +34,9 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "tool.call": Wrench,
   "cabin.actuate": Lightbulb,
   "cabin.result": CornerDownLeft,
+  "service.boot": Power,
+  "config.loaded": Settings2,
+  "service.restart": RotateCw,
   "card.show": ListTodo,
   "card.answer": MousePointerClick,
   "tts.done": Volume2,
@@ -44,7 +49,10 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
 };
 
 /** The kind, as icon + name — one visual voice for chips and rows. */
-function Kind({ k, size = 13 }: { k: LogKind; size?: number }) {
+/** Pseudo-seat for the filter: events that belong to no seat and no session. */
+export const SYSTEM_SEAT = "__system";
+
+export function Kind({ k, size = 13 }: { k: LogKind; size?: number }) {
   const Icon = KIND_ICON[k];
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -55,7 +63,7 @@ function Kind({ k, size = 13 }: { k: LogKind; size?: number }) {
 }
 
 /** One-line human summary per event kind; the raw JSON is a click away. */
-function summarize(e: LogEvent): string {
+export function summarize(e: LogEvent): string {
   switch (e.kind) {
     case "seat.connect":
       return `${e.data.role} connected`;
@@ -69,6 +77,12 @@ function summarize(e: LogEvent): string {
       return `profile → ${e.data.persona} (${e.data.by})`;
     case "turn.start":
       return `${e.data.modality} · ${e.data.lang} · ${e.data.llm ? `${e.data.llm.provider}/${e.data.llm.model}` : "canned"} · “${e.data.text}”`;
+    case "service.boot":
+      return `Hub gestartet · :${e.data.port}${e.data.docker ? " · Docker" : ""} · ${e.data.llm.provider}/${e.data.llm.model} · Licht ${e.data.light} · node ${e.data.node}`;
+    case "config.loaded":
+      return `Konfig ${e.data.source === "cms" ? "aus dem CMS" : "env-Defaults"} · ${e.data.llm} · Fallback ${e.data.fallback ?? "keiner"} · ${e.data.voices} Stimmen · LPU-2 ${e.data.lpu2Mapped} gemappt${e.data.changed.length ? ` · geändert: ${e.data.changed.join(", ")}` : ""}`;
+    case "service.restart":
+      return `Container „${e.data.id}“ ${e.data.ok ? "neu gestartet" : "Neustart fehlgeschlagen"} (${e.data.durationMs} ms)${e.data.error ? ` · ${e.data.error}` : ""}`;
     case "card.show":
       return `${e.data.kind}${e.data.step ? ` ${e.data.step}` : ""}${e.data.local ? " · lokal" : ""} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
     case "card.answer":
@@ -158,7 +172,7 @@ export default function LogView({
     const q = query.trim().toLowerCase();
     return source.filter(
       (e) =>
-        (!seat || e.deviceId === seat) &&
+        (!seat || (seat === SYSTEM_SEAT ? !e.deviceId && !e.sessionId : e.deviceId === seat)) &&
         (!session || e.sessionId === session) &&
         kinds.has(e.kind) &&
         LEVEL_RANK[e.level] >= LEVEL_RANK[minLevel] &&
@@ -201,6 +215,7 @@ export default function LogView({
       <div className="flex flex-wrap items-center gap-2">
         <Select size="sm" tone="well" aria-label="Sitz" value={seat} onChange={(e) => { setSeat(e.target.value); setSession(""); }}>
           <option value="">all seats</option>
+          <option value={SYSTEM_SEAT}>System (ohne Sitz)</option>
           {seats.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
         <Select size="sm" tone="well" aria-label="Session" value={session} onChange={(e) => setSession(e.target.value)}>

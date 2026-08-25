@@ -567,8 +567,9 @@ export class Hub {
         });
         socket.on("host:restart-service", ({ id }) => {
           logger.log("host.action", { action: "restart-service", args: { id } }, { deviceId, level: "warn" });
+          const t0 = Date.now();
           void this.serviceRestarter?.(id).then((r) => {
-            logger.log("host.action", { action: "restart-result", args: { id, ...r } }, { deviceId, level: r.ok ? "info" : "error" });
+            logger.log("service.restart", { id, ok: r.ok, ...(r.error ? { error: r.error } : {}), durationMs: Date.now() - t0 }, { level: r.ok ? "warn" : "error" });
             socket.emit("host:restart-result", { id, ...r });
           });
         });
