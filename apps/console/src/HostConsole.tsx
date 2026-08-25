@@ -228,11 +228,14 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const kiosks = c.devices
     .filter((d) => d.role === "kiosk")
     .sort((a, b) => Number(a.health === "lost") - Number(b.health === "lost") || a.deviceId.localeCompare(b.deviceId));
-  const hosts = live.filter((d) => d.role === "host").sort((a, b) => a.deviceId.localeCompare(b.deviceId));
+  // Consoles that answered the last ping. A closed tab stays "stale" until
+  // the socket's own timeout notices — that is not an active console.
+  const hosts = live
+    .filter((d) => d.role === "host" && (d.health === "ok" || d.health === "slow"))
+    .sort((a, b) => a.deviceId.localeCompare(b.deviceId));
   const consoleList = hosts.length
     ? hosts.map((d) => `${d.deviceId}${d.deviceId === c.deviceId ? " (diese)" : ""} · ${d.rttMs != null ? `${d.rttMs} ms` : "—"} · ${HEALTH_LABEL[d.health]}`).join("\n")
     : "keine";
-  const lastProbe = c.devices.map((d) => d.probedAt).filter((x): x is string => Boolean(x)).sort().pop();
   const activeSeats = c.seats.filter((s) => s.active).length;
 
   if (!st) {
@@ -252,10 +255,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
           name="Verbindungen"
           detail={c.connected ? "Hub erreichbar — jede Zeile ist ein Gerät; der Hub pingt alle 10 s." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
           facts={[
-            ["Hub", REALTIME_URL ? hostOf(REALTIME_URL) : `${window.location.host} (Proxy)`],
-            ["Kiosks", kioskIds.length ? `${kioskIds.length} · ${activeSeats} aktiv` : "keine"],
             ["Konsolen", <Tip tip={consoleList}><span className="block truncate">{String(hosts.length)}</span></Tip>],
-            ["Geprüft", lastProbe ? ago(lastProbe, now) : "noch nicht"],
           ]}
         >
           <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">

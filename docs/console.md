@@ -9,9 +9,8 @@ via the URL hash):
 - **Übersicht** — one card per dependency in a four-column grid (two on a
   tablet): status word + dot, a sentence on what it means for the demo
   right now, and live facts read from the socket state and the log stream
-  — **Verbindungen** (hub host, kiosk count, console count — the individual
-  consoles with RTT and health in its tooltip — last check; then one line
-  per *kiosk*: id, last ping RTT, link health ok/langsam/antwortet nicht/
+  — **Verbindungen** (the count of consoles that answered the last ping,
+  each one with RTT and health in its tooltip; then one line per *kiosk*: id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
   on an active seat; a "Jetzt prüfen" button triggers the hub's link check
   on demand), LLM (provider · model,
