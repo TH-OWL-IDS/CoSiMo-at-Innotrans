@@ -29,7 +29,7 @@ export default defineConfig({ plugins: [react(), tailwindcss()] });
 | font | `mono` (Source Code Pro, body) · `wordmark` (Schoolbell) · `sans` |
 | text | `2xs` 10.5 · `xs` 11 · `sm` 12 · `md` 13 · `base` 14 · `lg` 15 · `xl` 16 · `2xl` 18 · `4xl` 30 |
 | radius | `xs` 2 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `2xl` 18 · `full` |
-| shadow | `card` `node` `float` `drawer` — all `none`; the 2px ink border separates |
+| shadow | `card` (cards, the header) `node` `float` (menus, popovers) `drawer` — soft, ink-tinted |
 | z | `sticky` `popover` `header` `menu` `drawer` |
 
 Use them as utilities (`bg-well`, `text-mute`, `rounded-lg`,
@@ -44,11 +44,10 @@ Fonts are self-hosted in `src/fonts/` and referenced relatively — Vite
 emits them as hashed `/assets/*.woff2` in every app. Nothing loads from
 Google during the show.
 
-## Borders are 2px
+## Borders are 1px ink
 
-The CI line is 2px. The plain `border`, `border-t/r/b/l/x/y` utilities are
-redefined in `styles.css` to 2px, so every border in every app is 2px
-without spelling it out; use `border-[3px]` etc. for the rare exception.
+Tailwind's default `border` (1px) with `border-line` (= ink). Use `border-2`
+or `border-[3px]` for the rare heavier rule.
 
 ## Interaction vocabulary
 

@@ -82,7 +82,7 @@ export default function App() {
   return (
     <main className="flex min-h-screen flex-col bg-bg text-ink">
       {/* ── header: wordmark, line + destination, clock ───────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-6 py-2.5">
+      <header className="relative z-header flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
         <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Fahrt">
           <Brand />
         </h1>

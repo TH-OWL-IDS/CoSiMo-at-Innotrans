@@ -756,7 +756,7 @@ export default function HostConsole() {
   return (
     <main className="min-h-screen bg-bg text-ink">
       {/* ── the header: dropdown left, wordmark centred, an empty right zone as counterweight ── */}
-      <header className="sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5">
+      <header className="sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
         <div className="flex flex-1 justify-start">
           <TabMenu tab={tab} onSwitch={switchTab} badge={badge} />
         </div>

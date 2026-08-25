@@ -45,7 +45,7 @@
   --color-bg: #ffffff;
   --color-ink: #181817;
   --color-mute: #6b6b6b;
-  /* Lines are ink: a 2px black rule, no greys. The three names stay so a
+  /* Lines are ink: a 1px black rule, no greys. The three names stay so a
      surface can still tell a card border from a control border from a
      divider if they ever diverge again. */
   --color-line: #181817;
@@ -81,12 +81,12 @@
   --radius-xl: 12px;
   --radius-2xl: 18px;
 
-  /* ── elevation: none. The 2px ink border does the separating; the
-     names stay so components keep their hooks if depth ever returns. ── */
-  --shadow-card: 0 0 #0000;
-  --shadow-node: 0 0 #0000;
-  --shadow-float: 0 0 #0000;
-  --shadow-drawer: 0 0 #0000;
+  /* ── elevation: a soft ink-tinted drop for cards and the header; a
+     deeper one for anything floating over the page. ── */
+  --shadow-card: 0 2px 8px rgb(24 24 23 / 0.08);
+  --shadow-node: 0 2px 8px rgb(24 24 23 / 0.08);
+  --shadow-float: 0 10px 28px rgb(24 24 23 / 0.14);
+  --shadow-drawer: -8px 0 24px rgb(24 24 23 / 0.10);
 
   /* ── stacking ── */
   --z-sticky: 1;
@@ -114,16 +114,9 @@
   }
 }
 
-/* The CI line is 2px, not a hairline: the plain `border*` utilities are
-   redefined so every border in every app is 2px without spelling it out.
-   Use `border-[3px]` etc. for the rare exception. */
-@utility border { border-width: 2px; }
-@utility border-x { border-inline-width: 2px; }
-@utility border-y { border-block-width: 2px; }
-@utility border-t { border-top-width: 2px; }
-@utility border-r { border-right-width: 2px; }
-@utility border-b { border-bottom-width: 2px; }
-@utility border-l { border-left-width: 2px; }
+/* The CI line is 1px ink — Tailwind's default `border` already is 1px, so
+   nothing to redefine here. Use `border-2` / `border-[3px]` for the rare
+   heavier rule. */
 
 /* Interaction vocabulary, shared by every control. The ring is ink, not
    accent — in this CI red means "down" or "live", never "focused". */
