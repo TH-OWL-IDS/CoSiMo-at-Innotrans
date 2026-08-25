@@ -475,6 +475,19 @@ export class CosimoAgent {
       this.persist(sessionId);
       return;
     }
+    // A local card put on screen this turn must be heard, whatever the model
+    // said ("Erledigt." happens): append its question deterministically.
+    const shownCard = this.hub.cardOf(sessionId);
+    if (!streamClosed && shownCard?.local && !assistantText.includes(shownCard.question)) {
+      const add = (assistantText.trim() ? " " : "") + shownCard.question;
+      assistantText += add;
+      if (!startedSpeaking) {
+        startedSpeaking = true;
+        this.hub.emitPhase("speaking", sessionId, turnNo);
+      }
+      this.hub.emitChatDelta(sessionId, add, false, turnNo);
+      speaker.push(add);
+    }
     // Close out the stream and settle the Face on the chosen expressive
     // emotion — unless the error fallback already closed it (emitFullReply).
     if (!streamClosed) {
