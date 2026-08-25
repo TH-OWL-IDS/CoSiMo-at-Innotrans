@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
+import { ArrowRight, Clock, Gauge, Users } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
+
+/** Icons scale with the strip's font; `aria-hidden` — the numbers carry the meaning. */
+const icon = { size: "1em", strokeWidth: 2.5, "aria-hidden": true, style: { flexShrink: 0 } } as const;
+const Item = ({ children }: { children: React.ReactNode }) => (
+  <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35em", minWidth: 0 }}>{children}</span>
+);
 
 /**
  * Slit telemetry strip — the narrow horizontal cutout at the bottom of the
@@ -44,17 +51,20 @@ export default function TelemetryStrip({
       }}
     >
       <span style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
-        <span>◷ {clock}</span>
-        {telemetry && <span>⚇ {telemetry.occupancy}</span>}
+        <Item><Clock {...icon} /> {clock}</Item>
+        {telemetry && <Item><Users {...icon} /> {telemetry.occupancy}</Item>}
         {next && (
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", opacity: 0.85 }}>
-            → {next.name[lang]} · {next.etaMinutes} min
-          </span>
+          <Item>
+            <ArrowRight {...icon} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", opacity: 0.85 }}>
+              {next.name[lang]} · {next.etaMinutes} min
+            </span>
+          </Item>
         )}
       </span>
-      <span style={{ flexShrink: 0 }}>
-        {telemetry ? `⊙ ${Math.round(telemetry.speedKmh)} KM/H` : "— KM/H"}
-      </span>
+      <Item>
+        <Gauge {...icon} /> {telemetry ? `${Math.round(telemetry.speedKmh)} KM/H` : "— KM/H"}
+      </Item>
     </div>
   );
 }
