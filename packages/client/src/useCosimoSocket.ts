@@ -152,6 +152,8 @@ export interface CosimoState {
   probeDevices: () => void;
   /** Reset everything: seats to consent, other consoles reload (operator console). */
   resetAll: () => void;
+  /** Reset one device: seat → consent screen, journey/console → reload panel (operator console). */
+  resetDevice: (deviceId: string) => void;
   /** Another console reset everything — this page should reload. */
   reloadRequired: boolean;
   /** This console was evicted (too many consoles); null = not evicted. */
@@ -570,6 +572,7 @@ export function useCosimoSocket(
     sockRef.current?.emit("host:resetSession", { deviceId: target });
   const probeDevices = () => sockRef.current?.emit("host:probe", {});
   const resetAll = () => sockRef.current?.emit("host:reset-all", {});
+  const resetDevice = (deviceId: string) => sockRef.current?.emit("host:reset-device", { deviceId });
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
@@ -619,7 +622,7 @@ export function useCosimoSocket(
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
     setCabinActuator,
-    inspection, inspectSeat, clearInspection, probeDevices, resetAll, reloadRequired, evicted, deviceId,
+    inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,

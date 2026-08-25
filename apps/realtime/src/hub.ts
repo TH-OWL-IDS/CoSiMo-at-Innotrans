@@ -494,6 +494,18 @@ export class Hub {
           logger.log("host.action", { action: "probe", args: {} }, { deviceId });
           void this.probeDevices();
         });
+        socket.on("host:reset-device", ({ deviceId: target }) => {
+          const e = this.devices.get(target);
+          if (!e || target === deviceId) return;
+          logger.log("host.action", { action: "reset-device", args: { target, kind: e.kind } }, { deviceId });
+          this.parked.delete(target);
+          if (e.role === "kiosk") {
+            // Same path as "Sitz zurücksetzen": the seat returns to consent.
+            this.io.emit("session:reset", { deviceId: target });
+          } else {
+            e.socket.emit("host:reload", { by: deviceId });
+          }
+        });
         socket.on("host:reset-all", () => {
           logger.log("host.action", { action: "reset-all", args: {} }, { deviceId });
           this.parked.clear();

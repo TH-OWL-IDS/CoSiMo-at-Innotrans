@@ -238,6 +238,10 @@ export interface ClientToServerEvents {
   "host:inspect": (payload: { deviceId: string }) => void;
   /** Run the link check on every device now (the periodic one runs anyway). */
   "host:probe": (payload: Record<string, never>) => void;
+  /** Reset one device: a seat goes back to its consent screen
+   *  (session:reset), a journey view or console gets host:reload. Nothing
+   *  is disconnected — the device shows what happened. */
+  "host:reset-device": (payload: { deviceId: string }) => void;
   /** Reset everything: every seat back to the consent screen (session:reset
    *  "*"), every *other* console told to reload (host:reload). */
   "host:reset-all": (payload: Record<string, never>) => void;

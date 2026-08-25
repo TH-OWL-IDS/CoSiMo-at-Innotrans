@@ -120,7 +120,7 @@ const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h ==
 const KIND_LABEL: Record<ClientKind, string> = { kiosk: "Kiosk", emulator: "Emulator", console: "Konsole", journey: "Fahrt-Ansicht" };
 const KIND_ICON: Record<ClientKind, LucideIcon> = { kiosk: TabletSmartphone, emulator: AppWindow, console: Monitor, journey: Route };
 
-function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
+function DeviceRow({ d, now, onReset }: { d: ConnectedDevice; now: number; onReset?: () => void }) {
   const Icon = KIND_ICON[d.kind];
   const recentActivity = d.lastActivityAt != null && now - new Date(d.lastActivityAt).getTime() < 60_000;
   const note =
@@ -149,6 +149,21 @@ function DeviceRow({ d, now }: { d: ConnectedDevice; now: number }) {
       <span className={cn("inline-flex shrink-0 items-center gap-1.5", d.health === "ok" ? "text-ok" : d.health === "lost" ? "text-accent" : "text-warn")}>
         <Dot size="sm" state={healthState(d.health)} /> {HEALTH_LABEL[d.health]}
       </span>
+      {onReset && d.health !== "lost" && (
+        <Button
+          icon
+          variant="ghost"
+          size="xs"
+          className="shrink-0 text-mute hover:text-accent"
+          aria-label={`${d.deviceId} zurücksetzen`}
+          onClick={() => {
+            const what = d.kind === "journey" ? "Die Ansicht bekommt die Aufforderung, neu zu laden." : "Der Sitz geht zurück zum Consent-Screen; gespeicherte Sessions bleiben.";
+            if (window.confirm(`${KIND_LABEL[d.kind]} ${d.deviceId} zurücksetzen? ${what}`)) onReset();
+          }}
+        >
+          <RotateCcw size={13} />
+        </Button>
+      )}
     </div>
   );
 }
@@ -256,7 +271,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <ServiceCard
           icon={Cable}
           name="Verbindungen"
@@ -267,7 +282,7 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
         >
           <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
             {kiosks.length === 0 && <span className="text-sm text-mute">keine Sitze oder Ansichten verbunden</span>}
-            {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} />)}
+            {kiosks.map((d) => <DeviceRow key={d.deviceId} d={d} now={now} onReset={() => c.resetDevice(d.deviceId)} />)}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="xs" variant="secondary" onClick={() => c.probeDevices()}>

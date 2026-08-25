@@ -257,6 +257,11 @@ iPad is visible on the console (a closed console tab just disappears). `Connecte
 `probedAt`, `health`. The hub broadcasts only when a device's facts
 changed and logs a `device.health` event on every transition.
 
+`host:reset-device { deviceId }` (from a console) resets one device
+without dropping it: a kiosk-role target gets `session:reset` (back to
+consent), a host-role target gets `host:reload`. Parked state is dropped;
+logged as `host.action reset-device`.
+
 `host:reset-all` (from a console) resets everything without dropping
 sockets: `session:reset "*"` sends every seat back to the consent screen
 (as "Alle Sitze zurücksetzen" does), and every *other* console receives

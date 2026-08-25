@@ -6,7 +6,7 @@ header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
 separated from the content by a hairline — and five views (the view switcher is a hamburger on the header's right; open, a full-width panel slides out from beneath the header; the active tab survives a reload
 via the URL hash):
 
-- **Übersicht** — one card per dependency in a four-column grid (two on a
+- **Übersicht** — one card per dependency in a three-column grid (two on a
   tablet): status word + dot, a sentence on what it means for the demo
   right now, and live facts read from the socket state and the log stream
   — **Verbindungen** (the count of consoles that answered the last ping,
@@ -14,8 +14,10 @@ via the URL hash):
   kiosk, emulator seat and journey view (the client says what it is on
   `hello`: `kind`): id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
-  on an active seat; a "Jetzt prüfen" button triggers the hub's link check
-  on demand; "Alles zurücksetzen" sends every seat back to the consent
+  on an active seat; each row has a ↺ that resets that device — a seat goes back to
+  its consent screen, a journey view gets the reload panel; nothing is
+  disconnected; a
+  "Jetzt prüfen" button triggers the hub's link check on demand; "Alles zurücksetzen" sends every seat back to the consent
   screen and tells every other console to reload — those show a blocking
   "Konsole neu laden" panel with a reload button), LLM (provider · model,
   fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
