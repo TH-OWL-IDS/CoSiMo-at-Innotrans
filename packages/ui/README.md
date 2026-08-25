@@ -25,11 +25,11 @@ export default defineConfig({ plugins: [react(), tailwindcss()] });
 
 | Group | Tokens |
 |---|---|
-| colour | `bg` `ink` `mute` `line` `line-strong` (controls) `line-soft` (dividers) `well` (sunken) `well-raised` `accent` (CI red — also *down* / *live*) `ok` `warn` `warn-soft` |
+| colour | `bg` `ink` `mute` `line` / `line-strong` / `line-soft` (all ink — lines are black) `well` (sunken) `well-raised` `accent` (CI red — also *down* / *live*) `ok` `warn` `warn-soft` |
 | font | `mono` (Source Code Pro, body) · `wordmark` (Schoolbell) · `sans` |
 | text | `2xs` 10.5 · `xs` 11 · `sm` 12 · `md` 13 · `base` 14 · `lg` 15 · `xl` 16 · `2xl` 18 · `4xl` 30 |
 | radius | `xs` 2 · `sm` 6 · `md` 8 · `lg` 10 · `xl` 12 · `2xl` 18 · `full` |
-| shadow | `card` `node` `float` (menus, popovers) `drawer` |
+| shadow | `card` `node` `float` `drawer` — all `none`; the 2px ink border separates |
 | z | `sticky` `popover` `header` `menu` `drawer` |
 
 Use them as utilities (`bg-well`, `text-mute`, `rounded-lg`,

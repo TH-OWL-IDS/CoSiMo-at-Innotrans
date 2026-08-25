@@ -174,7 +174,6 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
 
   return (
     <div className="flex flex-col gap-4">
-      <Eyebrow>Dienste{lastSvc ? ` · Stand ${clock(lastSvc.ts)}` : ""}</Eyebrow>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard
           state={c.connected ? "ok" : "down"}

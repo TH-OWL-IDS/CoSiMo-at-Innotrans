@@ -9,9 +9,9 @@ import { cn } from "../cn";
  */
 const field = cva(
   [
-    "font-mono text-ink border outline-none",
+    "font-mono text-ink border focus-ring",
     "transition-[border-color,opacity] duration-150 motion-reduce:transition-none",
-    "hover:border-mute focus-visible:border-ink aria-[invalid=true]:border-accent",
+    "aria-[invalid=true]:border-accent",
     "disabled:opacity-45",
   ],
   {
