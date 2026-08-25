@@ -30,6 +30,8 @@ type CosimoSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export interface CosimoState {
   connected: boolean;
+  /** This client's own device id, as the hub lists it. */
+  deviceId: string;
   emotion: FaceEmotion;
   phase: PipelinePhase;
   /** The streaming reply text for the current/last CoSiMo turn. */
@@ -106,6 +108,8 @@ export interface CosimoState {
   inspection: SeatInspection | null;
   /** Request a seat's deep view (system prompt + turns). */
   inspectSeat: (deviceId: string) => void;
+  /** Run the hub's link check on every device now (operator console). */
+  probeDevices: () => void;
   clearInspection: () => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
@@ -315,6 +319,9 @@ export function useCosimoSocket(
     socket.on("disconnect", () => setConnected(false));
 
     socket.on("devices:update", ({ devices }) => setDevices(devices));
+    // The hub's link check: answer the ack at once. Every client does —
+    // kiosks, the emulator, consoles — that is what makes the RTT honest.
+    socket.on("sys:ping", (ack) => ack());
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
@@ -502,6 +509,7 @@ export function useCosimoSocket(
   const recover = () => sockRef.current?.emit("host:recover", {});
   const resetSession = (target: string) =>
     sockRef.current?.emit("host:resetSession", { deviceId: target });
+  const probeDevices = () => sockRef.current?.emit("host:probe", {});
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
@@ -551,7 +559,7 @@ export function useCosimoSocket(
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, resetNonce,
     setCabinActuator,
-    inspection, inspectSeat, clearInspection,
+    inspection, inspectSeat, clearInspection, probeDevices, deviceId,
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,

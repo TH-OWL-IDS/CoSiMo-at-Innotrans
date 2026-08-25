@@ -5,12 +5,14 @@ import {
   DoorClosed, DoorOpen, Ear, Flag, FlaskConical, Frown, Globe, IdCard,
   Database, LayoutDashboard, LifeBuoy, Lightbulb, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
   Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  Monitor, RadioTower, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
   type Accommodations,
+  type ConnectedDevice,
   type ConnectionStatus,
+  type DeviceHealth,
   type LogEvent,
   type MonoCabTelemetry,
   type PersonaBroadcast,
@@ -106,26 +108,68 @@ function accommodationChips(a: Accommodations): string[] {
 type ServiceState = "ok" | "warn" | "down";
 const STATE_LABEL: Record<ServiceState, string> = { ok: "läuft", warn: "eingeschränkt", down: "ausgefallen" };
 
-function ServiceCard({ state, name, detail, icon: Icon, facts }: {
+const HEALTH_LABEL: Record<DeviceHealth, string> = { ok: "ok", slow: "langsam", stale: "antwortet nicht", lost: "getrennt" };
+const healthState = (h: DeviceHealth): ServiceState => (h === "ok" ? "ok" : h === "lost" ? "down" : "warn");
+
+/**
+ * One connection, one line: what it is, its id, the last ping, the link
+ * health, when it was last heard from. "stale" with recent activity is
+ * almost always an old app build that doesn't answer sys:ping yet.
+ */
+function DeviceRow({ d, self, now }: { d: ConnectedDevice; self: boolean; now: number }) {
+  const Icon = d.role === "host" ? Monitor : TabletSmartphone;
+  const recentActivity = d.lastActivityAt != null && now - new Date(d.lastActivityAt).getTime() < 60_000;
+  const note =
+    d.health === "stale" && recentActivity ? "aktiv, aber kein Ping — alte App-Version?" :
+    d.health === "lost" ? "Verbindung verloren" :
+    d.transport === "polling" ? "kein WebSocket — nur Polling" : "";
+  const title = [
+    `${d.role === "host" ? "Konsole" : "Kiosk"} ${d.deviceId}`,
+    `verbunden seit ${clock(d.connectedAt)} · ${d.transport}`,
+    d.probedAt ? `Ping ${d.rttMs != null ? `${d.rttMs} ms` : "ohne Antwort"} (${ago(d.probedAt, now)})` : "noch nicht geprüft",
+    d.lastActivityAt ? `letzte Aktivität ${ago(d.lastActivityAt, now)}` : null,
+    note || null,
+  ].filter(Boolean).join("\n");
+  return (
+    <div className={cn("flex min-w-0 items-center gap-2 text-sm", d.health === "lost" && "opacity-55")} title={title}>
+      <Icon size={14} className="shrink-0 text-mute" />
+      <span className="min-w-0 flex-1 truncate">
+        {d.deviceId}
+        {self && <span className="text-mute"> · diese Konsole</span>}
+        {d.active && <span className="text-accent"> · Session</span>}
+      </span>
+      <span className="shrink-0 tabular-nums text-mute">{d.rttMs != null ? `${d.rttMs} ms` : "—"}</span>
+      {d.transport === "polling" && d.health !== "lost" && <Chip size="xs" className="shrink-0 text-warn">polling</Chip>}
+      <span className={cn("inline-flex shrink-0 items-center gap-1.5", d.health === "ok" ? "text-ok" : d.health === "lost" ? "text-accent" : "text-warn")}>
+        <Dot size="sm" state={healthState(d.health)} /> {HEALTH_LABEL[d.health]}
+      </span>
+    </div>
+  );
+}
+
+function ServiceCard({ state, name, detail, icon: Icon, facts, children }: {
   state: ServiceState;
   name: string;
-  /** One sentence: what this means for the demo right now. */
+  /** One sentence: what this means for the demo right now (the title's tooltip). */
   detail: string;
+  /** Extra content below the facts (e.g. the Verbindung card's device rows). */
+  children?: React.ReactNode;
   icon: LucideIcon;
   /** Live facts, label → value; "—" when unknown. */
   facts: [string, React.ReactNode][];
 }) {
   return (
     <Card active={state === "down"} className="gap-3">
-      <div className="flex items-center gap-2.5">
-        <Icon size={18} className="shrink-0 text-ink" />
-        <span className="flex-1 text-base font-semibold">{name}</span>
-        <span className={cn("inline-flex items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
+      {/* the consequence sentence lives in the title's tooltip, not on the card */}
+      <div className="flex min-w-0 items-center gap-2.5" title={detail}>
+        <Icon size={20} className="shrink-0 text-ink" />
+        <span className="min-w-0 flex-1 truncate text-2xl font-black">{name}</span>
+        <span className={cn("inline-flex shrink-0 items-center gap-1.5 text-sm", state === "ok" ? "text-ok" : state === "warn" ? "text-warn" : "text-accent")}>
           <Dot state={state} /> {STATE_LABEL[state]}
         </span>
       </div>
-      <p className="m-0 text-md leading-snug text-mute">{detail}</p>
       <KeyValue rows={facts} keyWidth="w-[88px]" className="border-t border-line-soft pt-2.5" />
+      {children}
     </Card>
   );
 }
@@ -174,8 +218,13 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
   const cabinFailed = cabinResults.length - cabinOk;
   const lastCabin = cabinResults[cabinResults.length - 1];
   const errors = logs.filter((e) => e.level === "error").length;
-  const kioskIds = c.devices.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
-  const consoles = c.devices.length - kioskIds.length;
+  const live = c.devices.filter((d) => d.health !== "lost");
+  const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
+  const consoles = live.length - kioskIds.length;
+  // Kiosks first, then consoles; lost ones last — the list reads as the cab.
+  const rank = (d: ConnectedDevice) => (d.health === "lost" ? 2 : d.role === "kiosk" ? 0 : 1);
+  const devices = [...c.devices].sort((a, b) => rank(a) - rank(b) || a.deviceId.localeCompare(b.deviceId));
+  const lastProbe = c.devices.map((d) => d.probedAt).filter((x): x is string => Boolean(x)).sort().pop();
   const activeSeats = c.seats.filter((s) => s.active).length;
 
   if (!st) {
@@ -190,17 +239,25 @@ function OverviewTab({ c, st }: { c: CosimoState; st: ConnectionStatus | null })
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ServiceCard
-          state={c.connected ? "ok" : "down"}
+          state={!c.connected ? "down" : devices.some((d) => d.health === "lost") ? "down" : devices.some((d) => d.health !== "ok") ? "warn" : "ok"}
           icon={Cable}
-          name="Verbindung"
-          detail={c.connected ? "Hub erreichbar — Sitze, Telemetrie und Log kommen live." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
+          name="Verbindungen"
+          detail={c.connected ? "Hub erreichbar — jede Zeile ist ein Gerät; der Hub pingt alle 10 s." : "Keine Verbindung zum Hub — diese Konsole sieht nichts."}
           facts={[
+            ["Hub", REALTIME_URL ? REALTIME_URL.replace(/^https?:\/\//, "") : "same-origin"],
             ["Kiosks", kioskIds.length ? `${kioskIds.length} · ${activeSeats} aktiv` : "keine"],
             ["Konsolen", String(consoles)],
-            ["Geräte", kioskIds.length ? <span className="break-all">{kioskIds.join(", ")}</span> : "—"],
-            ["Hub", REALTIME_URL ? REALTIME_URL.replace(/^https?:\/\//, "") : "same-origin"],
+            ["Geprüft", lastProbe ? ago(lastProbe, now) : "noch nicht"],
           ]}
-        />
+        >
+          <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
+            {devices.length === 0 && <span className="text-sm text-mute">keine Geräte</span>}
+            {devices.map((d) => <DeviceRow key={d.deviceId} d={d} self={d.deviceId === c.deviceId} now={now} />)}
+          </div>
+          <Button size="xs" variant="secondary" className="self-start" onClick={() => c.probeDevices()}>
+            <RadioTower size={13} /> Jetzt prüfen
+          </Button>
+        </ServiceCard>
         <ServiceCard
           state={st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
           icon={Brain}

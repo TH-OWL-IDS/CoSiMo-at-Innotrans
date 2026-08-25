@@ -9,7 +9,11 @@ via the URL hash):
 - **Übersicht** — one card per dependency in a four-column grid (two on a
   tablet): status word + dot, a sentence on what it means for the demo
   right now, and live facts read from the socket state and the log stream
-  — hub (kiosk/console counts, device ids), LLM (provider · model,
+  — **Verbindungen** (hub host, kiosk/console counts, then one line per
+  device: id, last ping RTT, link health ok/langsam/antwortet nicht/
+  getrennt, a "polling" chip when the socket never upgraded, "· Session"
+  on an active seat, "· diese Konsole" on itself; a "Jetzt prüfen" button
+  triggers the hub's link check on demand), LLM (provider · model,
   fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
   last result, time to first audio), CMS (reachable since when, profile count, and the hub's resolved
   **operator routing** from `host:config` — config source CMS/env-defaults

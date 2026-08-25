@@ -32,6 +32,7 @@ const EVENT_TEXT_MAX = 2_000;
 const DEFAULT_LEVEL: Record<LogEvent["kind"], LogLevel> = {
   "seat.connect": "info",
   "seat.disconnect": "info",
+  "device.health": "info",
   consent: "info",
   "nfc.scan": "info",
   "persona.switch": "info",

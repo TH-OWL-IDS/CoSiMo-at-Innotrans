@@ -20,9 +20,28 @@ import type { Modality, Turn, SeatCard } from "./session.js";
 import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
+/** Link health of one connected device, from the hub's periodic ping. */
+export type DeviceHealth =
+  | "ok"     // answered the last ping within 250 ms
+  | "slow"   // answered, but slower than 250 ms
+  | "stale"  // socket open, no answer within the timeout (old app? frozen tab?)
+  | "lost";  // socket gone — kept in the list for 30 s so a flap is visible
+
 export interface ConnectedDevice {
   deviceId: string;
   role: "kiosk" | "host";
+  /** ISO time the socket said hello. */
+  connectedAt: string;
+  /** The engine.io transport in use — polling on the cabin WLAN is a smell. */
+  transport: "websocket" | "polling";
+  /** Kiosks: last rider/agent interaction; null for consoles. */
+  lastActivityAt: string | null;
+  /** Kiosks: a visitor session is running. */
+  active: boolean;
+  /** Last ping round-trip in ms; null until probed or when unanswered. */
+  rttMs: number | null;
+  probedAt: string | null;
+  health: DeviceHealth;
 }
 
 /** High-level conversation phase, used to mask latency in the UI. */
@@ -151,6 +170,8 @@ export interface ServerToClientEvents {
   /** The set of authored personas (host consoles only) — drives the pickers.
    *  Sent on host connect and whenever the persona set is refreshed from CMS. */
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
+  /** Link check: the client answers by calling the ack — no payload. */
+  "sys:ping": (ack: () => void) => void;
   /** The resolved operator routing (CMS operator-config over env defaults) —
    *  pushed to host consoles on hello and whenever it changes. URLs and
    *  model names only; keys never leave the hub's environment. */
@@ -206,6 +227,8 @@ export interface ClientToServerEvents {
   "host:recover": (payload: Record<string, never>) => void;
   /** Request a deep view of one seat (system prompt + full turn log). */
   "host:inspect": (payload: { deviceId: string }) => void;
+  /** Run the link check on every device now (the periodic one runs anyway). */
+  "host:probe": (payload: Record<string, never>) => void;
   /** Re-request the log buffer, optionally only events after `since` (seq). */
   "host:log:replay": (payload: { since?: number }) => void;
 }

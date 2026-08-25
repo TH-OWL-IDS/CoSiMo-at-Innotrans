@@ -33,6 +33,7 @@ import {
   type SeatSummary,
   type ServerToClientEvents,
   type TtsChunk,
+  type DeviceHealth,
   type HostConfigBroadcast,
 } from "@cosimo/shared";
 
@@ -116,9 +117,25 @@ type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 /** Expressive emotions are reactions, not states — they fade back to neutral. */
 const DECAYING_EMOTIONS: ReadonlySet<FaceEmotion> = new Set(["happy", "sad", "surprised"]);
 
+/** Link check tuning (see probeDevices). */
+const PROBE_INTERVAL_MS = 10_000;
+const PROBE_TIMEOUT_MS = 3_000;
+const SLOW_RTT_MS = 250;
+const LOST_LINGER_MS = 30_000;
+
+/** The engine.io transport a socket currently rides. */
+function transportOf(socket: Sock): "websocket" | "polling" {
+  return socket.conn?.transport?.name === "websocket" ? "websocket" : "polling";
+}
+
 interface DeviceEntry {
   role: "kiosk" | "host";
   socket: Sock;
+  /** Link facts for the console's Verbindung card. */
+  connectedAt: number;
+  rttMs: number | null;
+  probedAt: number | null;
+  health: DeviceHealth;
   persona: PersonaBroadcast;
   emotion: FaceEmotion;
   phase: PipelinePhase;
@@ -173,6 +190,8 @@ export class Hub {
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
+  /** Recently disconnected devices, shown as "lost" for LOST_LINGER_MS. */
+  private readonly lost = new Map<string, ConnectedDevice>();
   /** Last config pushed, serialized — broadcastConfig() only emits on change. */
   private lastConfigJson = "";
   private memoriesResolver: MemoriesResolver | undefined;
@@ -401,10 +420,17 @@ export class Hub {
         turn: 0,
         lastActivity: Date.now(),
         sessionId: "",
+        connectedAt: Date.now(),
+        rttMs: null,
+        probedAt: null,
+        health: "ok",
       };
       this.devices.set(deviceId, entry);
       socket.data.deviceId = deviceId;
       this.broadcastDevices();
+      // First ping right away, so the console's row gets an RTT within a
+      // second instead of waiting for the next 10 s tick.
+      setTimeout(() => void this.probeDevices(), 500);
       // Snapshot current state to the freshly-connected client.
       socket.emit("face:emotion", { emotion: entry.emotion, since: this.now() });
       // Include the phase — a client reconnecting after a mid-turn drop must
@@ -420,6 +446,12 @@ export class Hub {
       }
       if (role === "host" && this.configLister) {
         socket.emit("host:config", this.configLister());
+      }
+      if (role === "host") {
+        socket.on("host:probe", () => {
+          logger.log("host.action", { action: "probe", args: {} }, { deviceId });
+          void this.probeDevices();
+        });
       }
       // Hosts get the debug log: the buffer now, then live. A re-subscribe
       // (host:log:replay) swaps the sink so there is never a double stream.
@@ -635,6 +667,17 @@ export class Hub {
         }
         this.clearDecay(id);
         this.turnBudget.delete(id);
+        if (e) {
+          // Keep a "lost" line for 30 s so a flapping iPad is visible on the console.
+          this.lost.set(id, { ...this.snapshot(id, e), health: "lost", rttMs: null });
+          setTimeout(() => {
+            this.lost.delete(id);
+            this.broadcastDevices();
+          }, LOST_LINGER_MS);
+          if (e.health !== "lost") {
+            logger.log("device.health", { health: "lost", rttMs: null, transport: transportOf(e.socket) }, { deviceId: id, level: "warn" });
+          }
+        }
         this.devices.delete(id);
       }
       this.broadcastDevices();
@@ -667,12 +710,62 @@ export class Hub {
     return deviceId ? this.devices.get(deviceId) : undefined;
   }
 
-  private broadcastDevices(): void {
-    const devices: ConnectedDevice[] = Array.from(this.devices, ([deviceId, d]) => ({
+  /** One device as the console sees it. */
+  private snapshot(deviceId: string, d: DeviceEntry): ConnectedDevice {
+    return {
       deviceId,
       role: d.role,
-    }));
+      connectedAt: new Date(d.connectedAt).toISOString(),
+      transport: transportOf(d.socket),
+      lastActivityAt: d.role === "kiosk" ? new Date(d.lastActivity).toISOString() : null,
+      active: d.active,
+      rttMs: d.rttMs,
+      probedAt: d.probedAt ? new Date(d.probedAt).toISOString() : null,
+      health: d.health,
+    };
+  }
+
+  private broadcastDevices(): void {
+    const devices: ConnectedDevice[] = [
+      ...Array.from(this.devices, ([deviceId, d]) => this.snapshot(deviceId, d)),
+      ...this.lost.values(),
+    ];
     this.io.emit("devices:update", { devices });
+  }
+
+  /**
+   * The link check: ping every socket with an ack timeout and classify the
+   * answer. Runs every PROBE_INTERVAL_MS and on `host:probe`; broadcasts
+   * only when a device's facts changed, logs only on health transitions.
+   */
+  async probeDevices(): Promise<void> {
+    const before = JSON.stringify(Array.from(this.devices, ([id, d]) => this.snapshot(id, d)));
+    await Promise.all(
+      Array.from(this.devices, ([id, d]) => {
+        const started = Date.now();
+        return new Promise<void>((resolve) => {
+          d.socket.timeout(PROBE_TIMEOUT_MS).emit("sys:ping", (err: Error | null) => {
+            // The entry may have disconnected meanwhile.
+            if (this.devices.get(id) !== d) return resolve();
+            const rtt = err ? null : Date.now() - started;
+            const health: DeviceHealth = err ? "stale" : rtt! > SLOW_RTT_MS ? "slow" : "ok";
+            d.rttMs = rtt;
+            d.probedAt = Date.now();
+            if (health !== d.health) {
+              d.health = health;
+              logger.log(
+                "device.health",
+                { health, rttMs: rtt, transport: transportOf(d.socket) },
+                { deviceId: id, level: health === "ok" ? "info" : "warn" },
+              );
+            }
+            resolve();
+          });
+        });
+      }),
+    );
+    const after = JSON.stringify(Array.from(this.devices, ([id, d]) => this.snapshot(id, d)));
+    if (after !== before) this.broadcastDevices();
   }
 
   /** Push per-seat summaries to every connected host console. */
@@ -910,7 +1003,10 @@ export class Hub {
   emitTtsChunk(sessionId: string, chunk: Omit<TtsChunk, "sessionId">): void {
     const entry = this.entryOf(sessionId);
     if (entry && chunk.turn !== -1 && chunk.turn < entry.turn) return;
-    (entry?.socket ?? this.io).emit("tts:chunk", { sessionId, ...chunk });
+    // Not `(socket ?? io).emit`: the two emit signatures diverge once an
+    // event with an ack (sys:ping) exists, and the union isn't callable.
+    if (entry) entry.socket.emit("tts:chunk", { sessionId, ...chunk });
+    else this.io.emit("tts:chunk", { sessionId, ...chunk });
   }
 
   // ── Global showcase state ─────────────────────────────────────────

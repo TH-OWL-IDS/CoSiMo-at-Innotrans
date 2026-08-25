@@ -98,3 +98,7 @@ collection stays consent-gated regardless.
 | `apps/realtime/src/index.ts` | stt.result, nfc.scan |
 | `packages/client/src/useCosimoSocket.ts` | `logs`, `clearLogs`, `replayLogs` |
 | `apps/console/src/LogView.tsx` | the Log tab |
+
+- `device.health` — a device's link health changed (`ok` / `slow` / `stale`
+  / `lost`, with the ping RTT and transport); `deviceId` names the device.
+  Emitted by the hub's link check, see [realtime.md](realtime.md).

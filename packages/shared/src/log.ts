@@ -95,6 +95,8 @@ export type LogEvent = Base &
     | { kind: "fault.start"; data: { fault: FaultKind; durationSec: number; by: "scenario" | "host" } }
     | { kind: "fault.end"; data: { fault: FaultKind; by: "elapsed" | "host" } }
     | { kind: "service.status"; data: Record<string, boolean> }
+    /** A device's link health changed (deviceId names it). */
+    | { kind: "device.health"; data: { health: "ok" | "slow" | "stale" | "lost"; rttMs: number | null; transport: string } }
   );
 
 export type LogKind = LogEvent["kind"];
@@ -119,4 +121,5 @@ export const LOG_KINDS: readonly LogKind[] = [
   "fault.start",
   "fault.end",
   "service.status",
+  "device.health",
 ] as const;

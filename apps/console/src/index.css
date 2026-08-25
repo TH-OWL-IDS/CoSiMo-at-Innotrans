@@ -4,10 +4,10 @@
 
 /* The view menu slides out from beneath the sticky header. */
 @keyframes menu-down {
-  from { transform: translateY(-100%); opacity: 0; }
-  to { transform: none; opacity: 1; }
+  from { transform: translateY(-100%); }
+  to { transform: none; }
 }
 @keyframes menu-up {
-  from { transform: none; opacity: 1; }
-  to { transform: translateY(-100%); opacity: 0; }
+  from { transform: none; }
+  to { transform: translateY(-100%); }
 }

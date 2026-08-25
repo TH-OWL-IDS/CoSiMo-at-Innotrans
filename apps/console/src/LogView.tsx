@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, CircleCheck, CircleCheckBig, CornerDownLeft, Download, FlagTriangleRight,
   IdCard, Joystick, Lightbulb, MessageSquare, Mic, Pause, Play, Plug, RadioTower,
-  RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
+  Activity, RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
   type LucideIcon,
   ListTodo,
   MousePointerClick,
@@ -40,6 +40,7 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "fault.start": TriangleAlert,
   "fault.end": CircleCheckBig,
   "service.status": RadioTower,
+  "device.health": Activity,
 };
 
 /** The kind, as icon + name — one visual voice for chips and rows. */
@@ -97,6 +98,8 @@ function summarize(e: LogEvent): string {
       return `${e.data.fault} cleared (${e.data.by})`;
     case "service.status":
       return Object.entries(e.data).map(([k, v]) => `${k}:${v ? "up" : "down"}`).join(" ");
+    case "device.health":
+      return `${e.data.health}${e.data.rttMs != null ? ` · ${e.data.rttMs} ms` : ""} · ${e.data.transport}`;
   }
 }
 
