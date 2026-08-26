@@ -292,7 +292,12 @@ export default function App() {
         // advance at that velocity, and correct the drift softly (no jumps)
         const sm = cabSmooth.current + velocity.current * dt + (predicted - cabSmooth.current) * 0.03;
         cabSmooth.current = sm;
-        cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current})`);
+        // a little bounce while rolling: amplitude grows with speed, a hair of
+        // roll with it — none at all when standing
+        const speed = Math.min(1, Math.abs(velocity.current) / 0.02);
+        const bob = speed ? Math.sin(now / 90) * 2.2 * speed + Math.sin(now / 230) * 0.8 * speed : 0;
+        const roll = speed ? Math.sin(now / 140) * 0.6 * speed : 0;
+        cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current + bob}) rotate(${roll})`);
         if (followRef.current) offset.current = sm - vwRef.current / 2;
       }
       // "go there": glide the view towards a stop (arrow click)
