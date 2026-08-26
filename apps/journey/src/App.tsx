@@ -4,6 +4,7 @@ import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
 import { Brand, Button, Card } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
+import cabUrl from "./assets/monocab-base.svg";
 
 /**
  * The journey view — the MonoCab's line as one wide horizontal world. The
@@ -20,6 +21,8 @@ import { resolveServerUrl } from "./serverUrl";
 const STOP_GAP = 650; // px between stops — the world's scale
 const TICK = 65; // px between the small distance ticks (10 per stop gap)
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
+const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
+const CAB_H = Math.round((CAB_W * 760) / 1400);
 
 const INK = "var(--color-ink)";
 const MUTE = "var(--color-mute)";
@@ -201,20 +204,20 @@ export default function App() {
               </g>
             );
           })}
-          {/* the cab — a tap on it re-centres */}
+          {/* the cab — the CI drawing (1400×760), sitting on the track; a tap re-centres.
+              It faces the direction of travel (the drawing faces right). */}
           <g transform={`translate(${cabX} ${trackY})`} style={{ transition: "transform 900ms linear", cursor: "pointer" }} onClick={recenter}>
-            <rect x={-48} y={-30} width={96} height={52} rx={14} fill={holding ? WARN : ACCENT} />
-            <rect x={-36} y={-21} width={72} height={20} rx={5} fill="rgba(255,255,255,0.55)" />
-            {t.doorsOpen && (
-              <>
-                <rect x={-54} y={-18} width={5} height={28} fill={OK} />
-                <rect x={49} y={-18} width={5} height={28} fill={OK} />
-              </>
+            {/* state ring: amber while held at a signal, green while the doors are open */}
+            {(holding || t.doorsOpen) && (
+              <ellipse cx={0} cy={0} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
             )}
-            <text y={-46} textAnchor="middle" fill={INK} fontSize={18} fontWeight={600} fontVariant="tabular-nums">
+            <g transform={outbound ? undefined : "scale(-1 1)"}>
+              <image href={cabUrl} x={-CAB_W / 2} y={-CAB_H + 10} width={CAB_W} height={CAB_H} />
+            </g>
+            <text y={-CAB_H - 8} textAnchor="middle" fill={INK} fontSize={18} fontWeight={600} fontVariant="tabular-nums">
               {fmt(Math.round(t.speedKmh))} km/h{t.simPaused ? ` · ${L("pausiert", "paused")}` : ""}
             </text>
-            <text y={50} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={15}>
+            <text y={34} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={15}>
               {holding ? L("Halt", "held") : t.doorsOpen ? L("Türen offen", "doors open") : outbound ? `→ ${t.destination[lang]}` : `← ${t.destination[lang]}`}
             </text>
           </g>
