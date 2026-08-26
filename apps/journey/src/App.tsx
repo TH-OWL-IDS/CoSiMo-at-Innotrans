@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Info, LocateFixed, RotateCw, TriangleAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, LocateFixed, RotateCw, TriangleAlert } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
-import { Brand, Button, Card } from "@cosimo/ui";
+import { Brand, Button, Card, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 
 /**
@@ -200,12 +200,22 @@ export default function App() {
 
   /* ── follow-the-cab scrolling ─────────────────────────────────────── */
   const scroller = useRef<HTMLDivElement>(null);
+  const worldSvg = useRef<SVGSVGElement>(null);
   const [following, setFollowing] = useState(true);
   const [infoOpen, setInfoOpen] = useState(false);
   const followRef = useRef(true);
   followRef.current = following;
-  const ourScroll = useRef(false);
-  const targetRef = useRef(0);
+  /** Virtual scroll offset in world px — fractional, applied as a transform
+   *  (native scrollLeft is integer-quantised and stutters against the
+   *  sub-pixel cab). */
+  const offset = useRef(0);
+  const worldWRef = useRef(0);
+  const drag = useRef<{ x: number; start: number } | null>(null);
+  /** A "go there" animation target (the off-screen stop arrows). */
+  const goal = useRef<number | null>(null);
+  /** Low-rate copy of the offset for React (the off-screen arrows). */
+  const [viewX, setViewX] = useState(0);
+  const lastViewPush = useRef(0);
   const cabGroup = useRef<SVGGElement>(null);
   /** Where telemetry says the cab is (world x) and where we draw it (eased). */
   const cabTarget = useRef(0);
@@ -239,7 +249,7 @@ export default function App() {
   cabTarget.current = cabX;
   if (cabSmooth.current === null && t) cabSmooth.current = cabX;
   vwRef.current = vw;
-  targetRef.current = cabX - vw / 2;
+  worldWRef.current = worldW;
 
   // Ease the viewport towards the cab every frame while following. Native
   // scrollLeft is the scroll position, so a manual drag simply takes over.
@@ -247,10 +257,9 @@ export default function App() {
     let raf = 0;
     const tick = () => {
       const el = scroller.current;
-      // The cab eases towards its telemetry position every frame (telemetry
-      // arrives in steps; Safari does not transition SVG transforms), and
-      // while following, the viewport is pinned to the eased cab — so the
-      // cab stands still in the middle and the world glides.
+      // The cab moves by dead reckoning every frame; while following, the
+      // viewport is pinned to it — the cab stands still in the middle and
+      // the world glides (as a fractional transform, never a scroll).
       if (cabSmooth.current !== null) {
         const now = performance.now();
         const dt = lastFrame.current ? Math.min(50, now - lastFrame.current) : 16;
@@ -261,17 +270,23 @@ export default function App() {
         const sm = cabSmooth.current + velocity.current * dt + (predicted - cabSmooth.current) * 0.03;
         cabSmooth.current = sm;
         cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current})`);
-        if (el && followRef.current) {
-          const want = sm - vwRef.current / 2;
-          if (Math.abs(want - el.scrollLeft) > 0.2) {
-            ourScroll.current = true;
-            el.scrollLeft = want;
-          }
-        }
+        if (followRef.current) offset.current = sm - vwRef.current / 2;
       }
-      // parallax foreground: shift the repeating patterns against the scroll
+      // "go there": glide the view towards a stop (arrow click)
+      if (goal.current !== null && !followRef.current) {
+        offset.current += (goal.current - offset.current) * 0.08;
+        if (Math.abs(goal.current - offset.current) < 0.5) goal.current = null;
+      }
       if (el) {
-        const sl = el.scrollLeft;
+        const maxOff = Math.max(0, worldWRef.current - vwRef.current);
+        offset.current = Math.max(0, Math.min(maxOff, offset.current));
+        const sl = offset.current;
+        if (worldSvg.current) worldSvg.current.style.transform = `translate3d(${-sl}px, 0, 0)`;
+        const now2 = performance.now();
+        if (now2 - lastViewPush.current > 120) {
+          lastViewPush.current = now2;
+          setViewX(sl);
+        }
         // GPU transforms on a group of repeated tiles — no re-tiling, no filters
         const shift = (g: SVGGElement | null, f: number, tile: number) => {
           if (g) g.style.transform = `translate3d(${-((sl * f) % tile)}px, 0, 0)`;
@@ -288,15 +303,30 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Any scroll we did not cause = the visitor is looking around → stop following.
-  const onScroll = () => {
-    if (ourScroll.current) {
-      ourScroll.current = false;
-      return;
-    }
+  // Looking around: wheel or drag moves the virtual offset and stops following.
+  const lookAround = (dx: number) => {
+    if (!dx) return;
+    goal.current = null;
+    offset.current += dx;
     if (followRef.current) setFollowing(false);
   };
-  const recenter = () => setFollowing(true);
+  const onWheel = (e: React.WheelEvent) => lookAround(Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+  const onPointerDown = (e: React.PointerEvent) => {
+    drag.current = { x: e.clientX, start: offset.current };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const dx = drag.current.x - e.clientX;
+    if (Math.abs(dx) < 3 && followRef.current) return; // a tap, not a drag
+    goal.current = null;
+    offset.current = drag.current.start + dx;
+    if (followRef.current) setFollowing(false);
+  };
+  const onPointerUp = () => { drag.current = null; };
+  const recenter = () => { goal.current = null; setFollowing(true); };
+  /** Glide the view to a stop's world x (centred). */
+  const goTo = (x: number) => { setFollowing(false); goal.current = x - vwRef.current / 2; };
 
   // A console reset everything → this view should reload for a fresh state.
   const reloadPanel = c.reloadRequired && (
@@ -396,16 +426,16 @@ export default function App() {
       {/* ── the world: one wide strip, scrolls horizontally ──────────── */}
       <div
         ref={scroller}
-        onScroll={onScroll}
-        // intent beats heuristics: a wheel, a finger or a drag means "let me look"
-        onWheel={() => followRef.current && setFollowing(false)}
-        onTouchStart={() => followRef.current && setFollowing(false)}
-        onPointerDown={(e) => e.pointerType === "mouse" && e.buttons === 1 && followRef.current && setFollowing(false)}
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         // positioned + above the far background (a positioned sibling would otherwise paint over it)
-        className="no-scrollbar relative z-[1] h-full w-full overflow-x-auto overflow-y-hidden"
-        style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+        className="relative z-[1] h-full w-full cursor-grab overflow-hidden active:cursor-grabbing"
+        style={{ touchAction: "none" }}
       >
-        <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
+        <svg ref={worldSvg} width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW, willChange: "transform" }}>
           <defs>
             {/* one soft ground shadow for everything that stands on the line */}
             <radialGradient id="ground-shadow">
@@ -575,6 +605,38 @@ export default function App() {
           {t.delayMinutes > 0 && <span>· +{t.delayMinutes} min</span>}
         </div>
       )}
+
+      {/* ── off-screen neighbours: the stop just behind and the one ahead,
+          as arrows at the edge; a click glides the view there ──────── */}
+      {(() => {
+        const dir = outbound ? 1 : -1;
+        const idx = t.position.stopIndex;
+        const candidates = [idx - dir, idx, idx + dir].filter((i) => i >= 0 && i < t.stops.length);
+        const left = candidates.filter((i) => stopX(i) < viewX + 80).sort((a, b) => stopX(b) - stopX(a))[0];
+        const right = candidates.filter((i) => stopX(i) > viewX + vw - 80).sort((a, b) => stopX(a) - stopX(b))[0];
+        const Arrow = ({ i, side }: { i: number; side: "left" | "right" }) => (
+          <button
+            type="button"
+            onClick={() => goTo(stopX(i))}
+            aria-label={`${L("Zu", "To")} ${t.stops[i]!.name[lang]}`}
+            className={cn(
+              "fixed z-header flex items-center gap-2 rounded-full border border-line bg-white px-3 py-2 text-base text-ink shadow-card",
+              side === "left" ? "left-6" : "right-6",
+            )}
+            style={{ top: trackY - 22 }}
+          >
+            {side === "left" && <ChevronLeft size={18} />}
+            <span>{t.stops[i]!.name[lang]}</span>
+            {side === "right" && <ChevronRight size={18} />}
+          </button>
+        );
+        return (
+          <>
+            {left != null && <Arrow i={left} side="left" />}
+            {right != null && <Arrow i={right} side="right" />}
+          </>
+        );
+      })()}
 
       {/* ── back to the cab (only while the visitor looked away) ───── */}
       {!following && (
