@@ -42,7 +42,7 @@ const OK = "var(--color-ok)";
  * Deterministic per stop index so the map is stable.
  */
 function Town({ variant }: { variant: number }) {
-  const common = { fill: "none", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { fill: "var(--color-bg)", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, filter: "url(#town-shadow)" };
   if (variant === 0) {
     // Dorf: house, church with tower, a tree
     return (
@@ -258,7 +258,7 @@ export default function App() {
       <svg className="pointer-events-none absolute inset-x-0 top-0" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
         <defs>
           <pattern id="bg-hills" ref={hillsPat} width={HILLS_TILE} height={trackY - 40} patternUnits="userSpaceOnUse">
-            <g fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
+            <g fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
               {/* two soft hills */}
               <path d={`M0 ${trackY - 40} C 300 ${trackY - 150}, 700 ${trackY - 170}, 1000 ${trackY - 90} C 1200 ${trackY - 40}, 1350 ${trackY - 40}, 1500 ${trackY - 40}`} />
               <path d={`M1300 ${trackY - 40} C 1600 ${trackY - 130}, 2000 ${trackY - 150}, 2400 ${trackY - 60}`} />
@@ -284,6 +284,12 @@ export default function App() {
         style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
       >
         <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
+          <defs>
+            {/* one soft ground shadow for every filled thing in the world */}
+            <filter id="town-shadow" x="-30%" y="-30%" width="160%" height="180%">
+              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#181817" floodOpacity="0.22" />
+            </filter>
+          </defs>
           {/* track */}
           <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={INK} strokeWidth={3} strokeLinecap="round" />
           {/* stops */}
@@ -322,8 +328,11 @@ export default function App() {
           the towns, slightly heavier strokes because they are closer ───── */}
       <svg className="pointer-events-none fixed inset-x-0 z-sticky" style={{ top: trackY + 40, height: vh - trackY - 40 }} width="100%" height={vh - trackY - 40} aria-hidden>
         <defs>
+          <filter id="fg-shadow" x="-30%" y="-30%" width="160%" height="180%">
+            <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#181817" floodOpacity="0.24" />
+          </filter>
           <pattern id="fg-trees" ref={treesPat} width={TREES_TILE} height={220} patternUnits="userSpaceOnUse">
-            <g fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+            <g fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" filter="url(#fg-shadow)">
               {/* pine */}
               <path d="M240 220 V150" />
               <path d="M240 150 L200 150 L240 60 L280 150 Z" />
