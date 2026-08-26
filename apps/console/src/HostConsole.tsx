@@ -272,19 +272,14 @@ const ago = (ts: string | undefined, now: number) => {
 
 /** The last system-level events — no seat, no session: boots, config
  *  (re)loads, service status flips, restarts, journey faults. */
-function SystemCard({ logs, now, st, onOpenLogs }: { logs: LogEvent[]; now: number; st: ConnectionStatus; onOpenLogs: () => void }) {
+function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; onOpenLogs: () => void }) {
   const system = logs.filter((e) => !e.deviceId && !e.sessionId).slice(-8).reverse();
-  const lastSvc = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "service.status" }> => e.kind === "service.status");
   return (
     <ServiceCard
       icon={Activity}
       name="System"
-      detail="Was der Hub selbst erlebt hat — ohne Bezug zu einem Sitz oder einer Session: Internet und Sprachdienste aus seiner Sicht, dann Starts, geladene Konfiguration (und was sich darin geändert hat), Statuswechsel von LLM/CMS/Netz, Container-Neustarts, Störungen der Fahrt. Die letzten acht, neueste oben; „Alle“ öffnet die Logs mit dem Filter „System“."
-      facts={[
-        ["Internet", st.network ? "ja" : <span className="text-accent">nein</span>],
-        ["Sprache", st.speech ? "Sprachdienste ok" : "keine Sprachdienste"],
-        ["Gemeldet", lastSvc ? ago(lastSvc.ts, now) : "—"],
-      ]}
+      detail="Was der Hub selbst erlebt hat — ohne Bezug zu einem Sitz oder einer Session: Starts, geladene Konfiguration (und was sich darin geändert hat), Statuswechsel von LLM/CMS/Netz, Container-Neustarts, Störungen der Fahrt. Die letzten acht, neueste oben; „Alle“ öffnet die Logs mit dem Filter „System“."
+      facts={[]}
     >
       <div className="flex flex-col gap-1.5">
         {system.length === 0 && <span className="text-sm text-mute">noch keine System-Ereignisse</span>}
@@ -415,7 +410,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             ))}
           </div>
         </ServiceCard>
-        <SystemCard logs={c.logs} now={now} st={st} onOpenLogs={onShowSystemLogs} />
+        <SystemCard logs={c.logs} now={now} onOpenLogs={onShowSystemLogs} />
         <ServiceCard
           state={!lastCmsSvc && !cfg ? "starting" : st.cms ? "ok" : "warn"}
           icon={Database}
