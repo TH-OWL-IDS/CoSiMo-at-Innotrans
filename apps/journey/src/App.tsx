@@ -220,6 +220,12 @@ export default function App() {
   const lang: Locale = useMemo(() => (navigator.language.startsWith("en") ? "en" : "de"), []);
   const L = (de: string, en: string) => (lang === "de" ? de : en);
   const { w: vw, h: vh } = useViewport();
+  // Small screens see the world zoomed out — more line per glance. The
+  // viewport is then `vw / zoom` world px wide.
+  const zoom = vw < 700 ? 0.55 : vw < 1100 ? 0.75 : 1;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const viewW = vw / zoom;
 
   /* ── follow-the-cab scrolling ─────────────────────────────────────── */
   const scroller = useRef<HTMLDivElement>(null);
@@ -255,7 +261,7 @@ export default function App() {
   const grassLayer = useRef<SVGGElement>(null);
   const hillLayers = [useRef<SVGGElement>(null), useRef<SVGGElement>(null), useRef<SVGGElement>(null)];
 
-  const pad = vw / 2; // a terminal can sit dead centre too
+  const pad = viewW / 2; // a terminal can sit dead centre too
   const xs = t ? stopPositions(t, pad) : [pad];
   const worldW = (xs[xs.length - 1] ?? pad) + pad;
   const stopX = (i: number) => xs[i] ?? pad;
@@ -271,7 +277,7 @@ export default function App() {
   }
   cabTarget.current = cabX;
   if (cabSmooth.current === null && t) cabSmooth.current = cabX;
-  vwRef.current = vw;
+  vwRef.current = viewW;
   worldWRef.current = worldW;
 
   // Ease the viewport towards the cab every frame while following. Native
@@ -309,7 +315,7 @@ export default function App() {
         const maxOff = Math.max(0, worldWRef.current - vwRef.current);
         offset.current = Math.max(0, Math.min(maxOff, offset.current));
         const sl = offset.current;
-        if (worldSvg.current) worldSvg.current.style.transform = `translate3d(${-sl}px, 0, 0)`;
+        if (worldSvg.current) worldSvg.current.style.transform = `translate3d(${-sl * zoomRef.current}px, 0, 0) scale(${zoomRef.current})`;
         const now2 = performance.now();
         if (now2 - lastViewPush.current > 120) {
           lastViewPush.current = now2;
@@ -338,14 +344,14 @@ export default function App() {
     offset.current += dx;
     if (followRef.current) setFollowing(false);
   };
-  const onWheel = (e: React.WheelEvent) => lookAround(Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+  const onWheel = (e: React.WheelEvent) => lookAround((Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) / zoomRef.current);
   const onPointerDown = (e: React.PointerEvent) => {
     drag.current = { x: e.clientX, start: offset.current };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current) return;
-    const dx = drag.current.x - e.clientX;
+    const dx = (drag.current.x - e.clientX) / zoomRef.current;
     if (Math.abs(dx) < 3 && followRef.current) return; // a tap, not a drag
     goal.current = null;
     offset.current = drag.current.start + dx;
@@ -477,7 +483,7 @@ export default function App() {
         className="relative z-[1] h-full w-full cursor-grab overflow-hidden active:cursor-grabbing"
         style={{ touchAction: "none" }}
       >
-        <svg ref={worldSvg} width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW, willChange: "transform" }}>
+        <svg ref={worldSvg} width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW, willChange: "transform", transformOrigin: `0 ${trackY}px` }}>
           <defs>
             {/* one soft ground shadow for everything that stands on the line */}
             <radialGradient id="ground-shadow">
@@ -656,8 +662,8 @@ export default function App() {
         // neighbours of the cab — and always both terminals, so the ends of
         // the line are reachable from anywhere
         const candidates = [...new Set([idx - dir, idx, idx + dir, 0, t.stops.length - 1])].filter((i) => i >= 0 && i < t.stops.length);
-        const left = candidates.filter((i) => stopX(i) < viewX + 80).sort((a, b) => stopX(b) - stopX(a))[0];
-        const right = candidates.filter((i) => stopX(i) > viewX + vw - 80).sort((a, b) => stopX(a) - stopX(b))[0];
+        const left = candidates.filter((i) => stopX(i) < viewX + 80 / zoom).sort((a, b) => stopX(b) - stopX(a))[0];
+        const right = candidates.filter((i) => stopX(i) > viewX + viewW - 80 / zoom).sort((a, b) => stopX(a) - stopX(b))[0];
         const Arrow = ({ i, side }: { i: number; side: "left" | "right" }) => (
           <button
             type="button"
