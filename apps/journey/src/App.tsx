@@ -19,7 +19,7 @@ import { resolveServerUrl } from "./serverUrl";
 
 /** The line's scale: distance between stops is proportional to the travel
  *  time between them (3 px per second of driving; at least MIN_GAP). */
-const PX_PER_SEC = 3;
+const PX_PER_SEC = 15;
 const MIN_GAP = 500;
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 /** Foreground parallax: layers between camera and track scroll FASTER
