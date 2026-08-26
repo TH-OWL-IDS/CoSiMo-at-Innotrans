@@ -129,8 +129,7 @@ export default function App() {
 
   /* ── the wordmark, bottom right, on every screen ───────────────────── */
   const brand = (
-    <div className="pointer-events-none fixed bottom-5 right-6 z-header flex items-center gap-3 text-ink">
-      <span className="text-lg font-semibold tracking-[0.5px]">{L("Fahrt", "Journey")}</span>
+    <div className="pointer-events-none fixed bottom-5 right-6 z-header text-ink">
       <Brand size={36} />
     </div>
   );
