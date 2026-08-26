@@ -301,8 +301,9 @@ export default function App() {
         // a little bounce while rolling: amplitude grows with speed, a hair of
         // roll with it — none at all when standing
         const speed = Math.min(1, Math.abs(velocity.current) / 0.02);
-        const bob = speed ? Math.sin(now / 90) * 2.2 * speed + Math.sin(now / 230) * 0.8 * speed : 0;
-        const roll = speed ? Math.sin(now / 140) * 0.6 * speed : 0;
+        // one gentle, regular vibration — no roll (the roll read as wobble)
+        const bob = speed ? Math.sin(now / 70) * 0.8 * speed : 0;
+        const roll = 0;
         cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current + bob}) rotate(${roll})`);
         if (followRef.current) offset.current = sm - vwRef.current / 2;
       }
