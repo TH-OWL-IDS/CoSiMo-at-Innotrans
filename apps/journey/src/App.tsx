@@ -17,7 +17,7 @@ import { resolveServerUrl } from "./serverUrl";
  * No header, no cards — the line is the page; the wordmark sits bottom-right.
  */
 
-const STOP_GAP = 650; // px between stops — the world's scale
+const STOP_GAP = 1300; // px between stops — the world's scale
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
@@ -96,7 +96,7 @@ function MonoCab({ width, height }: { width: number; height: number }) {
       <defs>
         {/* the filter region must hold the whole blur — a tight box clips the shadow flat */}
         <filter id="cab-shadow" x="-30%" y="-30%" width="160%" height="200%" filterUnits="objectBoundingBox">
-          <feDropShadow dx="0" dy={22 / (width / 1400)} stdDeviation={28 / (width / 1400)} floodColor="#181817" floodOpacity="0.24" />
+          <feDropShadow dx="0" dy={10 / (width / 1400)} stdDeviation={10 / (width / 1400)} floodColor="#181817" floodOpacity="0.28" />
         </filter>
       </defs>
       <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" filter="url(#cab-shadow)">
