@@ -35,7 +35,7 @@ const OK = "var(--color-ok)";
  * Deterministic per stop index so the map is stable.
  */
 function Town({ variant }: { variant: number }) {
-  const common = { fill: "none", stroke: INK, strokeWidth: 3, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { fill: "none", stroke: INK, strokeWidth: 3 / 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (variant === 0) {
     // Dorf: house, church with tower, a tree
     return (
@@ -94,10 +94,11 @@ function Town({ variant }: { variant: number }) {
 function MonoCab({ width, height }: { width: number; height: number }) {
   const stroke = 3 / (width / 1400);
   return (
-    <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible">
+    <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible" style={{ overflow: "visible" }}>
       <defs>
-        <filter id="cab-shadow" x="-10%" y="-10%" width="120%" height="140%">
-          <feDropShadow dx="0" dy={18 / (width / 1400)} stdDeviation={22 / (width / 1400)} floodColor="#181817" floodOpacity="0.22" />
+        {/* the filter region must hold the whole blur — a tight box clips the shadow flat */}
+        <filter id="cab-shadow" x="-30%" y="-30%" width="160%" height="200%" filterUnits="objectBoundingBox">
+          <feDropShadow dx="0" dy={22 / (width / 1400)} stdDeviation={28 / (width / 1400)} floodColor="#181817" floodOpacity="0.24" />
         </filter>
       </defs>
       <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" filter="url(#cab-shadow)">
@@ -278,7 +279,7 @@ export default function App() {
             return (
               <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
                 {/* the town stands on the line; the marker below is the halt */}
-                <g transform="translate(0 -14)">
+                <g transform="translate(0 -14) scale(1.5)">
                   <Town variant={i % 3} />
                 </g>
                 <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={2.5} />
