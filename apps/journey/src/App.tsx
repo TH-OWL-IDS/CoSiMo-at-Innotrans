@@ -446,7 +446,7 @@ export default function App() {
       </svg>
 
       {/* ── bushes: small, lumpy, in front of the verge grass ──────────── */}
-      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 56, height: 64 }} width="100%" height={64} aria-hidden>
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 126, height: 64 }} width="100%" height={64} aria-hidden>
         <defs>
           <radialGradient id="bush-shadow">
             <stop offset="0" stopColor="#181817" stopOpacity="0.28" />
