@@ -22,6 +22,9 @@ const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 /** Foreground parallax: layers between camera and track scroll FASTER
  *  than the world (factor > 1) — the classic depth cue. */
 const TREES_FACTOR = 1.7;
+/** Small grass right under the track: between the world and the trees. */
+const VERGE_FACTOR = 1.3;
+const VERGE_TILE = 900;
 const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
 const GRASS_TILE = 1400;
@@ -179,6 +182,7 @@ export default function App() {
   const ourScroll = useRef(false);
   const targetRef = useRef(0);
   const treesLayer = useRef<SVGGElement>(null);
+  const vergeLayer = useRef<SVGGElement>(null);
   const grassLayer = useRef<SVGGElement>(null);
   const hillsLayer = useRef<SVGGElement>(null);
 
@@ -210,6 +214,7 @@ export default function App() {
         const shift = (g: SVGGElement | null, f: number, tile: number) => {
           if (g) g.style.transform = `translate3d(${-((sl * f) % tile)}px, 0, 0)`;
         };
+        shift(vergeLayer.current, VERGE_FACTOR, VERGE_TILE);
         shift(treesLayer.current, TREES_FACTOR, TREES_TILE);
         shift(grassLayer.current, GRASS_FACTOR, GRASS_TILE);
         shift(hillsLayer.current, HILLS_FACTOR, HILLS_TILE);
@@ -344,6 +349,24 @@ export default function App() {
           </g>
         </svg>
       </div>
+
+      {/* ── verge: small grass just below the track, a touch faster than the world ── */}
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 4, height: 36 }} width="100%" height={36} aria-hidden>
+        <g ref={vergeLayer} style={{ willChange: "transform" }}>
+          {Array.from({ length: tiles(VERGE_TILE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * VERGE_TILE} 0)`} fill="none" stroke={INK} strokeWidth={3} strokeLinecap="round">
+              <path d="M40 30 C39 20 43 16 42 8" />
+              <path d="M50 30 C52 22 48 17 54 11" />
+              <path d="M300 30 C299 21 304 17 302 9" />
+              <path d="M310 30 C312 23 308 18 314 13" />
+              <path d="M320 30 C319 24 323 19 322 14" />
+              <path d="M620 30 C619 20 624 16 622 8" />
+              <path d="M630 30 C632 22 628 17 634 12" />
+              <path d="M850 30 C849 22 853 18 852 11" />
+            </g>
+          ))}
+        </g>
+      </svg>
 
       {/* ── foreground parallax: trees (mid), grasses (nearest) — repeated
           tiles moved by GPU transforms; shadows are gradient ellipses ── */}
