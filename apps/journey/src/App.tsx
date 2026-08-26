@@ -4,7 +4,6 @@ import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
 import { Brand, Button, Card } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
-import cabUrl from "./assets/monocab-base.svg";
 
 /**
  * The journey view — the MonoCab's line as one wide horizontal world. The
@@ -26,7 +25,6 @@ const CAB_H = Math.round((CAB_W * 760) / 1400);
 
 const INK = "var(--color-ink)";
 const MUTE = "var(--color-mute)";
-const LINE = "var(--color-line)";
 const ACCENT = "var(--color-accent)";
 const WARN = "var(--color-warn)";
 const OK = "var(--color-ok)";
@@ -85,6 +83,34 @@ function Town({ variant }: { variant: number }) {
       <path d="M-104 -12 H-90 M-104 -6 H-90 M-100 0 V-16 M-94 0 V-16" />
       <path d="M78 -12 H98 M78 -6 H98 M82 0 V-16 M94 0 V-16" />
     </g>
+  );
+}
+
+/**
+ * The MonoCab CI drawing, inlined so it can carry a fill and a shadow. The
+ * viewBox is the artwork's (1400×760); on screen it is CAB_W wide, so the
+ * stroke is scaled to read exactly like the towns' 3 px lines.
+ */
+function MonoCab({ width, height }: { width: number; height: number }) {
+  const stroke = 3 / (width / 1400);
+  return (
+    <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible">
+      <defs>
+        <filter id="cab-shadow" x="-10%" y="-10%" width="120%" height="140%">
+          <feDropShadow dx="0" dy={18 / (width / 1400)} stdDeviation={22 / (width / 1400)} floodColor="#181817" floodOpacity="0.22" />
+        </filter>
+      </defs>
+      <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" filter="url(#cab-shadow)">
+        {/* chassis first, so the cabin body overlaps its top edge */}
+        <path fill="#f6f6f6" d="M171 594 Q183 610 214 614 L1186 614 Q1217 610 1229 594 L1247 630 Q1253 644 1245 660 Q1237 678 1212 686 Q1186 694 1154 694 L247 694 Q215 694 189 686 Q164 678 156 660 Q148 644 154 630 Z" />
+        <path d="M165 540 L177 395 Q185 320 268 287 Q322 265 400 258 L1000 258 Q1078 265 1132 287 Q1215 320 1223 395 L1235 540 Q1238 576 1208 594 L191 594 Q162 576 165 540 Z" />
+      </g>
+      <g fill="none" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M278 694 Q334 702 402 702 L998 702 Q1066 702 1122 694" />
+        <path d="M345 257 L448 223 L603 223 L614 257" />
+        <path d="M786 257 L797 223 L952 223 L1055 257" />
+      </g>
+    </svg>
   );
 }
 
@@ -228,11 +254,11 @@ export default function App() {
             const tx = pad + i * TICK;
             const major = i % 10 === 0;
             return major ? null : (
-              <line key={i} x1={tx} y1={trackY - 5} x2={tx} y2={trackY + 5} stroke={LINE} strokeWidth={1} opacity={0.5} />
+              <line key={i} x1={tx} y1={trackY - 6} x2={tx} y2={trackY + 6} stroke={INK} strokeWidth={3} opacity={0.35} />
             );
           })}
           {/* track */}
-          <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={LINE} strokeWidth={2} strokeLinecap="round" />
+          <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={INK} strokeWidth={3} strokeLinecap="round" />
           {/* travelled part of the current trip, in the direction of travel */}
           <line
             x1={outbound ? pad : worldW - pad}
@@ -240,7 +266,7 @@ export default function App() {
             x2={cabX}
             y2={trackY}
             stroke={ACCENT}
-            strokeWidth={2}
+            strokeWidth={3}
             strokeLinecap="round"
             opacity={0.45}
           />
@@ -273,7 +299,9 @@ export default function App() {
               <ellipse cx={0} cy={-18} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
             )}
             <g transform={outbound ? undefined : "scale(-1 1)"}>
-              <image href={cabUrl} x={-CAB_W / 2} y={-CAB_H - 8} width={CAB_W} height={CAB_H} />
+              <g transform={`translate(${-CAB_W / 2} ${-CAB_H - 8})`}>
+                <MonoCab width={CAB_W} height={CAB_H} />
+              </g>
             </g>
           </g>
         </svg>
