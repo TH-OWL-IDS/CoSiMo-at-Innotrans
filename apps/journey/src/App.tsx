@@ -23,7 +23,7 @@ const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
  *  than the world (factor > 1) — the classic depth cue. */
 const TREES_FACTOR = 1.7;
 /** Small grass right under the track: between the world and the trees. */
-const VERGE_FACTOR = 1.3;
+const VERGE_FACTOR = 1.12;
 const VERGE_TILE = 900;
 const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
@@ -181,6 +181,12 @@ export default function App() {
   followRef.current = following;
   const ourScroll = useRef(false);
   const targetRef = useRef(0);
+  const cabGroup = useRef<SVGGElement>(null);
+  /** Where telemetry says the cab is (world x) and where we draw it (eased). */
+  const cabTarget = useRef(0);
+  const cabSmooth = useRef<number | null>(null);
+  const trackYRef = useRef(0);
+  const vwRef = useRef(0);
   const treesLayer = useRef<SVGGElement>(null);
   const vergeLayer = useRef<SVGGElement>(null);
   const grassLayer = useRef<SVGGElement>(null);
@@ -191,6 +197,9 @@ export default function App() {
   const worldW = pad * 2 + STOP_GAP * Math.max(1, n - 1);
   const stopX = (i: number) => pad + i * STOP_GAP;
   const cabX = t ? pad + lineProgress(t) * STOP_GAP * (n - 1) : pad;
+  cabTarget.current = cabX;
+  if (cabSmooth.current === null && t) cabSmooth.current = cabX;
+  vwRef.current = vw;
   targetRef.current = cabX - vw / 2;
 
   // Ease the viewport towards the cab every frame while following. Native
@@ -199,12 +208,20 @@ export default function App() {
     let raf = 0;
     const tick = () => {
       const el = scroller.current;
-      if (el && followRef.current) {
-        const cur = el.scrollLeft;
-        const next = cur + (targetRef.current - cur) * 0.12;
-        if (Math.abs(next - cur) > 0.2) {
-          ourScroll.current = true;
-          el.scrollLeft = next;
+      // The cab eases towards its telemetry position every frame (telemetry
+      // arrives in steps; Safari does not transition SVG transforms), and
+      // while following, the viewport is pinned to the eased cab — so the
+      // cab stands still in the middle and the world glides.
+      if (cabSmooth.current !== null) {
+        const sm = cabSmooth.current + (cabTarget.current - cabSmooth.current) * 0.06;
+        cabSmooth.current = sm;
+        cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current})`);
+        if (el && followRef.current) {
+          const want = sm - vwRef.current / 2;
+          if (Math.abs(want - el.scrollLeft) > 0.2) {
+            ourScroll.current = true;
+            el.scrollLeft = want;
+          }
         }
       }
       // parallax foreground: shift the repeating patterns against the scroll
@@ -276,6 +293,7 @@ export default function App() {
   const holding = t.position.phase === "hold";
   const next = t.nextStops[0];
   const trackY = Math.round(vh * TRACK_Y);
+  trackYRef.current = trackY;
 
   return (
     <main className="relative isolate h-screen overflow-hidden bg-bg text-ink">
@@ -335,7 +353,7 @@ export default function App() {
           })}
           {/* the cab — the CI drawing (1400×760), sitting on the track; a tap re-centres.
               It faces the direction of travel (the drawing faces right). */}
-          <g transform={`translate(${cabX} ${trackY})`} style={{ transition: "transform 900ms linear", cursor: "pointer" }} onClick={recenter}>
+          <g ref={cabGroup} transform={`translate(${cabSmooth.current ?? cabX} ${trackY})`} style={{ cursor: "pointer" }} onClick={recenter}>
             {/* state ring: amber while held at a signal, green while the doors are open */}
             {(holding || t.doorsOpen) && (
               <ellipse cx={0} cy={-18} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
@@ -351,18 +369,18 @@ export default function App() {
       </div>
 
       {/* ── verge: small grass just below the track, a touch faster than the world ── */}
-      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 4, height: 36 }} width="100%" height={36} aria-hidden>
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 14, height: 24 }} width="100%" height={24} aria-hidden>
         <g ref={vergeLayer} style={{ willChange: "transform" }}>
           {Array.from({ length: tiles(VERGE_TILE) }, (_, k) => (
-            <g key={k} transform={`translate(${k * VERGE_TILE} 0)`} fill="none" stroke={INK} strokeWidth={3} strokeLinecap="round">
-              <path d="M40 30 C39 20 43 16 42 8" />
-              <path d="M50 30 C52 22 48 17 54 11" />
-              <path d="M300 30 C299 21 304 17 302 9" />
-              <path d="M310 30 C312 23 308 18 314 13" />
-              <path d="M320 30 C319 24 323 19 322 14" />
-              <path d="M620 30 C619 20 624 16 622 8" />
-              <path d="M630 30 C632 22 628 17 634 12" />
-              <path d="M850 30 C849 22 853 18 852 11" />
+            <g key={k} transform={`translate(${k * VERGE_TILE} 0)`} fill="none" stroke={INK} strokeWidth={2.5} strokeLinecap="round">
+              <path d="M40 22 C39 16 42 13 41 8" />
+              <path d="M47 22 C48 17 45 14 49 10" />
+              <path d="M300 22 C299 16 303 13 302 8" />
+              <path d="M307 22 C308 17 305 14 309 11" />
+              <path d="M313 22 C312 18 315 15 314 12" />
+              <path d="M620 22 C619 16 623 13 622 8" />
+              <path d="M627 22 C628 17 625 14 629 11" />
+              <path d="M850 22 C849 17 852 14 851 10" />
             </g>
           ))}
         </g>
