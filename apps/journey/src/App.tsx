@@ -23,8 +23,11 @@ const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
  *  than the world (factor > 1) — the classic depth cue. */
 const TREES_FACTOR = 1.35;
 const GRASS_FACTOR = 1.8;
-const TREES_TILE = 720; // px, one repeat of the tree pattern
-const GRASS_TILE = 260;
+const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
+const GRASS_TILE = 1400;
+/** Far background behind the towns: scrolls SLOWER than the world. */
+const HILLS_FACTOR = 0.45;
+const HILLS_TILE = 2400;
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
 
@@ -162,6 +165,7 @@ export default function App() {
   const targetRef = useRef(0);
   const treesPat = useRef<SVGPatternElement>(null);
   const grassPat = useRef<SVGPatternElement>(null);
+  const hillsPat = useRef<SVGPatternElement>(null);
 
   const n = t?.stops.length ?? 0;
   const pad = vw / 2; // a terminal can sit dead centre too
@@ -189,6 +193,7 @@ export default function App() {
         const sl = el.scrollLeft;
         treesPat.current?.setAttribute("patternTransform", `translate(${-((sl * TREES_FACTOR) % TREES_TILE)} 0)`);
         grassPat.current?.setAttribute("patternTransform", `translate(${-((sl * GRASS_FACTOR) % GRASS_TILE)} 0)`);
+        hillsPat.current?.setAttribute("patternTransform", `translate(${-((sl * HILLS_FACTOR) % HILLS_TILE)} 0)`);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -249,6 +254,24 @@ export default function App() {
 
   return (
     <main className="relative h-screen overflow-hidden bg-bg text-ink">
+      {/* ── far background: hills + distant trees, behind the towns, slow ── */}
+      <svg className="pointer-events-none absolute inset-x-0 top-0" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
+        <defs>
+          <pattern id="bg-hills" ref={hillsPat} width={HILLS_TILE} height={trackY - 40} patternUnits="userSpaceOnUse">
+            <g fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
+              {/* two soft hills */}
+              <path d={`M0 ${trackY - 40} C 300 ${trackY - 150}, 700 ${trackY - 170}, 1000 ${trackY - 90} C 1200 ${trackY - 40}, 1350 ${trackY - 40}, 1500 ${trackY - 40}`} />
+              <path d={`M1300 ${trackY - 40} C 1600 ${trackY - 130}, 2000 ${trackY - 150}, 2400 ${trackY - 60}`} />
+              {/* a distant tree line on the first hill */}
+              <path d={`M560 ${trackY - 150} V${trackY - 175} M540 ${trackY - 175} L560 ${trackY - 205} L580 ${trackY - 175} Z`} />
+              <path d={`M640 ${trackY - 156} V${trackY - 178} M620 ${trackY - 178} L640 ${trackY - 206} L660 ${trackY - 178} Z`} />
+              <path d={`M1880 ${trackY - 132} V${trackY - 154} M1860 ${trackY - 154} L1880 ${trackY - 182} L1900 ${trackY - 154} Z`} />
+            </g>
+          </pattern>
+        </defs>
+        <rect x={0} y={0} width="100%" height="100%" fill="url(#bg-hills)" />
+      </svg>
+
       {/* ── the world: one wide strip, scrolls horizontally ──────────── */}
       <div
         ref={scroller}
@@ -302,14 +325,14 @@ export default function App() {
           <pattern id="fg-trees" ref={treesPat} width={TREES_TILE} height={220} patternUnits="userSpaceOnUse">
             <g fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
               {/* pine */}
-              <path d="M90 220 V150" />
-              <path d="M90 150 L50 150 L90 60 L130 150 Z" />
-              <path d="M90 118 L62 118 L90 60 L118 118" />
+              <path d="M240 220 V150" />
+              <path d="M240 150 L200 150 L240 60 L280 150 Z" />
+              <path d="M240 118 L212 118 L240 60 L268 118" />
               {/* round tree */}
-              <path d="M330 220 V160" />
-              <path d="M330 160 C280 160 272 96 322 92 C318 52 380 52 376 92 C426 96 418 160 368 160 Z" />
+              <path d="M1180 220 V160" />
+              <path d="M1180 160 C1130 160 1122 96 1172 92 C1168 52 1230 52 1226 92 C1276 96 1268 160 1218 160 Z" />
               {/* bush */}
-              <path d="M560 220 C520 220 516 180 548 178 C550 156 590 156 592 178 C624 180 620 220 580 220 Z" />
+              <path d="M2060 220 C2020 220 2016 180 2048 178 C2050 156 2090 156 2092 178 C2124 180 2120 220 2080 220 Z" />
             </g>
           </pattern>
         </defs>
@@ -319,14 +342,13 @@ export default function App() {
         <defs>
           <pattern id="fg-grass" ref={grassPat} width={GRASS_TILE} height={90} patternUnits="userSpaceOnUse">
             <g fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round">
-              <path d="M20 90 C18 70 24 60 22 44" />
-              <path d="M34 90 C36 74 30 62 40 50" />
-              <path d="M48 90 C46 78 52 70 50 58" />
-              <path d="M120 90 C122 68 114 58 124 40" />
-              <path d="M134 90 C130 76 138 66 132 52" />
-              <path d="M200 90 C198 74 206 66 202 48" />
-              <path d="M214 90 C218 80 210 70 220 58" />
-              <path d="M228 90 C226 82 232 76 230 64" />
+              <path d="M120 90 C118 70 124 60 122 44" />
+              <path d="M134 90 C136 74 130 62 140 50" />
+              <path d="M148 90 C146 78 152 70 150 58" />
+              <path d="M760 90 C762 68 754 58 764 40" />
+              <path d="M774 90 C770 76 778 66 772 52" />
+              <path d="M1180 90 C1178 74 1186 66 1182 48" />
+              <path d="M1194 90 C1198 80 1190 70 1200 58" />
             </g>
           </pattern>
         </defs>
