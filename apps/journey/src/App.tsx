@@ -255,7 +255,7 @@ export default function App() {
             return (
               <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
                 {/* the town stands on the line; the marker below is the halt */}
-                <g transform="translate(0 -14) scale(2.25)">
+                <g transform="translate(0 -40) scale(2.25)">
                   <Town variant={i % 3} />
                 </g>
                 <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={INK} strokeWidth={3} />
