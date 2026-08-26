@@ -273,9 +273,9 @@ export default function App() {
   const trackY = Math.round(vh * TRACK_Y);
 
   return (
-    <main className="relative h-screen overflow-hidden bg-bg text-ink">
+    <main className="relative isolate h-screen overflow-hidden bg-bg text-ink">
       {/* ── far background: hills + distant trees, behind the towns, slow ── */}
-      <svg className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
+      <svg className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
         <g ref={hillsLayer} style={{ willChange: "transform" }}>
           {Array.from({ length: tiles(HILLS_TILE) }, (_, k) => (
             <g key={k} transform={`translate(${k * HILLS_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
@@ -297,7 +297,8 @@ export default function App() {
         onWheel={() => followRef.current && setFollowing(false)}
         onTouchStart={() => followRef.current && setFollowing(false)}
         onPointerDown={(e) => e.pointerType === "mouse" && e.buttons === 1 && followRef.current && setFollowing(false)}
-        className="no-scrollbar h-full w-full overflow-x-auto overflow-y-hidden"
+        // positioned + above the far background (a positioned sibling would otherwise paint over it)
+        className="no-scrollbar relative z-[1] h-full w-full overflow-x-auto overflow-y-hidden"
         style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
       >
         <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
