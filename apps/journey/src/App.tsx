@@ -209,10 +209,10 @@ export default function App() {
           <g transform={`translate(${cabX} ${trackY})`} style={{ transition: "transform 900ms linear", cursor: "pointer" }} onClick={recenter}>
             {/* state ring: amber while held at a signal, green while the doors are open */}
             {(holding || t.doorsOpen) && (
-              <ellipse cx={0} cy={0} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
+              <ellipse cx={0} cy={-18} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
             )}
             <g transform={outbound ? undefined : "scale(-1 1)"}>
-              <image href={cabUrl} x={-CAB_W / 2} y={-CAB_H + 10} width={CAB_W} height={CAB_H} />
+              <image href={cabUrl} x={-CAB_W / 2} y={-CAB_H - 8} width={CAB_W} height={CAB_H} />
             </g>
           </g>
         </svg>
