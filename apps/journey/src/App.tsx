@@ -61,6 +61,29 @@ function GroundShadow({ w, h = 10, y = 2 }: { w: number; h?: number; y?: number 
   return <ellipse cx={0} cy={y} rx={w / 2} ry={h} fill="url(#ground-shadow)" />;
 }
 
+/** A hill crest as cubic Bézier segments, y relative to the ground line
+ *  (negative = up). Gives both the path and an exact height sampler, so
+ *  trees stand ON the crest instead of floating near it. */
+type Seg = [number, number, number, number, number, number, number, number]; // x0 y0 c1x c1y c2x c2y x1 y1
+function hillPath(segs: Seg[], B: number): string {
+  const [x0, y0] = segs[0]!;
+  return `M${x0} ${B + y0} ` + segs.map((g) => `C ${g[2]} ${B + g[3]}, ${g[4]} ${B + g[5]}, ${g[6]} ${B + g[7]}`).join(" ");
+}
+function hillY(segs: Seg[], x: number): number {
+  const g = segs.find((q) => x >= q[0] && x <= q[6]) ?? segs[segs.length - 1]!;
+  const bx = (t: number) => (1 - t) ** 3 * g[0] + 3 * (1 - t) ** 2 * t * g[2] + 3 * (1 - t) * t ** 2 * g[4] + t ** 3 * g[6];
+  const by = (t: number) => (1 - t) ** 3 * g[1] + 3 * (1 - t) ** 2 * t * g[3] + 3 * (1 - t) * t ** 2 * g[5] + t ** 3 * g[7];
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 18; i++) {
+    const mid = (lo + hi) / 2;
+    if (bx(mid) < x) lo = mid; else hi = mid;
+  }
+  return by((lo + hi) / 2);
+}
+const HILL_FAR: Seg[] = [[0, 0, 400, -230, 900, -260, 1300, -150], [1300, -150, 1700, -40, 2100, -200, 2600, -120]];
+const HILL_MID: Seg[] = [[0, 0, 260, -150, 560, -170, 900, -90], [900, -90, 1100, -40, 1250, -60, 1500, -130], [1500, -130, 1800, -200, 2100, -150, 2400, -80]];
+const HILL_NEAR: Seg[] = [[0, 0, 200, -70, 450, -110, 700, -60], [700, -60, 900, -20, 1000, -30, 1200, -80], [1200, -80, 1450, -140, 1750, -100, 2000, -40], [2000, -40, 2100, -15, 2150, -15, 2200, -30]];
+
 /** Tallest point of each town variant in its own coordinates (for the name above). */
 const TOWN_HEIGHT = [122, 96, 60];
 
@@ -390,30 +413,44 @@ export default function App() {
             <g ref={hillLayers[i]} style={{ willChange: "transform" }}>
               {Array.from({ length: tiles(h.tile) }, (_, k) => (
                 <g key={k} transform={`translate(${k * h.tile} 0)`} fill="var(--color-bg)" stroke={INK} strokeOpacity={h.opacity} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  {i === 0 && (
-                    // far: long, high, gentle
-                    <Hill crest={`M0 ${B} C 400 ${B - 230}, 900 ${B - 260}, 1300 ${B - 150} C 1700 ${B - 40}, 2100 ${B - 200}, 2600 ${B - 120}`} />
-                  )}
+                  {i === 0 && <Hill crest={hillPath(HILL_FAR, B)} />}
                   {i === 1 && (
                     <>
-                      {/* mid: two overlapping crests with a tree line on the higher one */}
-                      <Hill crest={`M0 ${B} C 260 ${B - 150}, 560 ${B - 170}, 900 ${B - 90} C 1100 ${B - 40}, 1250 ${B - 60}, 1500 ${B - 130} C 1800 ${B - 200}, 2100 ${B - 150}, 2400 ${B - 80}`} />
-                      {[520, 600, 680, 1620, 1700, 1780, 1860].map((x, j) => {
-                        const y = x < 1000 ? B - 166 + Math.abs(x - 600) * 0.06 : B - 190 + Math.abs(x - 1740) * 0.1;
-                        return <path key={j} d={`M${x} ${y} L${x - 9} ${y} L${x} ${y - 22} L${x + 9} ${y} Z`} />;
+                      <Hill crest={hillPath(HILL_MID, B)} />
+                      {/* a tree line ON the crest */}
+                      {[520, 600, 680, 1620, 1700, 1780, 1860].map((x) => {
+                        const y = B + hillY(HILL_MID, x);
+                        return <path key={x} d={`M${x} ${y} L${x - 9} ${y} L${x} ${y - 22} L${x + 9} ${y} Z`} />;
                       })}
                     </>
                   )}
                   {i === 2 && (
                     <>
-                      {/* near: lower, rounder, with tree groups and a fence */}
-                      <Hill crest={`M0 ${B} C 200 ${B - 70}, 450 ${B - 110}, 700 ${B - 60} C 900 ${B - 20}, 1000 ${B - 30}, 1200 ${B - 80} C 1450 ${B - 140}, 1750 ${B - 100}, 2000 ${B - 40} C 2100 ${B - 15}, 2150 ${B - 15}, 2200 ${B - 30}`} />
-                      <path d={`M380 ${B - 96} V${B - 112} M366 ${B - 112} L380 ${B - 140} L394 ${B - 112} Z`} />
-                      <path d={`M410 ${B - 100} V${B - 114} M398 ${B - 114} L410 ${B - 138} L422 ${B - 114} Z`} />
-                      <path d={`M1480 ${B - 132} V${B - 146} M1466 ${B - 146} L1480 ${B - 174} L1494 ${B - 146} Z`} />
-                      <path d={`M1520 ${B - 134} C1500 ${B - 134} 1498 ${B - 158} 1516 ${B - 160} C1514 ${B - 174} 1538 ${B - 174} 1536 ${B - 160} C1554 ${B - 158} 1552 ${B - 134} 1532 ${B - 134} Z`} />
-                      <path d={`M1526 ${B - 120} V${B - 134}`} fill="none" />
-                      <path fill="none" d={`M2000 ${B - 14} H2100 M2000 ${B - 7} H2100 M2020 ${B} V${B - 20} M2050 ${B} V${B - 20} M2080 ${B} V${B - 20}`} />
+                      <Hill crest={hillPath(HILL_NEAR, B)} />
+                      {/* pines + an oak, each standing on the sampled crest */}
+                      {[380, 410, 1480].map((x) => {
+                        const y = B + hillY(HILL_NEAR, x);
+                        return (
+                          <g key={x}>
+                            <path d={`M${x} ${y} V${y - 16}`} fill="none" />
+                            <path d={`M${x - 14} ${y - 16} L${x} ${y - 44} L${x + 14} ${y - 16} Z`} />
+                          </g>
+                        );
+                      })}
+                      {(() => {
+                        const x = 1526, y = B + hillY(HILL_NEAR, x);
+                        return (
+                          <g>
+                            <path d={`M${x} ${y} V${y - 14}`} fill="none" />
+                            <path d={`M${x - 6} ${y - 14} C${x - 26} ${y - 14} ${x - 28} ${y - 38} ${x - 10} ${y - 40} C${x - 12} ${y - 54} ${x + 12} ${y - 54} ${x + 10} ${y - 40} C${x + 28} ${y - 38} ${x + 26} ${y - 14} ${x + 6} ${y - 14} Z`} />
+                          </g>
+                        );
+                      })()}
+                      {/* the fence on the flat, on the crest too */}
+                      {(() => {
+                        const y = B + hillY(HILL_NEAR, 2050);
+                        return <path fill="none" d={`M2000 ${y - 14} H2100 M2000 ${y - 7} H2100 M2020 ${y} V${y - 20} M2050 ${y} V${y - 20} M2080 ${y} V${y - 20}`} />;
+                      })()}
                     </>
                   )}
                 </g>
