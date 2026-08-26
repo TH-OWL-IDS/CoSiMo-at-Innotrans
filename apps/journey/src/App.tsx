@@ -31,9 +31,13 @@ const BUSH_TILE = 1100;
 const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
 const GRASS_TILE = 1400;
-/** Far background behind the towns: scrolls SLOWER than the world. */
-const HILLS_FACTOR = 0.3;
-const HILLS_TILE = 2400;
+/** Far background behind the towns: three hill ranges, each slower than
+ *  the world and slower the farther away — filled, fading with distance. */
+const HILLS = [
+  { factor: 0.18, tile: 2600, opacity: 0.14 }, // far
+  { factor: 0.3, tile: 2400, opacity: 0.22 }, // mid
+  { factor: 0.46, tile: 2200, opacity: 0.32 }, // near
+] as const;
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
 
@@ -197,7 +201,7 @@ export default function App() {
   const vergeLayer = useRef<SVGGElement>(null);
   const bushLayer = useRef<SVGGElement>(null);
   const grassLayer = useRef<SVGGElement>(null);
-  const hillsLayer = useRef<SVGGElement>(null);
+  const hillLayers = [useRef<SVGGElement>(null), useRef<SVGGElement>(null), useRef<SVGGElement>(null)];
 
   const n = t?.stops.length ?? 0;
   const pad = vw / 2; // a terminal can sit dead centre too
@@ -242,7 +246,7 @@ export default function App() {
         shift(bushLayer.current, BUSH_FACTOR, BUSH_TILE);
         shift(treesLayer.current, TREES_FACTOR, TREES_TILE);
         shift(grassLayer.current, GRASS_FACTOR, GRASS_TILE);
-        shift(hillsLayer.current, HILLS_FACTOR, HILLS_TILE);
+        HILLS.forEach((h, i) => shift(hillLayers[i]!.current, h.factor, h.tile));
       }
       raf = requestAnimationFrame(tick);
     };
@@ -305,46 +309,47 @@ export default function App() {
 
   return (
     <main className="relative isolate h-screen overflow-hidden bg-bg text-ink">
-      {/* ── far background, slow: a mountain ridge, two hill ranges, tree
-          groups — filled silhouettes so they layer, ever fainter with distance ── */}
-      <svg className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
-        <g ref={hillsLayer} style={{ willChange: "transform" }}>
-          {Array.from({ length: tiles(HILLS_TILE) }, (_, k) => {
-            const B = trackY - 40; // the layer's ground line
-            return (
-              <g key={k} transform={`translate(${k * HILLS_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                {/* mountain ridge — farthest, faintest */}
-                <g opacity={0.16}>
-                  <path d={`M0 ${B} L160 ${B - 210} L300 ${B - 120} L470 ${B - 300} L620 ${B - 180} L760 ${B - 250} L900 ${B - 140} L1080 ${B - 330} L1240 ${B - 190} L1400 ${B - 270} L1560 ${B - 150} L1720 ${B - 240} L1900 ${B - 120} L2100 ${B - 290} L2260 ${B - 170} L2400 ${B - 230} V${B} Z`} />
-                  {/* snow line / ridge detail */}
-                  <path fill="none" d={`M440 ${B - 260} L470 ${B - 300} L500 ${B - 262} M1050 ${B - 290} L1080 ${B - 330} L1112 ${B - 288} M2070 ${B - 252} L2100 ${B - 290} L2130 ${B - 254}`} />
+      {/* ── far background: three rolling hill ranges, each its own parallax
+          speed and opacity — filled so they layer, softer the farther away ── */}
+      {HILLS.map((h, i) => {
+        const B = trackY - 40; // the layers' shared ground line
+        return (
+          <svg key={i} className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden" style={{ height: B }} width="100%" height={B} aria-hidden>
+            <g ref={hillLayers[i]} style={{ willChange: "transform" }}>
+              {Array.from({ length: tiles(h.tile) }, (_, k) => (
+                <g key={k} transform={`translate(${k * h.tile} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={h.opacity}>
+                  {i === 0 && (
+                    // far: long, high, gentle
+                    <path d={`M0 ${B} C 400 ${B - 230}, 900 ${B - 260}, 1300 ${B - 150} C 1700 ${B - 40}, 2100 ${B - 200}, 2600 ${B - 120} V${B} Z`} />
+                  )}
+                  {i === 1 && (
+                    <>
+                      {/* mid: two overlapping crests with a tree line on the higher one */}
+                      <path d={`M0 ${B} C 260 ${B - 150}, 560 ${B - 170}, 900 ${B - 90} C 1100 ${B - 40}, 1250 ${B - 60}, 1500 ${B - 130} C 1800 ${B - 200}, 2100 ${B - 150}, 2400 ${B - 80} V${B} Z`} />
+                      {[520, 600, 680, 1620, 1700, 1780, 1860].map((x, j) => {
+                        const y = x < 1000 ? B - 166 + Math.abs(x - 600) * 0.06 : B - 190 + Math.abs(x - 1740) * 0.1;
+                        return <path key={j} d={`M${x} ${y} L${x - 9} ${y} L${x} ${y - 22} L${x + 9} ${y} Z`} />;
+                      })}
+                    </>
+                  )}
+                  {i === 2 && (
+                    <>
+                      {/* near: lower, rounder, with tree groups and a fence */}
+                      <path d={`M0 ${B} C 200 ${B - 70}, 450 ${B - 110}, 700 ${B - 60} C 900 ${B - 20}, 1000 ${B - 30}, 1200 ${B - 80} C 1450 ${B - 140}, 1750 ${B - 100}, 2000 ${B - 40} C 2100 ${B - 15}, 2150 ${B - 15}, 2200 ${B - 30} V${B} Z`} />
+                      <path d={`M380 ${B - 96} V${B - 112} M366 ${B - 112} L380 ${B - 140} L394 ${B - 112} Z`} />
+                      <path d={`M410 ${B - 100} V${B - 114} M398 ${B - 114} L410 ${B - 138} L422 ${B - 114} Z`} />
+                      <path d={`M1480 ${B - 132} V${B - 146} M1466 ${B - 146} L1480 ${B - 174} L1494 ${B - 146} Z`} />
+                      <path d={`M1520 ${B - 134} C1500 ${B - 134} 1498 ${B - 158} 1516 ${B - 160} C1514 ${B - 174} 1538 ${B - 174} 1536 ${B - 160} C1554 ${B - 158} 1552 ${B - 134} 1532 ${B - 134} Z`} />
+                      <path d={`M1526 ${B - 120} V${B - 134}`} fill="none" />
+                      <path fill="none" d={`M2000 ${B - 14} H2100 M2000 ${B - 7} H2100 M2020 ${B} V${B - 20} M2050 ${B} V${B - 20} M2080 ${B} V${B - 20}`} />
+                    </>
+                  )}
                 </g>
-                {/* back hills */}
-                <g opacity={0.24}>
-                  <path d={`M0 ${B} C 260 ${B - 160}, 560 ${B - 180}, 900 ${B - 90} C 1100 ${B - 40}, 1250 ${B - 60}, 1500 ${B - 130} C 1800 ${B - 200}, 2100 ${B - 150}, 2400 ${B - 80} V${B} Z`} />
-                  {/* a distant tree line along the crest */}
-                  {[520, 600, 680, 1620, 1700, 1780, 1860].map((x, j) => {
-                    const y = x < 1000 ? B - 176 + Math.abs(x - 600) * 0.06 : B - 196 + Math.abs(x - 1740) * 0.1;
-                    return <path key={j} d={`M${x} ${y} L${x - 9} ${y} L${x} ${y - 22} L${x + 9} ${y} Z`} />;
-                  })}
-                </g>
-                {/* front hills — nearest of the far things */}
-                <g opacity={0.32}>
-                  <path d={`M0 ${B} C 200 ${B - 70}, 450 ${B - 110}, 700 ${B - 60} C 900 ${B - 20}, 1000 ${B - 30}, 1200 ${B - 80} C 1450 ${B - 140}, 1750 ${B - 100}, 2000 ${B - 40} C 2150 ${B - 5}, 2300 ${B - 10}, 2400 ${B - 30} V${B} Z`} />
-                  {/* tree groups on the front hill */}
-                  <path d={`M380 ${B - 96} V${B - 112} M366 ${B - 112} L380 ${B - 140} L394 ${B - 112} Z`} />
-                  <path d={`M410 ${B - 100} V${B - 114} M398 ${B - 114} L410 ${B - 138} L422 ${B - 114} Z`} />
-                  <path d={`M1480 ${B - 132} V${B - 146} M1466 ${B - 146} L1480 ${B - 174} L1494 ${B - 146} Z`} />
-                  <path d={`M1520 ${B - 134} C1500 ${B - 134} 1498 ${B - 158} 1516 ${B - 160} C1514 ${B - 174} 1538 ${B - 174} 1536 ${B - 160} C1554 ${B - 158} 1552 ${B - 134} 1532 ${B - 134} Z`} />
-                  <path d={`M1526 ${B - 120} V${B - 134}`} fill="none" />
-                  {/* a fence on the flat */}
-                  <path fill="none" d={`M2160 ${B - 14} H2260 M2160 ${B - 7} H2260 M2180 ${B} V${B - 20} M2210 ${B} V${B - 20} M2240 ${B} V${B - 20}`} />
-                </g>
-              </g>
-            );
-          })}
-        </g>
-      </svg>
+              ))}
+            </g>
+          </svg>
+        );
+      })}
 
       {/* ── the world: one wide strip, scrolls horizontally ──────────── */}
       <div
