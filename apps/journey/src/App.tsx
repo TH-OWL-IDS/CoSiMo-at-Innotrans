@@ -314,6 +314,14 @@ export default function App() {
           speed and opacity — filled so they layer, softer the farther away ── */}
       {HILLS.map((h, i) => {
         const B = trackY - 40; // the layers' shared ground line
+        // a hill: the area filled without a stroke, the crest stroked alone —
+        // so the ground edge never shows as a line
+        const Hill = ({ crest }: { crest: string }) => (
+          <>
+            <path d={`${crest} V${B} H0 Z`} stroke="none" />
+            <path d={crest} fill="none" />
+          </>
+        );
         return (
           <svg key={i} className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden" style={{ height: B }} width="100%" height={B} aria-hidden>
             <g ref={hillLayers[i]} style={{ willChange: "transform" }}>
@@ -321,12 +329,12 @@ export default function App() {
                 <g key={k} transform={`translate(${k * h.tile} 0)`} fill="var(--color-bg)" stroke={INK} strokeOpacity={h.opacity} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   {i === 0 && (
                     // far: long, high, gentle
-                    <path d={`M0 ${B} C 400 ${B - 230}, 900 ${B - 260}, 1300 ${B - 150} C 1700 ${B - 40}, 2100 ${B - 200}, 2600 ${B - 120} V${B} Z`} />
+                    <Hill crest={`M0 ${B} C 400 ${B - 230}, 900 ${B - 260}, 1300 ${B - 150} C 1700 ${B - 40}, 2100 ${B - 200}, 2600 ${B - 120}`} />
                   )}
                   {i === 1 && (
                     <>
                       {/* mid: two overlapping crests with a tree line on the higher one */}
-                      <path d={`M0 ${B} C 260 ${B - 150}, 560 ${B - 170}, 900 ${B - 90} C 1100 ${B - 40}, 1250 ${B - 60}, 1500 ${B - 130} C 1800 ${B - 200}, 2100 ${B - 150}, 2400 ${B - 80} V${B} Z`} />
+                      <Hill crest={`M0 ${B} C 260 ${B - 150}, 560 ${B - 170}, 900 ${B - 90} C 1100 ${B - 40}, 1250 ${B - 60}, 1500 ${B - 130} C 1800 ${B - 200}, 2100 ${B - 150}, 2400 ${B - 80}`} />
                       {[520, 600, 680, 1620, 1700, 1780, 1860].map((x, j) => {
                         const y = x < 1000 ? B - 166 + Math.abs(x - 600) * 0.06 : B - 190 + Math.abs(x - 1740) * 0.1;
                         return <path key={j} d={`M${x} ${y} L${x - 9} ${y} L${x} ${y - 22} L${x + 9} ${y} Z`} />;
@@ -336,7 +344,7 @@ export default function App() {
                   {i === 2 && (
                     <>
                       {/* near: lower, rounder, with tree groups and a fence */}
-                      <path d={`M0 ${B} C 200 ${B - 70}, 450 ${B - 110}, 700 ${B - 60} C 900 ${B - 20}, 1000 ${B - 30}, 1200 ${B - 80} C 1450 ${B - 140}, 1750 ${B - 100}, 2000 ${B - 40} C 2100 ${B - 15}, 2150 ${B - 15}, 2200 ${B - 30} V${B} Z`} />
+                      <Hill crest={`M0 ${B} C 200 ${B - 70}, 450 ${B - 110}, 700 ${B - 60} C 900 ${B - 20}, 1000 ${B - 30}, 1200 ${B - 80} C 1450 ${B - 140}, 1750 ${B - 100}, 2000 ${B - 40} C 2100 ${B - 15}, 2150 ${B - 15}, 2200 ${B - 30}`} />
                       <path d={`M380 ${B - 96} V${B - 112} M366 ${B - 112} L380 ${B - 140} L394 ${B - 112} Z`} />
                       <path d={`M410 ${B - 100} V${B - 114} M398 ${B - 114} L410 ${B - 138} L422 ${B - 114} Z`} />
                       <path d={`M1480 ${B - 132} V${B - 146} M1466 ${B - 146} L1480 ${B - 174} L1494 ${B - 146} Z`} />
