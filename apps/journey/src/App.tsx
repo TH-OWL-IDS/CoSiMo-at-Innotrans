@@ -210,6 +210,10 @@ export default function App() {
   /** Where telemetry says the cab is (world x) and where we draw it (eased). */
   const cabTarget = useRef(0);
   const cabSmooth = useRef<number | null>(null);
+  /** Dead reckoning: the last telemetry sample and the velocity it implied. */
+  const sample = useRef<{ x: number; at: number } | null>(null);
+  const velocity = useRef(0); // world px per ms
+  const lastFrame = useRef(0);
   const trackYRef = useRef(0);
   const vwRef = useRef(0);
   const treesLayer = useRef<SVGGElement>(null);
@@ -223,6 +227,15 @@ export default function App() {
   const worldW = (xs[xs.length - 1] ?? pad) + pad;
   const stopX = (i: number) => xs[i] ?? pad;
   const cabX = t ? cabPosition(t, xs) : pad;
+  if (t && cabTarget.current !== cabX) {
+    // a new sample: velocity from the last one (0 when the sim stands still)
+    const now = performance.now();
+    const prev = sample.current;
+    if (prev && now - prev.at > 50) velocity.current = (cabX - prev.x) / (now - prev.at);
+    sample.current = { x: cabX, at: now };
+  } else if (t && sample.current && performance.now() - sample.current.at > 4000) {
+    velocity.current = 0; // no movement reported for a while — we are standing
+  }
   cabTarget.current = cabX;
   if (cabSmooth.current === null && t) cabSmooth.current = cabX;
   vwRef.current = vw;
@@ -239,7 +252,13 @@ export default function App() {
       // while following, the viewport is pinned to the eased cab — so the
       // cab stands still in the middle and the world glides.
       if (cabSmooth.current !== null) {
-        const sm = cabSmooth.current + (cabTarget.current - cabSmooth.current) * 0.06;
+        const now = performance.now();
+        const dt = lastFrame.current ? Math.min(50, now - lastFrame.current) : 16;
+        lastFrame.current = now;
+        // where the sim would be right now, if it kept the last velocity
+        const predicted = cabTarget.current + velocity.current * (now - (sample.current?.at ?? now));
+        // advance at that velocity, and correct the drift softly (no jumps)
+        const sm = cabSmooth.current + velocity.current * dt + (predicted - cabSmooth.current) * 0.03;
         cabSmooth.current = sm;
         cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current})`);
         if (el && followRef.current) {
