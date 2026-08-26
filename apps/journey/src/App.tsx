@@ -611,7 +611,9 @@ export default function App() {
       {(() => {
         const dir = outbound ? 1 : -1;
         const idx = t.position.stopIndex;
-        const candidates = [idx - dir, idx, idx + dir].filter((i) => i >= 0 && i < t.stops.length);
+        // neighbours of the cab — and always both terminals, so the ends of
+        // the line are reachable from anywhere
+        const candidates = [...new Set([idx - dir, idx, idx + dir, 0, t.stops.length - 1])].filter((i) => i >= 0 && i < t.stops.length);
         const left = candidates.filter((i) => stopX(i) < viewX + 80).sort((a, b) => stopX(b) - stopX(a))[0];
         const right = candidates.filter((i) => stopX(i) > viewX + vw - 80).sort((a, b) => stopX(a) - stopX(b))[0];
         const Arrow = ({ i, side }: { i: number; side: "left" | "right" }) => (
