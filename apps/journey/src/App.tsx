@@ -48,80 +48,68 @@ function GroundShadow({ w, h = 10, y = 2 }: { w: number; h?: number; y?: number 
 }
 
 function Town({ variant }: { variant: number }) {
-  const common = { fill: "var(--color-bg)", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  // silhouettes: one CLOSED path per building/tree, filled — they occlude each
+  // other cleanly; details (doors, windows, cross, fence) are stroke-only on top
+  const solid = { fill: "var(--color-bg)", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const lines = { fill: "none", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (variant === 0) {
-    // Dorf: house, church with tower, a tree
+    // Dorf: house, house, church with tower, a tree
     return (
-      <g {...common}>
+      <g>
         <GroundShadow w={200} h={7} />
-        <path d="M-84 0 V-38 L-60 -60 L-36 -38 V0" />
-        <path d="M-70 0 V-20 H-56 V0" />
-        <path d="M-20 0 V-46 H24 V0" />
-        <path d="M-20 -46 L2 -64 L24 -46" />
-        <path d="M30 0 V-92 H50 V0" />
-        <path d="M30 -92 L40 -110 L50 -92" />
-        <path d="M40 -110 V-122 M34 -116 H46" />
-        <path d="M72 0 V-26" />
-        <path d="M72 -26 C56 -26 54 -50 70 -52 C68 -68 90 -68 88 -52 C102 -50 100 -26 84 -26 Z" />
+        <g {...solid}>
+          <path d="M-84 0 V-38 L-60 -60 L-36 -38 V0 Z" />
+          <path d="M-20 0 V-46 L2 -64 L24 -46 V0 Z" />
+          <path d="M30 0 V-92 L40 -110 L50 -92 V0 Z" />
+          <path d="M72 -26 C56 -26 54 -50 70 -52 C68 -68 90 -68 88 -52 C102 -50 100 -26 84 -26 Z" />
+        </g>
+        <g {...lines}>
+          <path d="M-70 0 V-20 H-56 V0" />
+          <path d="M-8 -30 H12 M2 -30 V-16" />
+          <path d="M40 -110 V-122 M34 -116 H46" />
+          <path d="M40 -60 V-48" />
+          <path d="M78 0 V-26" />
+        </g>
       </g>
     );
   }
   if (variant === 1) {
-    // Stadt: a row of houses of different heights
+    // Stadt: a row of houses of different heights, a lamp post
     return (
-      <g {...common}>
+      <g>
         <GroundShadow w={200} h={7} />
-        <path d="M-96 0 V-52 H-60 V0" />
-        <path d="M-96 -52 L-78 -70 L-60 -52" />
-        <path d="M-60 0 V-80 H-20 V0" />
-        <path d="M-60 -80 H-20" />
-        <path d="M-32 -80 V-96 H-24 V-80" />
-        <path d="M-20 0 V-62 H22 V0" />
-        <path d="M-20 -62 L1 -78 L22 -62" />
-        <path d="M22 0 V-44 H60 V0" />
-        <path d="M22 -44 L41 -58 L60 -44" />
-        <path d="M-84 -30 H-72 M-48 -40 H-34 M-48 -22 H-34 M-8 -36 H8 M34 -22 H48" />
-        <path d="M70 0 V-30 M62 -30 H78" />
+        <g {...solid}>
+          <path d="M-96 0 V-52 L-78 -70 L-60 -52 V0 Z" />
+          <path d="M-60 0 V-80 H-32 V-96 H-24 V-80 H-20 V0 Z" />
+          <path d="M-20 0 V-62 L1 -78 L22 -62 V0 Z" />
+          <path d="M22 0 V-44 L41 -58 L60 -44 V0 Z" />
+        </g>
+        <g {...lines}>
+          <path d="M-84 -30 H-72 M-48 -40 H-34 M-48 -22 H-34 M-8 -36 H8 M34 -22 H48" />
+          <path d="M-46 0 V-18 H-34 V0" />
+          <path d="M70 0 V-30 M62 -30 H78" />
+        </g>
       </g>
     );
   }
-  // Weiler: one house, two trees, a fence
+  // Weiler: one house, a pine, a round tree, fences
   return (
-    <g {...common}>
+    <g>
       <GroundShadow w={220} h={7} />
-      <path d="M-30 0 V-40 L-4 -60 L22 -40 V0" />
-      <path d="M-14 0 V-22 H0 V0" />
-      <path d="M8 -38 H16" />
-      <path d="M-70 0 V-28" />
-      <path d="M-70 -28 L-84 -28 L-70 -60 L-56 -28 Z" />
-      <path d="M50 0 V-24" />
-      <path d="M50 -24 C36 -24 34 -46 48 -48 C46 -62 66 -62 64 -48 C78 -46 76 -24 62 -24 Z" />
-      <path d="M-104 -12 H-90 M-104 -6 H-90 M-100 0 V-16 M-94 0 V-16" />
-      <path d="M78 -12 H98 M78 -6 H98 M82 0 V-16 M94 0 V-16" />
+      <g {...solid}>
+        <path d="M-84 -28 L-70 -60 L-56 -28 Z" />
+        <path d="M-30 0 V-40 L-4 -60 L22 -40 V0 Z" />
+        <path d="M50 -24 C36 -24 34 -46 48 -48 C46 -62 66 -62 64 -48 C78 -46 76 -24 62 -24 Z" />
+      </g>
+      <g {...lines}>
+        <path d="M-70 0 V-28" />
+        <path d="M-14 0 V-22 H0 V0" />
+        <path d="M8 -38 H16" />
+        <path d="M50 0 V-24" />
+        <path d="M-104 -12 H-90 M-104 -6 H-90 M-100 0 V-16 M-94 0 V-16" />
+        <path d="M78 -12 H98 M78 -6 H98 M82 0 V-16 M94 0 V-16" />
+      </g>
     </g>
-  );
-}
-
-/**
- * The MonoCab CI drawing, inlined so it can carry a fill and a shadow. The
- * viewBox is the artwork's (1400×760); on screen it is CAB_W wide, so the
- * stroke is scaled to read exactly like the towns' 3 px lines.
- */
-function MonoCab({ width, height }: { width: number; height: number }) {
-  const stroke = 3 / (width / 1400);
-  return (
-    <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible" style={{ overflow: "visible" }}>
-      <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
-        {/* chassis first, so the cabin body overlaps its top edge */}
-        <path fill="#f6f6f6" d="M171 594 Q183 610 214 614 L1186 614 Q1217 610 1229 594 L1247 630 Q1253 644 1245 660 Q1237 678 1212 686 Q1186 694 1154 694 L247 694 Q215 694 189 686 Q164 678 156 660 Q148 644 154 630 Z" />
-        <path d="M165 540 L177 395 Q185 320 268 287 Q322 265 400 258 L1000 258 Q1078 265 1132 287 Q1215 320 1223 395 L1235 540 Q1238 576 1208 594 L191 594 Q162 576 165 540 Z" />
-      </g>
-      <g fill="none" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M278 694 Q334 702 402 702 L998 702 Q1066 702 1122 694" />
-        <path d="M345 257 L448 223 L603 223 L614 257" />
-        <path d="M786 257 L797 223 L952 223 L1055 257" />
-      </g>
-    </svg>
   );
 }
 
@@ -346,11 +334,11 @@ export default function App() {
           {Array.from({ length: tiles(TREES_TILE) }, (_, k) => (
             <g key={k} transform={`translate(${k * TREES_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
               <ellipse cx={240} cy={222} rx={70} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
-              <path d="M240 220 V150" />
               <path d="M240 150 L200 150 L240 60 L280 150 Z" />
-              <path d="M240 118 L212 118 L240 60 L268 118" />
+              <path d="M240 118 L212 118 L240 60 L268 118" fill="none" />
+              <path d="M240 220 V150" fill="none" />
               <ellipse cx={1180} cy={222} rx={80} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
-              <path d="M1180 220 V160" />
+              <path d="M1180 220 V160" fill="none" />
               <path d="M1180 160 C1130 160 1122 96 1172 92 C1168 52 1230 52 1226 92 C1276 96 1268 160 1218 160 Z" />
               <ellipse cx={2070} cy={222} rx={60} ry={8} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M2060 220 C2020 220 2016 180 2048 178 C2050 156 2090 156 2092 178 C2124 180 2120 220 2080 220 Z" />
