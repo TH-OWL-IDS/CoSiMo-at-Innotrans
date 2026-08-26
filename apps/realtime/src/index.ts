@@ -54,7 +54,7 @@ hub.setCabinActuator(() => {
     timeoutMs: cabin.lpu2TimeoutMs,
   };
 });
-hub.setConfigLister(() => operatorConfig.toBroadcast());
+hub.setConfigLister(() => ({ ...operatorConfig.toBroadcast(), systemPrompt: agent.currentSystemPrompt() }));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setPersonaLister(() => personas.list());
 hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));
@@ -124,6 +124,7 @@ hub.onChat((chat) => {
 hub.onCardAnswer((p) => {
   void agent.handleCardAnswer(p);
 });
+hub.onLlmTest(() => agent.testLlm());
 hub.onRepeat((p) => {
   void agent.repeatLast(p);
 });

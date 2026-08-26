@@ -24,6 +24,7 @@ import type {
   ServerToClientEvents,
   SeatCard,
   HostConfigBroadcast,
+  LlmTestResult,
   ClientKind,
   ServiceInfo,
 } from "@cosimo/shared";
@@ -145,6 +146,9 @@ export interface CosimoState {
   personas: PersonaBroadcast[];
   /** The hub's resolved operator routing (operator console), null until pushed. */
   hostConfig: HostConfigBroadcast | null;
+  /** Console "Testen": last result, or "pending" while a test runs. */
+  llmTest: LlmTestResult | "pending" | null;
+  testLlm: () => void;
   /** The deployables and their reachability (operator console). */
   services: ServiceInfo[];
   /** Deep view of one seat (host inspector), latest host:inspect result. */
@@ -249,6 +253,7 @@ export function useCosimoSocket(
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
+  const [llmTest, setLlmTest] = useState<LlmTestResult | "pending" | null>(null);
   const [services, setServices] = useState<ServiceInfo[]>([]);
   const [reloadRequired, setReloadRequired] = useState(false);
   const [evicted, setEvicted] = useState<{ max: number } | null>(null);
@@ -398,6 +403,7 @@ export function useCosimoSocket(
     socket.on("host:seats", ({ seats }) => setSeats(seats));
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
+    socket.on("host:llm-test-result", (r) => setLlmTest(r));
     socket.on("host:services", ({ services }) => setServices(services));
     socket.on("host:reload", () => setReloadRequired(true));
     socket.on("host:evicted", ({ max }) => setEvicted({ max }));
@@ -591,6 +597,10 @@ export function useCosimoSocket(
   const resetAll = () => sockRef.current?.emit("host:reset-all", {});
   const resetDevice = (deviceId: string) => sockRef.current?.emit("host:reset-device", { deviceId });
   const restartService = (id: ServiceInfo["id"]) => sockRef.current?.emit("host:restart-service", { id });
+  const testLlm = () => {
+    setLlmTest("pending");
+    sockRef.current?.emit("host:llm-test", {});
+  };
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
@@ -639,6 +649,7 @@ export function useCosimoSocket(
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
+    llmTest, testLlm,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     unauthorized, restartService, restartResults,

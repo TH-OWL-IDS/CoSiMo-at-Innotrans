@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Activity,
+  FlaskConical,
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
   DoorClosed, DoorOpen, Ear, Flag, Frown, IdCard,
   Database, LayoutDashboard, LifeBuoy, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
@@ -283,7 +284,7 @@ function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; 
       facts={[]}
     >
       {/* six rows tall (text-sm rows + gaps), then it scrolls */}
-      <div className="flex max-h-[156px] flex-col gap-1.5 overflow-y-auto pr-1">
+      <div className="flex max-h-[156px] flex-col gap-1.5 overflow-x-hidden overflow-y-auto pr-1">
         {system.length === 0 && <span className="text-sm text-mute">noch keine System-Ereignisse</span>}
         {system.map((e) => (
           <div key={e.seq} className={cn("flex min-w-0 items-center gap-2 text-sm", e.level === "error" ? "text-accent" : e.level === "warn" ? "text-warn" : "text-ink")}>
@@ -311,6 +312,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, []);
+  const [promptOpen, setPromptOpen] = useState(false);
 
   // The log stream carries the richer facts: which brain answers, whether the
   // fallback is standing in, how long the last turns took, what the light did.
@@ -435,14 +437,50 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           state={!lastSvc ? "starting" : st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
           icon={Brain}
           name="LLM"
-          detail="Das Gehirn: welches Modell die Antworten schreibt, ob gerade der Fallback einspringt, wie lange das Denken im Schnitt dauert und wann der letzte Turn lief. Die Werte kommen aus den Turn-Ereignissen des Logs."
+          detail="Das Gehirn: welches Modell der Hub gerade anspricht und über welche Route. „System-Prompt“ zeigt den Prompt, wie ihn ein frischer Turn bekäme (Kern aus dem CMS + Stimmkatalog + Standard-Fahrgast). „Testen“ schickt eine kurze Testanfrage über genau diese Route und zeigt Antwort und Dauer."
           facts={[
-            ["Modell", llmName],
-            ["Fallback", fallbackActive ? <span className="text-warn">aktiv (Claude)</span> : "bereit"],
-            ["Ø Denken", `${ms(llmMs)}${turns.length ? ` (${turns.length} Turns)` : ""}`],
-            ["Letzter Turn", lastTurn ? `${ago(lastTurn.ts, now)} · ${lastTurn.data.outcome}` : "—"],
+            ["LLM", cfg ? `${cfg.llm.provider} · ${cfg.llm.model}${fallbackActive ? " · Fallback aktiv" : ""}` : "—"],
+            ["LLM-Route", cfg ? hostOf(cfg.llm.baseUrl) || (cfg.llm.provider === "anthropic" ? "api.anthropic.com (SDK)" : "—") : "—"],
           ]}
-        />
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="xs" variant="secondary" onClick={() => setPromptOpen(true)} disabled={!cfg?.systemPrompt}>
+              <ScrollText size={13} /> System-Prompt
+            </Button>
+            <Button size="xs" variant="secondary" onClick={() => c.testLlm()} disabled={c.llmTest === "pending"}>
+              <FlaskConical size={13} /> {c.llmTest === "pending" ? "testet …" : "Testen"}
+            </Button>
+          </div>
+          {c.llmTest && c.llmTest !== "pending" && (
+            <div className={cn("text-sm", c.llmTest.ok ? "text-ink" : "text-accent")}>
+              <span className={c.llmTest.ok ? "text-ok" : "text-accent"}>{c.llmTest.ok ? "ok" : "Fehler"}</span>
+              <span className="text-mute"> · {(c.llmTest.ms / 1000).toFixed(1)} s · {c.llmTest.provider}/{c.llmTest.model}</span>
+              <div className="mt-1 whitespace-pre-wrap break-words">{c.llmTest.ok ? `„${c.llmTest.text}“` : c.llmTest.error}</div>
+            </div>
+          )}
+        </ServiceCard>
+        <Dialog.Root open={promptOpen} onOpenChange={setPromptOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-drawer bg-ink/10" />
+            <Dialog.Content
+              className="fixed left-1/2 top-1/2 z-drawer flex max-h-[86vh] w-[min(760px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-xl border border-line bg-white p-4 shadow-drawer focus:outline-none"
+              aria-describedby={undefined}
+            >
+              <div className="flex items-center justify-between">
+                <Dialog.Title className="m-0 text-base font-normal">
+                  <b><ScrollText size={14} className="-mb-0.5 inline" /> System-Prompt</b>{" "}
+                  <span className="opacity-55">· {cfg?.systemPrompt.length ?? 0} Zeichen · {cfg?.source === "cms" ? "Kern aus dem CMS" : "Kern aus den env-Defaults"}</span>
+                </Dialog.Title>
+                <Dialog.Close asChild>
+                  <Button icon size="sm" aria-label="schließen"><X size={16} /></Button>
+                </Dialog.Close>
+              </div>
+              <pre className="m-0 overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-well p-3 text-sm leading-snug">
+                {cfg?.systemPrompt}
+              </pre>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
         <ServiceCard
           state={!t ? "starting" : fault ? "warn" : t.simPaused ? "warn" : "ok"}
           icon={TramFront}

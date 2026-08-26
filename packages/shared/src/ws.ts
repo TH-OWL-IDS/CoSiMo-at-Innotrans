@@ -126,6 +126,19 @@ export interface HostConfigBroadcast {
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; model: string; voices: number };
   cabin: { lpu2BaseUrl: string; mapped: number; controls: number; timeoutMs: number };
+  /** The system prompt as the agent builds it right now (core + voice
+   *  catalog, default rider) — for the console's prompt popup. */
+  systemPrompt: string;
+}
+
+/** Result of a console-triggered LLM round-trip (no seat involved). */
+export interface LlmTestResult {
+  ok: boolean;
+  provider: string;
+  model: string;
+  ms: number;
+  text?: string;
+  error?: string;
 }
 
 /** One deployable as the hub sees it, for the console's Services card. */
@@ -203,6 +216,8 @@ export interface ServerToClientEvents {
   "host:unauthorized": (payload: { reason: "token" }) => void;
   /** Outcome of a host:restart-service. */
   "host:restart-result": (payload: { id: ServiceInfo["id"]; ok: boolean; error?: string }) => void;
+  /** Answer to host:llm-test. */
+  "host:llm-test-result": (payload: LlmTestResult) => void;
   /** The deployables and their reachability — pushed to host consoles on hello and on change. */
   "host:services": (payload: { services: ServiceInfo[] }) => void;
   /** A console should reload itself (another console reset everything). */
@@ -274,6 +289,8 @@ export interface ClientToServerEvents {
   "host:reset-device": (payload: { deviceId: string }) => void;
   /** Restart a deployable's container via the Docker socket proxy (prod). */
   "host:restart-service": (payload: { id: ServiceInfo["id"] }) => void;
+  /** Console "Testen": one short generation on the current LLM route. */
+  "host:llm-test": (payload: Record<string, never>) => void;
   /** Reset everything: every seat back to the consent screen (session:reset
    *  "*"), every *other* console told to reload (host:reload). */
   "host:reset-all": (payload: Record<string, never>) => void;

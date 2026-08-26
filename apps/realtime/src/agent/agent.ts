@@ -8,6 +8,7 @@
  */
 
 import {
+  type LlmTestResult,
   type Accommodations,
   CABIN_CONTROLS,
   type ExpressiveEmotion,
@@ -699,6 +700,34 @@ export class CosimoAgent {
       "happy", startedAt, "tap", "ok", { ttsMs },
     );
     this.persist(sessionId);
+  }
+
+  /** The prompt as a fresh default-rider turn would carry it (console popup). */
+  currentSystemPrompt(): string {
+    return buildSystemPrompt(
+      this.personas.get("default"),
+      this.operatorConfig.get().agent.systemPrompt,
+      this.operatorConfig.get().tts.voices,
+    );
+  }
+
+  /** Console "Testen": one short generation on the live route, no seat. */
+  async testLlm(): Promise<LlmTestResult> {
+    const cfg = this.operatorConfig.get().llm;
+    const t0 = Date.now();
+    try {
+      const provider = await this.llm.current();
+      if (!provider) return { ok: false, provider: cfg.provider, model: cfg.model, ms: Date.now() - t0, error: "kein LLM erreichbar (Canned-Modus)" };
+      const turn = provider.startTurn(this.currentSystemPrompt(), "Kurzer Funktionstest: antworte in einem Satz, dass du bereit bist.", AbortSignal.timeout(20_000));
+      let text = "";
+      await turn.step((d) => { text += d; });
+      const ms = Date.now() - t0;
+      const info = this.llm.onFallback ? { provider: cfg.fallback?.provider ?? cfg.provider, model: cfg.fallback?.model ?? cfg.model } : { provider: cfg.provider, model: cfg.model };
+      logger.log("llm.step", { step: 0, chars: text.length, toolCalls: [], durationMs: ms, finish: "console-test" }, { level: "debug" });
+      return { ok: text.trim().length > 0, ...info, ms, text: text.trim() || undefined, error: text.trim() ? undefined : "leere Antwort" };
+    } catch (err) {
+      return { ok: false, provider: cfg.provider, model: cfg.model, ms: Date.now() - t0, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   /** ↻ — say the last reply again, no LLM round. */

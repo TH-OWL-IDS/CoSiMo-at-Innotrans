@@ -37,6 +37,7 @@ import {
   type ClientKind,
   type DeviceHealth,
   type HostConfigBroadcast,
+  type LlmTestResult,
   type ServiceInfo,
 } from "@cosimo/shared";
 
@@ -113,6 +114,7 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 /** Composes the host inspector view for one seat (system prompt + turns). */
 export type InspectResolver = (deviceId: string) => SeatInspection | null;
 export type CardAnswerHandler = (payload: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey }) => void;
+export type LlmTester = () => Promise<LlmTestResult>;
 export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey }) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -231,6 +233,7 @@ export class Hub {
   private inspectResolver: InspectResolver | undefined;
   private cardAnswerHandler: CardAnswerHandler | undefined;
   private repeatHandler: RepeatHandler | undefined;
+  private llmTester: LlmTester | undefined;
   private lastTelemetry: MonoCabTelemetry | undefined;
   private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
@@ -353,6 +356,10 @@ export class Hub {
   /** Register how a seat's deep inspection (prompt + turns) is composed. */
   onCardAnswer(handler: CardAnswerHandler): void {
     this.cardAnswerHandler = handler;
+  }
+
+  onLlmTest(tester: LlmTester): void {
+    this.llmTester = tester;
   }
 
   onRepeat(handler: RepeatHandler): void {
@@ -564,6 +571,10 @@ export class Hub {
           } else {
             e.socket.emit("host:reload", { by: deviceId });
           }
+        });
+        socket.on("host:llm-test", () => {
+          logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
+          void this.llmTester?.().then((r) => socket.emit("host:llm-test-result", r));
         });
         socket.on("host:restart-service", ({ id }) => {
           logger.log("host.action", { action: "restart-service", args: { id } }, { deviceId, level: "warn" });

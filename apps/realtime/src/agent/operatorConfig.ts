@@ -153,6 +153,7 @@ export class OperatorConfigProvider {
         controls: CABIN_CONTROLS.length,
         timeoutMs: c.cabin.lpu2TimeoutMs,
       },
+      systemPrompt: c.agent.systemPrompt,
     };
   }
 
