@@ -171,11 +171,11 @@ export default function App() {
             const tx = pad + i * TICK;
             const major = i % 10 === 0;
             return major ? null : (
-              <line key={i} x1={tx} y1={trackY - 6} x2={tx} y2={trackY + 6} stroke={LINE} strokeWidth={1.5} opacity={0.6} />
+              <line key={i} x1={tx} y1={trackY - 5} x2={tx} y2={trackY + 5} stroke={LINE} strokeWidth={1} opacity={0.5} />
             );
           })}
           {/* track */}
-          <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={LINE} strokeWidth={6} strokeLinecap="round" />
+          <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={LINE} strokeWidth={2} strokeLinecap="round" />
           {/* travelled part of the current trip, in the direction of travel */}
           <line
             x1={outbound ? pad : worldW - pad}
@@ -183,7 +183,7 @@ export default function App() {
             x2={cabX}
             y2={trackY}
             stroke={ACCENT}
-            strokeWidth={6}
+            strokeWidth={2}
             strokeLinecap="round"
             opacity={0.45}
           />
