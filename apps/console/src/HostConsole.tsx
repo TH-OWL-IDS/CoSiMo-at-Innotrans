@@ -337,10 +337,6 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   const ttsMs = mean(turns.map((t) => t.data.timings.ttsMs).filter((x): x is number => x != null));
   const lastStt = last("stt.result");
   const lastTts = last("tts.done");
-  const cabinResults = logs.filter((e): e is Extract<LogEvent, { kind: "cabin.result" }> => e.kind === "cabin.result");
-  const cabinOk = cabinResults.filter((e) => e.data.ok).length;
-  const cabinFailed = cabinResults.length - cabinOk;
-  const lastCabin = cabinResults[cabinResults.length - 1];
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
   // Rows: real kiosks, then emulators, then journey views (lost ones last
@@ -361,6 +357,9 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   const activeSeats = c.seats.filter((s) => s.active).length;
   const t = c.telemetry;
   const fault = t?.faults?.[0];
+  // The journey app's public host, as the hub reports it (dev: its local port).
+  const journeySvc = c.services.find((x) => x.id === "journey");
+  const journeyUrl = journeySvc?.publicHost ? `https://${journeySvc.publicHost}` : journeySvc?.internalUrl ?? null;
 
   if (!st) {
     return (
@@ -525,15 +524,16 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
         <ServiceCard
           state={!t ? "starting" : fault ? "warn" : t.simPaused ? "warn" : "ok"}
           icon={TramFront}
-          name="Fahrzeug"
-          detail="Das MonoCab, wie der Hub es fährt: Fahrt-Simulation (Ort, Tempo, nächster Halt), aktive Störung und Verspätung, Fahrgäste — und das Kabinenlicht, das CoSiMo über die Sitze schaltet (das iPad ruft den LPU-2 im Kabinen-LAN per HTTP auf)."
+          name="Fahrt"
+          detail="Die Fahrt, wie der Hub sie simuliert und an alle Sitze sendet: Ort, Tempo, nächster Halt, aktive Störung, Verspätung, Fahrgäste. „Fahrt-Ansicht“ öffnet die Linien-Visualisierung (journey)."
           facts={[
-            ["Fahrt", t ? `${t.location.de} · ${Math.round(t.speedKmh)} km/h${t.simPaused ? " · pausiert" : ""}` : "—"],
+            ["Ort", t ? `${t.location.de}${t.simPaused ? " · pausiert" : ""}` : "—"],
+            ["Geschwindigkeit", t ? `${Math.round(t.speedKmh)} km/h` : "—"],
             ["Nächster Halt", t?.nextStops[0] ? `${t.nextStops[0].name.de} · ${t.nextStops[0].etaMinutes} min` : "—"],
             ["Störung", fault ? <span className="text-warn">{fault.cause.de} ({fault.remainingSec}s)</span> : "keine"],
             ["Verspätung", t?.delayMinutes ? `+${t.delayMinutes} min` : "pünktlich"],
             ["Fahrgäste", t ? `${t.occupancy}/${t.capacity} (${t.seats?.liveSessions ?? 0} echt)` : "—"],
-            ["Licht", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""}${lastCabin ? ` · zuletzt ${ago(lastCabin.ts, now)}` : ""}` : "noch keine Aktion"],
+            ["Ansicht", journeyUrl ? <a href={journeyUrl} target="_blank" rel="noreferrer" className="text-accent no-underline hover:underline">Fahrt-Ansicht öffnen ↗</a> : "—"],
           ]}
         />
       </div>
