@@ -41,12 +41,19 @@ const OK = "var(--color-ok)";
  * language (stroke only, round joins), ground at y=0, centred on x=0.
  * Deterministic per stop index so the map is stable.
  */
+/** A cheap ground shadow: a radial-gradient ellipse, no filter (filters
+ *  re-rasterise every frame while the world scrolls — that was the lag). */
+function GroundShadow({ w, h = 10, y = 2 }: { w: number; h?: number; y?: number }) {
+  return <ellipse cx={0} cy={y} rx={w / 2} ry={h} fill="url(#ground-shadow)" />;
+}
+
 function Town({ variant }: { variant: number }) {
-  const common = { fill: "var(--color-bg)", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, filter: "url(#town-shadow)" };
+  const common = { fill: "var(--color-bg)", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (variant === 0) {
     // Dorf: house, church with tower, a tree
     return (
       <g {...common}>
+        <GroundShadow w={200} h={7} />
         <path d="M-84 0 V-38 L-60 -60 L-36 -38 V0" />
         <path d="M-70 0 V-20 H-56 V0" />
         <path d="M-20 0 V-46 H24 V0" />
@@ -63,6 +70,7 @@ function Town({ variant }: { variant: number }) {
     // Stadt: a row of houses of different heights
     return (
       <g {...common}>
+        <GroundShadow w={200} h={7} />
         <path d="M-96 0 V-52 H-60 V0" />
         <path d="M-96 -52 L-78 -70 L-60 -52" />
         <path d="M-60 0 V-80 H-20 V0" />
@@ -80,6 +88,7 @@ function Town({ variant }: { variant: number }) {
   // Weiler: one house, two trees, a fence
   return (
     <g {...common}>
+      <GroundShadow w={220} h={7} />
       <path d="M-30 0 V-40 L-4 -60 L22 -40 V0" />
       <path d="M-14 0 V-22 H0 V0" />
       <path d="M8 -38 H16" />
@@ -102,13 +111,7 @@ function MonoCab({ width, height }: { width: number; height: number }) {
   const stroke = 3 / (width / 1400);
   return (
     <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible" style={{ overflow: "visible" }}>
-      <defs>
-        {/* the filter region must hold the whole blur — a tight box clips the shadow flat */}
-        <filter id="cab-shadow" x="-30%" y="-30%" width="160%" height="200%" filterUnits="objectBoundingBox">
-          <feDropShadow dx="0" dy={10 / (width / 1400)} stdDeviation={10 / (width / 1400)} floodColor="#181817" floodOpacity="0.28" />
-        </filter>
-      </defs>
-      <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" filter="url(#cab-shadow)">
+      <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
         {/* chassis first, so the cabin body overlaps its top edge */}
         <path fill="#f6f6f6" d="M171 594 Q183 610 214 614 L1186 614 Q1217 610 1229 594 L1247 630 Q1253 644 1245 660 Q1237 678 1212 686 Q1186 694 1154 694 L247 694 Q215 694 189 686 Q164 678 156 660 Q148 644 154 630 Z" />
         <path d="M165 540 L177 395 Q185 320 268 287 Q322 265 400 258 L1000 258 Q1078 265 1132 287 Q1215 320 1223 395 L1235 540 Q1238 576 1208 594 L191 594 Q162 576 165 540 Z" />
@@ -163,9 +166,9 @@ export default function App() {
   followRef.current = following;
   const ourScroll = useRef(false);
   const targetRef = useRef(0);
-  const treesPat = useRef<SVGPatternElement>(null);
-  const grassPat = useRef<SVGPatternElement>(null);
-  const hillsPat = useRef<SVGPatternElement>(null);
+  const treesLayer = useRef<SVGGElement>(null);
+  const grassLayer = useRef<SVGGElement>(null);
+  const hillsLayer = useRef<SVGGElement>(null);
 
   const n = t?.stops.length ?? 0;
   const pad = vw / 2; // a terminal can sit dead centre too
@@ -191,9 +194,13 @@ export default function App() {
       // parallax foreground: shift the repeating patterns against the scroll
       if (el) {
         const sl = el.scrollLeft;
-        treesPat.current?.setAttribute("patternTransform", `translate(${-((sl * TREES_FACTOR) % TREES_TILE)} 0)`);
-        grassPat.current?.setAttribute("patternTransform", `translate(${-((sl * GRASS_FACTOR) % GRASS_TILE)} 0)`);
-        hillsPat.current?.setAttribute("patternTransform", `translate(${-((sl * HILLS_FACTOR) % HILLS_TILE)} 0)`);
+        // GPU transforms on a group of repeated tiles — no re-tiling, no filters
+        const shift = (g: SVGGElement | null, f: number, tile: number) => {
+          if (g) g.style.transform = `translate3d(${-((sl * f) % tile)}px, 0, 0)`;
+        };
+        shift(treesLayer.current, TREES_FACTOR, TREES_TILE);
+        shift(grassLayer.current, GRASS_FACTOR, GRASS_TILE);
+        shift(hillsLayer.current, HILLS_FACTOR, HILLS_TILE);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -246,6 +253,7 @@ export default function App() {
     );
   }
 
+  const tiles = (tile: number) => Math.ceil(vw / tile) + 1;
   const outbound = t.position.direction === "outbound";
   const fault = t.faults[0];
   const holding = t.position.phase === "hold";
@@ -255,21 +263,18 @@ export default function App() {
   return (
     <main className="relative h-screen overflow-hidden bg-bg text-ink">
       {/* ── far background: hills + distant trees, behind the towns, slow ── */}
-      <svg className="pointer-events-none absolute inset-x-0 top-0" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
-        <defs>
-          <pattern id="bg-hills" ref={hillsPat} width={HILLS_TILE} height={trackY - 40} patternUnits="userSpaceOnUse">
-            <g fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
-              {/* two soft hills */}
+      <svg className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden" style={{ height: trackY - 40 }} width="100%" height={trackY - 40} aria-hidden>
+        <g ref={hillsLayer} style={{ willChange: "transform" }}>
+          {Array.from({ length: tiles(HILLS_TILE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * HILLS_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.28}>
               <path d={`M0 ${trackY - 40} C 300 ${trackY - 150}, 700 ${trackY - 170}, 1000 ${trackY - 90} C 1200 ${trackY - 40}, 1350 ${trackY - 40}, 1500 ${trackY - 40}`} />
               <path d={`M1300 ${trackY - 40} C 1600 ${trackY - 130}, 2000 ${trackY - 150}, 2400 ${trackY - 60}`} />
-              {/* a distant tree line on the first hill */}
               <path d={`M560 ${trackY - 150} V${trackY - 175} M540 ${trackY - 175} L560 ${trackY - 205} L580 ${trackY - 175} Z`} />
               <path d={`M640 ${trackY - 156} V${trackY - 178} M620 ${trackY - 178} L640 ${trackY - 206} L660 ${trackY - 178} Z`} />
               <path d={`M1880 ${trackY - 132} V${trackY - 154} M1860 ${trackY - 154} L1880 ${trackY - 182} L1900 ${trackY - 154} Z`} />
             </g>
-          </pattern>
-        </defs>
-        <rect x={0} y={0} width="100%" height="100%" fill="url(#bg-hills)" />
+          ))}
+        </g>
       </svg>
 
       {/* ── the world: one wide strip, scrolls horizontally ──────────── */}
@@ -285,10 +290,12 @@ export default function App() {
       >
         <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
           <defs>
-            {/* one soft ground shadow for every filled thing in the world */}
-            <filter id="town-shadow" x="-30%" y="-30%" width="160%" height="180%">
-              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#181817" floodOpacity="0.22" />
-            </filter>
+            {/* one soft ground shadow for everything that stands on the line */}
+            <radialGradient id="ground-shadow">
+              <stop offset="0" stopColor="#181817" stopOpacity="0.28" />
+              <stop offset="0.6" stopColor="#181817" stopOpacity="0.10" />
+              <stop offset="1" stopColor="#181817" stopOpacity="0" />
+            </radialGradient>
           </defs>
           {/* track */}
           <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={INK} strokeWidth={3} strokeLinecap="round" />
@@ -316,6 +323,7 @@ export default function App() {
               <ellipse cx={0} cy={-18} rx={CAB_W * 0.62} ry={CAB_H * 0.9} fill={holding ? WARN : OK} opacity={0.12} />
             )}
             <g transform={outbound ? undefined : "scale(-1 1)"}>
+              <ellipse cx={0} cy={2} rx={CAB_W * 0.5} ry={12} fill="url(#ground-shadow)" />
               <g transform={`translate(${-CAB_W / 2} ${-CAB_H - 8})`}>
                 <MonoCab width={CAB_W} height={CAB_H} />
               </g>
@@ -324,33 +332,36 @@ export default function App() {
         </svg>
       </div>
 
-      {/* ── foreground parallax: trees (mid), grasses (nearest) — line-art like
-          the towns, slightly heavier strokes because they are closer ───── */}
-      <svg className="pointer-events-none fixed inset-x-0 z-sticky" style={{ top: trackY + 40, height: vh - trackY - 40 }} width="100%" height={vh - trackY - 40} aria-hidden>
+      {/* ── foreground parallax: trees (mid), grasses (nearest) — repeated
+          tiles moved by GPU transforms; shadows are gradient ellipses ── */}
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 40, height: vh - trackY - 40 }} width="100%" height={vh - trackY - 40} aria-hidden>
         <defs>
-          <filter id="fg-shadow" x="-30%" y="-30%" width="160%" height="180%">
-            <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#181817" floodOpacity="0.24" />
-          </filter>
-          <pattern id="fg-trees" ref={treesPat} width={TREES_TILE} height={220} patternUnits="userSpaceOnUse">
-            <g fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" filter="url(#fg-shadow)">
-              {/* pine */}
+          <radialGradient id="fg-ground-shadow">
+            <stop offset="0" stopColor="#181817" stopOpacity="0.3" />
+            <stop offset="0.6" stopColor="#181817" stopOpacity="0.1" />
+            <stop offset="1" stopColor="#181817" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <g ref={treesLayer} style={{ willChange: "transform" }}>
+          {Array.from({ length: tiles(TREES_TILE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * TREES_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+              <ellipse cx={240} cy={222} rx={70} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M240 220 V150" />
               <path d="M240 150 L200 150 L240 60 L280 150 Z" />
               <path d="M240 118 L212 118 L240 60 L268 118" />
-              {/* round tree */}
+              <ellipse cx={1180} cy={222} rx={80} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M1180 220 V160" />
               <path d="M1180 160 C1130 160 1122 96 1172 92 C1168 52 1230 52 1226 92 C1276 96 1268 160 1218 160 Z" />
-              {/* bush */}
+              <ellipse cx={2070} cy={222} rx={60} ry={8} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M2060 220 C2020 220 2016 180 2048 178 C2050 156 2090 156 2092 178 C2124 180 2120 220 2080 220 Z" />
             </g>
-          </pattern>
-        </defs>
-        <rect x={0} y={0} width="100%" height="100%" fill="url(#fg-trees)" />
+          ))}
+        </g>
       </svg>
-      <svg className="pointer-events-none fixed inset-x-0 bottom-0 z-sticky" width="100%" height={90} aria-hidden>
-        <defs>
-          <pattern id="fg-grass" ref={grassPat} width={GRASS_TILE} height={90} patternUnits="userSpaceOnUse">
-            <g fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round">
+      <svg className="pointer-events-none fixed inset-x-0 bottom-0 z-sticky overflow-hidden" width="100%" height={90} aria-hidden>
+        <g ref={grassLayer} style={{ willChange: "transform" }}>
+          {Array.from({ length: tiles(GRASS_TILE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * GRASS_TILE} 0)`} fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round">
               <path d="M120 90 C118 70 124 60 122 44" />
               <path d="M134 90 C136 74 130 62 140 50" />
               <path d="M148 90 C146 78 152 70 150 58" />
@@ -359,9 +370,8 @@ export default function App() {
               <path d="M1180 90 C1178 74 1186 66 1182 48" />
               <path d="M1194 90 C1198 80 1190 70 1200 58" />
             </g>
-          </pattern>
-        </defs>
-        <rect x={0} y={0} width="100%" height="100%" fill="url(#fg-grass)" />
+          ))}
+        </g>
       </svg>
 
       {/* ── fault, quietly at the top — the cab already turned amber ── */}
