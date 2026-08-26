@@ -318,7 +318,7 @@ export default function App() {
           <svg key={i} className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden" style={{ height: B }} width="100%" height={B} aria-hidden>
             <g ref={hillLayers[i]} style={{ willChange: "transform" }}>
               {Array.from({ length: tiles(h.tile) }, (_, k) => (
-                <g key={k} transform={`translate(${k * h.tile} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={h.opacity}>
+                <g key={k} transform={`translate(${k * h.tile} 0)`} fill="var(--color-bg)" stroke={INK} strokeOpacity={h.opacity} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   {i === 0 && (
                     // far: long, high, gentle
                     <path d={`M0 ${B} C 400 ${B - 230}, 900 ${B - 260}, 1300 ${B - 150} C 1700 ${B - 40}, 2100 ${B - 200}, 2600 ${B - 120} V${B} Z`} />
