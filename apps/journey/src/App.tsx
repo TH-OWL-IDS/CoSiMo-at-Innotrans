@@ -370,9 +370,20 @@ export default function App() {
 
       {/* ── verge: small grass just below the track, a touch faster than the world ── */}
       <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 14, height: 24 }} width="100%" height={24} aria-hidden>
+        <defs>
+          <radialGradient id="verge-shadow">
+            <stop offset="0" stopColor="#181817" stopOpacity="0.28" />
+            <stop offset="0.6" stopColor="#181817" stopOpacity="0.1" />
+            <stop offset="1" stopColor="#181817" stopOpacity="0" />
+          </radialGradient>
+        </defs>
         <g ref={vergeLayer} style={{ willChange: "transform" }}>
           {Array.from({ length: tiles(VERGE_TILE) }, (_, k) => (
             <g key={k} transform={`translate(${k * VERGE_TILE} 0)`} fill="none" stroke={INK} strokeWidth={2.5} strokeLinecap="round">
+              <ellipse cx={44} cy={22} rx={16} ry={3} fill="url(#verge-shadow)" stroke="none" />
+              <ellipse cx={307} cy={22} rx={20} ry={3} fill="url(#verge-shadow)" stroke="none" />
+              <ellipse cx={624} cy={22} rx={16} ry={3} fill="url(#verge-shadow)" stroke="none" />
+              <ellipse cx={851} cy={22} rx={12} ry={3} fill="url(#verge-shadow)" stroke="none" />
               <path d="M40 22 C39 16 42 13 41 8" />
               <path d="M47 22 C48 17 45 14 49 10" />
               <path d="M300 22 C299 16 303 13 302 8" />
@@ -413,9 +424,19 @@ export default function App() {
         </g>
       </svg>
       <svg className="pointer-events-none fixed inset-x-0 bottom-0 z-sticky overflow-hidden" width="100%" height={90} aria-hidden>
+        <defs>
+          <radialGradient id="grass-shadow">
+            <stop offset="0" stopColor="#181817" stopOpacity="0.3" />
+            <stop offset="0.6" stopColor="#181817" stopOpacity="0.1" />
+            <stop offset="1" stopColor="#181817" stopOpacity="0" />
+          </radialGradient>
+        </defs>
         <g ref={grassLayer} style={{ willChange: "transform" }}>
           {Array.from({ length: tiles(GRASS_TILE) }, (_, k) => (
             <g key={k} transform={`translate(${k * GRASS_TILE} 0)`} fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round">
+              <ellipse cx={134} cy={88} rx={34} ry={5} fill="url(#grass-shadow)" stroke="none" />
+              <ellipse cx={767} cy={88} rx={26} ry={5} fill="url(#grass-shadow)" stroke="none" />
+              <ellipse cx={1187} cy={88} rx={26} ry={5} fill="url(#grass-shadow)" stroke="none" />
               <path d="M120 90 C118 70 124 60 122 44" />
               <path d="M134 90 C136 74 130 62 140 50" />
               <path d="M148 90 C146 78 152 70 150 58" />
