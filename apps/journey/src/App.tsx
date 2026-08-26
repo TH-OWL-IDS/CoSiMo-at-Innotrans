@@ -1,24 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
-import { BatteryMedium, Clock, Flag, MapPin, RotateCw, TriangleAlert, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { LocateFixed, RotateCw, TriangleAlert } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
-import { Banner, Brand, Button, Card, Dot, Eyebrow, SeatGlyph, StatTile, cn } from "@cosimo/ui";
+import { Brand, Button, Card } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 
 /**
- * The journey view — the MonoCab's line as a horizontal diagram, the cab
- * moving along it in real time, out and back. Read-only: it draws what the
- * hub's journey simulation broadcasts (`telemetry:update`, global state);
- * faults are injected from the operator console or the CMS scenario.
+ * The journey view — the MonoCab's line as one wide horizontal world. The
+ * cab sits in the middle of the screen and the line flies past underneath
+ * it (stops are 650 px apart, so motion between stops is visible). The
+ * world scrolls horizontally: drag or wheel to look ahead, the ↺ button
+ * (or a tap on the cab) snaps back to the cab and re-enables following.
  *
- * Layout: stops left → right in outbound order; the return trip runs right →
- * left on the same line (the cab flips). On a narrow screen the diagram keeps
- * its width and scrolls horizontally — a line is a line. Same white CI and
- * tokens as the console (@cosimo/ui); the SVG reads the same variables.
+ * Read-only: it draws what the hub's journey simulation broadcasts
+ * (`telemetry:update`); faults come from the console or the CMS scenario.
+ * No header, no cards — the line is the page; the wordmark sits bottom-right.
  */
 
-const STOP_GAP = 220; // px between stops — the diagram's "scale"
-const PAD = 80;
+const STOP_GAP = 650; // px between stops — the world's scale
+const TICK = 65; // px between the small distance ticks (10 per stop gap)
+const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 
 const INK = "var(--color-ink)";
 const MUTE = "var(--color-mute)";
@@ -36,11 +37,19 @@ function lineProgress(t: MonoCabTelemetry): number {
   const n = t.stops.length;
   if (n < 2) return 0;
   const { stopIndex, progress, direction } = t.position;
-  // `stopIndex` is the stop the cab is at or just left; progress runs towards
-  // the next stop in the travel direction.
   const from = stopIndex / (n - 1);
   const step = 1 / (n - 1);
   return direction === "outbound" ? from + progress * step : from - progress * step;
+}
+
+function useViewport(): { w: number; h: number } {
+  const [v, setV] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const on = () => setV({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return v;
 }
 
 export default function App() {
@@ -48,14 +57,54 @@ export default function App() {
   // The view is a host-role client: it only listens, and it never counts as a seat.
   const c = useCosimoSocket(serverUrl, "host", "journey");
   const t = c.telemetry;
-  const [lang, setLang] = useState<Locale>(() => (navigator.language.startsWith("en") ? "en" : "de"));
-  const [clock, setClock] = useState(() => new Date());
+  const lang: Locale = useMemo(() => (navigator.language.startsWith("en") ? "en" : "de"), []);
+  const L = (de: string, en: string) => (lang === "de" ? de : en);
+  const { w: vw, h: vh } = useViewport();
+
+  /* ── follow-the-cab scrolling ─────────────────────────────────────── */
+  const scroller = useRef<HTMLDivElement>(null);
+  const [following, setFollowing] = useState(true);
+  const followRef = useRef(true);
+  followRef.current = following;
+  const ourScroll = useRef(false);
+  const targetRef = useRef(0);
+
+  const n = t?.stops.length ?? 0;
+  const pad = vw / 2; // a terminal can sit dead centre too
+  const worldW = pad * 2 + STOP_GAP * Math.max(1, n - 1);
+  const stopX = (i: number) => pad + i * STOP_GAP;
+  const cabX = t ? pad + lineProgress(t) * STOP_GAP * (n - 1) : pad;
+  targetRef.current = cabX - vw / 2;
+
+  // Ease the viewport towards the cab every frame while following. Native
+  // scrollLeft is the scroll position, so a manual drag simply takes over.
   useEffect(() => {
-    const id = setInterval(() => setClock(new Date()), 1000);
-    return () => clearInterval(id);
+    let raf = 0;
+    const tick = () => {
+      const el = scroller.current;
+      if (el && followRef.current) {
+        const cur = el.scrollLeft;
+        const next = cur + (targetRef.current - cur) * 0.12;
+        if (Math.abs(next - cur) > 0.2) {
+          ourScroll.current = true;
+          el.scrollLeft = next;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
-  const L = (de: string, en: string) => (lang === "de" ? de : en);
+  // Any scroll we did not cause = the visitor is looking around → stop following.
+  const onScroll = () => {
+    if (ourScroll.current) {
+      ourScroll.current = false;
+      return;
+    }
+    if (followRef.current) setFollowing(false);
+  };
+  const recenter = () => setFollowing(true);
 
   // A console reset everything → this view should reload for a fresh state.
   const reloadPanel = c.reloadRequired && (
@@ -75,86 +124,65 @@ export default function App() {
     </div>
   );
 
+  /* ── the wordmark, bottom right, on every screen ───────────────────── */
+  const brand = (
+    <div className="pointer-events-none fixed bottom-5 right-6 z-header flex items-center gap-3 text-ink">
+      <span className="text-lg font-semibold tracking-[0.5px]">{L("Fahrt", "Journey")}</span>
+      <Brand size={36} />
+    </div>
+  );
+
   if (!t) {
     return (
-      <main className="grid min-h-screen place-items-center bg-bg text-mute">
+      <main className="grid h-screen place-items-center bg-bg text-mute">
         {c.connected ? L("Warte auf Telemetrie …", "Waiting for telemetry …") : L("Verbinde …", "Connecting …")}
+        {brand}
         {reloadPanel}
       </main>
     );
   }
 
-  const n = t.stops.length;
-  const width = PAD * 2 + STOP_GAP * Math.max(1, n - 1);
-  const x = (i: number) => PAD + i * STOP_GAP;
-  const cabX = PAD + lineProgress(t) * STOP_GAP * (n - 1);
   const outbound = t.position.direction === "outbound";
   const fault = t.faults[0];
   const holding = t.position.phase === "hold";
   const next = t.nextStops[0];
-  const occupied = t.occupancy;
-  const seats = Array.from({ length: t.capacity }, (_, i) => ({
-    live: i < t.seats.liveSessions,
-    taken: i < occupied,
-  }));
+  const trackY = Math.round(vh * TRACK_Y);
+  const ticks = Math.round((worldW - pad * 2) / TICK);
 
   return (
-    <main className="flex min-h-screen flex-col bg-bg text-ink">
-      {/* ── header: wordmark, line + destination, clock ───────────── */}
-      <header className="relative z-header flex flex-wrap items-center justify-between gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
-        <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Fahrt">
-          <Brand />
-        </h1>
-        <div className="text-center">
-          <Eyebrow size="xs" className="justify-center">MonoCab · {t.line[lang]}</Eyebrow>
-          <div className="mt-0.5 text-2xl font-semibold">
-            {outbound ? "→" : "←"} {t.destination[lang]}
-            {t.simPaused && <span className="ml-3 text-lg font-medium text-mute">⏸ {L("pausiert", "paused")}</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-base text-mute">
-          <span className="text-2xl tabular-nums text-ink">
-            {clock.toLocaleTimeString(lang === "de" ? "de-DE" : "en-GB", { hour: "2-digit", minute: "2-digit" })}
-          </span>
-          <Button size="xs" variant="outline" className="rounded-full" onClick={() => setLang((l) => (l === "de" ? "en" : "de"))} aria-label={L("Sprache wechseln", "switch language")}>
-            {lang === "de" ? "EN" : "DE"}
-          </Button>
-          <span className="inline-flex items-center gap-1.5 text-sm" title={c.connected ? L("verbunden", "connected") : L("getrennt", "disconnected")}>
-            <Dot state={c.connected ? "ok" : "down"} />
-            <span className="sr-only">{c.connected ? L("verbunden", "connected") : L("getrennt", "disconnected")}</span>
-          </span>
-        </div>
-      </header>
-
-      {/* ── fault banner ─────────────────────────────────────────── */}
-      <div className="min-h-11 px-6 pt-4">
-        {fault && (
-          <Banner>
-            <TriangleAlert size={16} style={{ animation: "pulse 1.2s infinite" }} />
-            <span>{fault.cause[lang]}</span>
-            <span className="tabular-nums opacity-85">
-              {Math.floor(fault.remainingSec / 60)}:{String(fault.remainingSec % 60).padStart(2, "0")}
-            </span>
-            {t.delayMinutes > 0 && <span className="opacity-85">· +{t.delayMinutes} min</span>}
-          </Banner>
-        )}
-      </div>
-
-      {/* ── the line ─────────────────────────────────────────────── */}
-      <section className="overflow-x-auto overflow-y-hidden pb-2 pt-6" style={{ WebkitOverflowScrolling: "touch" }}>
-        <svg width={width} height={200} viewBox={`0 0 ${width} 200`} className="block font-mono" style={{ minWidth: width }}>
+    <main className="relative h-screen overflow-hidden bg-bg text-ink">
+      {/* ── the world: one wide strip, scrolls horizontally ──────────── */}
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        // intent beats heuristics: a wheel, a finger or a drag means "let me look"
+        onWheel={() => followRef.current && setFollowing(false)}
+        onTouchStart={() => followRef.current && setFollowing(false)}
+        onPointerDown={(e) => e.pointerType === "mouse" && e.buttons === 1 && followRef.current && setFollowing(false)}
+        className="no-scrollbar h-full w-full overflow-x-auto overflow-y-hidden"
+        style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+      >
+        <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
+          {/* distance ticks — the "background" that flies by between stops */}
+          {Array.from({ length: ticks + 1 }, (_, i) => {
+            const tx = pad + i * TICK;
+            const major = i % 10 === 0;
+            return major ? null : (
+              <line key={i} x1={tx} y1={trackY - 6} x2={tx} y2={trackY + 6} stroke={LINE} strokeWidth={1.5} opacity={0.6} />
+            );
+          })}
           {/* track */}
-          <line x1={PAD} y1={110} x2={width - PAD} y2={110} stroke={LINE} strokeWidth={6} strokeLinecap="round" />
+          <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={LINE} strokeWidth={6} strokeLinecap="round" />
           {/* travelled part of the current trip, in the direction of travel */}
           <line
-            x1={outbound ? PAD : width - PAD}
-            y1={110}
+            x1={outbound ? pad : worldW - pad}
+            y1={trackY}
             x2={cabX}
-            y2={110}
+            y2={trackY}
             stroke={ACCENT}
             strokeWidth={6}
             strokeLinecap="round"
-            opacity={0.55}
+            opacity={0.45}
           />
           {/* stops */}
           {t.stops.map((s, i) => {
@@ -162,65 +190,62 @@ export default function App() {
             const isNext = next?.id === s.id;
             const eta = t.nextStops.find((ns) => ns.id === s.id)?.etaMinutes;
             return (
-              <g key={s.id} transform={`translate(${x(i)} 110)`}>
-                <circle r={here ? 13 : 9} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={3} />
-                <text y={-26} textAnchor="middle" fill={INK} fontSize={15} fontWeight={here ? 700 : 500}>
+              <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
+                <circle r={here ? 16 : 11} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={3.5} />
+                <text y={-40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
-                <text y={38} textAnchor="middle" fill={MUTE} fontSize={12} fontVariant="tabular-nums">
+                <text y={52} textAnchor="middle" fill={MUTE} fontSize={15} fontVariant="tabular-nums">
                   {eta != null ? (eta === 0 ? L("jetzt", "now") : `${eta} min`) : i === 0 || i === n - 1 ? L("Endhalt", "terminal") : ""}
                 </text>
               </g>
             );
           })}
-          {/* the cab */}
-          <g transform={`translate(${cabX} 110)`} style={{ transition: "transform 900ms linear" }}>
-            <rect x={-30} y={-20} width={60} height={34} rx={10} fill={holding ? WARN : ACCENT} />
-            <rect x={-22} y={-14} width={44} height={14} rx={4} fill="rgba(255,255,255,0.55)" />
-            {/* doors */}
+          {/* the cab — a tap on it re-centres */}
+          <g transform={`translate(${cabX} ${trackY})`} style={{ transition: "transform 900ms linear", cursor: "pointer" }} onClick={recenter}>
+            <rect x={-48} y={-30} width={96} height={52} rx={14} fill={holding ? WARN : ACCENT} />
+            <rect x={-36} y={-21} width={72} height={20} rx={5} fill="rgba(255,255,255,0.55)" />
             {t.doorsOpen && (
               <>
-                <rect x={-34} y={-12} width={4} height={18} fill={OK} />
-                <rect x={30} y={-12} width={4} height={18} fill={OK} />
+                <rect x={-54} y={-18} width={5} height={28} fill={OK} />
+                <rect x={49} y={-18} width={5} height={28} fill={OK} />
               </>
             )}
-            <text y={-30} textAnchor="middle" fill={INK} fontSize={13} fontWeight={600} fontVariant="tabular-nums">
-              {fmt(Math.round(t.speedKmh))} km/h
+            <text y={-46} textAnchor="middle" fill={INK} fontSize={18} fontWeight={600} fontVariant="tabular-nums">
+              {fmt(Math.round(t.speedKmh))} km/h{t.simPaused ? ` · ${L("pausiert", "paused")}` : ""}
             </text>
-            <text y={34} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={11}>
-              {holding ? L("Halt", "held") : t.doorsOpen ? L("Türen offen", "doors open") : outbound ? "→" : "←"}
+            <text y={50} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={15}>
+              {holding ? L("Halt", "held") : t.doorsOpen ? L("Türen offen", "doors open") : outbound ? `→ ${t.destination[lang]}` : `← ${t.destination[lang]}`}
             </text>
           </g>
         </svg>
-      </section>
+      </div>
 
-      {/* ── status row ───────────────────────────────────────────── */}
-      <section className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5 px-6 pb-6 pt-2">
-        <StatTile icon={Flag} label={L("Nächster Halt", "Next stop")} value={next ? next.name[lang] : "—"} sub={next ? (next.etaMinutes === 0 ? L("jetzt", "now") : `${next.etaMinutes} min`) : ""} />
-        <StatTile icon={MapPin} label={L("Position", "Position")} value={t.location[lang]} />
-        <StatTile
-          icon={Users}
-          label={L("Fahrgäste", "Passengers")}
-          value={`${t.occupancy} / ${t.capacity}`}
-          sub={
-            <span className="mt-1 inline-flex gap-1">
-              {seats.map((s, i) => (
-                <SeatGlyph
-                  key={i}
-                  state={s.live ? "live" : s.taken ? "taken" : "free"}
-                  title={s.live ? L("echter Fahrgast (CoSiMo-Sitz aktiv)", "real rider (live CoSiMo seat)") : s.taken ? L("simuliert", "simulated") : L("frei", "free")}
-                />
-              ))}
-            </span>
-          }
-        />
-        <StatTile icon={BatteryMedium} label={L("Akku", "Battery")} value={`${Math.round(t.batteryPct)} %`} sub={t.batteryPct < 20 ? L("niedrig", "low") : ""} warn={t.batteryPct < 20} />
-        <StatTile icon={Clock} label={L("Verspätung", "Delay")} value={t.delayMinutes > 0 ? `+${t.delayMinutes} min` : L("pünktlich", "on time")} warn={t.delayMinutes > 0} />
-      </section>
-
-      {t.notes && (
-        <footer className={cn("px-6 pb-6 text-md text-mute")}>{t.notes[lang]}</footer>
+      {/* ── fault, quietly at the top — the cab already turned amber ── */}
+      {fault && (
+        <div className="pointer-events-none fixed left-1/2 top-6 z-header flex -translate-x-1/2 items-center gap-3 rounded-full border border-warn bg-white px-4 py-2 text-base text-warn shadow-card">
+          <TriangleAlert size={16} style={{ animation: "pulse 1.2s infinite" }} />
+          <span className="text-ink">{fault.cause[lang]}</span>
+          <span className="tabular-nums">
+            {Math.floor(fault.remainingSec / 60)}:{String(fault.remainingSec % 60).padStart(2, "0")}
+          </span>
+          {t.delayMinutes > 0 && <span>· +{t.delayMinutes} min</span>}
+        </div>
       )}
+
+      {/* ── back to the cab (only while the visitor looked away) ───── */}
+      {!following && (
+        <Button
+          variant="primary"
+          className="fixed bottom-5 left-6 z-header rounded-full"
+          onClick={recenter}
+          aria-label={L("Zum MonoCab zurück", "Back to the MonoCab")}
+        >
+          <LocateFixed size={16} /> {L("Zum MonoCab", "To the MonoCab")}
+        </Button>
+      )}
+
+      {brand}
       {reloadPanel}
     </main>
   );

@@ -6,3 +6,7 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
+
+/* The world strip scrolls, but the bar is noise on a display piece —
+   the cab in the middle IS the position indicator. */
+.no-scrollbar::-webkit-scrollbar { display: none; }
