@@ -24,7 +24,6 @@ const CAB_H = Math.round((CAB_W * 760) / 1400);
 
 const INK = "var(--color-ink)";
 const MUTE = "var(--color-mute)";
-const ACCENT = "var(--color-accent)";
 const WARN = "var(--color-warn)";
 const OK = "var(--color-ok)";
 
@@ -250,28 +249,16 @@ export default function App() {
         <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
           {/* track */}
           <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={INK} strokeWidth={3} strokeLinecap="round" />
-          {/* travelled part of the current trip, in the direction of travel */}
-          <line
-            x1={outbound ? pad : worldW - pad}
-            y1={trackY}
-            x2={cabX}
-            y2={trackY}
-            stroke={ACCENT}
-            strokeWidth={3}
-            strokeLinecap="round"
-            opacity={0.45}
-          />
           {/* stops */}
           {t.stops.map((s, i) => {
             const here = t.position.phase !== "drive" && t.position.stopIndex === i && t.position.progress === 0;
-            const isNext = next?.id === s.id;
             return (
               <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
                 {/* the town stands on the line; the marker below is the halt */}
                 <g transform="translate(0 -14) scale(2.25)">
                   <Town variant={i % 3} />
                 </g>
-                <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={2.5} />
+                <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={INK} strokeWidth={3} />
                 <text y={40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
