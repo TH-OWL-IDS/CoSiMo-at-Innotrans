@@ -21,12 +21,12 @@ const STOP_GAP = 1300; // px between stops — the world's scale
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 /** Foreground parallax: layers between camera and track scroll FASTER
  *  than the world (factor > 1) — the classic depth cue. */
-const TREES_FACTOR = 1.35;
-const GRASS_FACTOR = 1.8;
+const TREES_FACTOR = 1.7;
+const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
 const GRASS_TILE = 1400;
 /** Far background behind the towns: scrolls SLOWER than the world. */
-const HILLS_FACTOR = 0.45;
+const HILLS_FACTOR = 0.3;
 const HILLS_TILE = 2400;
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
