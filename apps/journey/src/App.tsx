@@ -19,6 +19,12 @@ import { resolveServerUrl } from "./serverUrl";
 
 const STOP_GAP = 1300; // px between stops — the world's scale
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
+/** Foreground parallax: layers between camera and track scroll FASTER
+ *  than the world (factor > 1) — the classic depth cue. */
+const TREES_FACTOR = 1.35;
+const GRASS_FACTOR = 1.8;
+const TREES_TILE = 720; // px, one repeat of the tree pattern
+const GRASS_TILE = 260;
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
 
@@ -154,6 +160,8 @@ export default function App() {
   followRef.current = following;
   const ourScroll = useRef(false);
   const targetRef = useRef(0);
+  const treesPat = useRef<SVGPatternElement>(null);
+  const grassPat = useRef<SVGPatternElement>(null);
 
   const n = t?.stops.length ?? 0;
   const pad = vw / 2; // a terminal can sit dead centre too
@@ -175,6 +183,12 @@ export default function App() {
           ourScroll.current = true;
           el.scrollLeft = next;
         }
+      }
+      // parallax foreground: shift the repeating patterns against the scroll
+      if (el) {
+        const sl = el.scrollLeft;
+        treesPat.current?.setAttribute("patternTransform", `translate(${-((sl * TREES_FACTOR) % TREES_TILE)} 0)`);
+        grassPat.current?.setAttribute("patternTransform", `translate(${-((sl * GRASS_FACTOR) % GRASS_TILE)} 0)`);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -280,6 +294,44 @@ export default function App() {
           </g>
         </svg>
       </div>
+
+      {/* ── foreground parallax: trees (mid), grasses (nearest) — line-art like
+          the towns, slightly heavier strokes because they are closer ───── */}
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky" style={{ top: trackY + 40, height: vh - trackY - 40 }} width="100%" height={vh - trackY - 40} aria-hidden>
+        <defs>
+          <pattern id="fg-trees" ref={treesPat} width={TREES_TILE} height={220} patternUnits="userSpaceOnUse">
+            <g fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+              {/* pine */}
+              <path d="M90 220 V150" />
+              <path d="M90 150 L50 150 L90 60 L130 150 Z" />
+              <path d="M90 118 L62 118 L90 60 L118 118" />
+              {/* round tree */}
+              <path d="M330 220 V160" />
+              <path d="M330 160 C280 160 272 96 322 92 C318 52 380 52 376 92 C426 96 418 160 368 160 Z" />
+              {/* bush */}
+              <path d="M560 220 C520 220 516 180 548 178 C550 156 590 156 592 178 C624 180 620 220 580 220 Z" />
+            </g>
+          </pattern>
+        </defs>
+        <rect x={0} y={0} width="100%" height="100%" fill="url(#fg-trees)" />
+      </svg>
+      <svg className="pointer-events-none fixed inset-x-0 bottom-0 z-sticky" width="100%" height={90} aria-hidden>
+        <defs>
+          <pattern id="fg-grass" ref={grassPat} width={GRASS_TILE} height={90} patternUnits="userSpaceOnUse">
+            <g fill="none" stroke={INK} strokeWidth={4} strokeLinecap="round">
+              <path d="M20 90 C18 70 24 60 22 44" />
+              <path d="M34 90 C36 74 30 62 40 50" />
+              <path d="M48 90 C46 78 52 70 50 58" />
+              <path d="M120 90 C122 68 114 58 124 40" />
+              <path d="M134 90 C130 76 138 66 132 52" />
+              <path d="M200 90 C198 74 206 66 202 48" />
+              <path d="M214 90 C218 80 210 70 220 58" />
+              <path d="M228 90 C226 82 232 76 230 64" />
+            </g>
+          </pattern>
+        </defs>
+        <rect x={0} y={0} width="100%" height="100%" fill="url(#fg-grass)" />
+      </svg>
 
       {/* ── fault, quietly at the top — the cab already turned amber ── */}
       {fault && (
