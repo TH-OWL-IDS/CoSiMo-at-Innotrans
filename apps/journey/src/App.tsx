@@ -26,10 +26,11 @@ const TREES_FACTOR = 1.7;
 const VERGE_FACTOR = 1.12;
 const VERGE_TILE = 900;
 /** Small bushes in front of the verge, behind the trees. */
-const BUSH_FACTOR = 1.4;
+const BUSH_FACTOR = 1.18;
 const BUSH_TILE = 1100;
 const GRASS_FACTOR = 2.6;
-const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
+const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse), before scale
+const TREES_SCALE = 1.5; // the tile is drawn 1.5× (ground stays put)
 const GRASS_TILE = 1400;
 /** Far background behind the towns: three hill ranges, each slower than
  *  the world and slower the farther away — filled, fading with distance. */
@@ -244,7 +245,7 @@ export default function App() {
         };
         shift(vergeLayer.current, VERGE_FACTOR, VERGE_TILE);
         shift(bushLayer.current, BUSH_FACTOR, BUSH_TILE);
-        shift(treesLayer.current, TREES_FACTOR, TREES_TILE);
+        shift(treesLayer.current, TREES_FACTOR, TREES_TILE * TREES_SCALE);
         shift(grassLayer.current, GRASS_FACTOR, GRASS_TILE);
         HILLS.forEach((h, i) => shift(hillLayers[i]!.current, h.factor, h.tile));
       }
@@ -473,8 +474,10 @@ export default function App() {
           </radialGradient>
         </defs>
         <g ref={treesLayer} style={{ willChange: "transform" }}>
-          {Array.from({ length: tiles(TREES_TILE) }, (_, k) => (
-            <g key={k} transform={`translate(${k * TREES_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+          {/* scaled about the ground line (tile y=220), so the trees grow upwards */}
+          <g transform={`translate(0 ${220 * TREES_SCALE}) scale(${TREES_SCALE}) translate(0 -220)`}>
+          {Array.from({ length: tiles(TREES_TILE * TREES_SCALE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * TREES_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3.5 / TREES_SCALE} strokeLinecap="round" strokeLinejoin="round">
               {/* pine: trunk behind, one jagged silhouette, two bough lines inside */}
               <ellipse cx={240} cy={222} rx={70} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M234 220 V160 H246 V220 Z" />
@@ -491,6 +494,7 @@ export default function App() {
               <path d="M2060 220 C2020 220 2016 180 2048 178 C2050 156 2090 156 2092 178 C2124 180 2120 220 2080 220 Z" />
             </g>
           ))}
+          </g>
         </g>
       </svg>
       <svg className="pointer-events-none fixed inset-x-0 bottom-0 z-sticky overflow-hidden" width="100%" height={90} aria-hidden>
