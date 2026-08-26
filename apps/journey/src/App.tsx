@@ -239,7 +239,9 @@ export default function App() {
    *  sub-pixel cab). */
   const offset = useRef(0);
   const worldWRef = useRef(0);
-  const drag = useRef<{ x: number; start: number } | null>(null);
+  const drag = useRef<{ x: number; start: number; lastX: number; lastAt: number; v: number } | null>(null);
+  /** Momentum after a drag: world px per ms, decaying (fling). */
+  const fling = useRef(0);
   /** A "go there" animation target (the off-screen stop arrows). */
   const goal = useRef<number | null>(null);
   /** Low-rate copy of the offset for React (the off-screen arrows). */
@@ -307,6 +309,14 @@ export default function App() {
         cabGroup.current?.setAttribute("transform", `translate(${sm} ${trackYRef.current + bob}) rotate(${roll})`);
         if (followRef.current) offset.current = sm - vwRef.current / 2;
       }
+      // momentum after a drag: glide on and decay (τ ≈ 350 ms)
+      if (fling.current && !followRef.current) {
+        const now3 = performance.now();
+        const dt3 = lastFrame.current ? Math.min(50, now3 - lastFrame.current) : 16;
+        offset.current += fling.current * dt3;
+        fling.current *= Math.exp(-dt3 / 350);
+        if (Math.abs(fling.current) < 0.005) fling.current = 0;
+      }
       // "go there": glide the view towards a stop (arrow click)
       if (goal.current !== null && !followRef.current) {
         offset.current += (goal.current - offset.current) * 0.08;
@@ -342,26 +352,41 @@ export default function App() {
   const lookAround = (dx: number) => {
     if (!dx) return;
     goal.current = null;
+    fling.current = 0;
     offset.current += dx;
     if (followRef.current) setFollowing(false);
   };
   const onWheel = (e: React.WheelEvent) => lookAround((Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) / zoomRef.current);
   const onPointerDown = (e: React.PointerEvent) => {
-    drag.current = { x: e.clientX, start: offset.current };
+    fling.current = 0;
+    drag.current = { x: e.clientX, start: offset.current, lastX: e.clientX, lastAt: performance.now(), v: 0 };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!drag.current) return;
-    const dx = (drag.current.x - e.clientX) / zoomRef.current;
+    const d = drag.current;
+    if (!d) return;
+    const dx = (d.x - e.clientX) / zoomRef.current;
     if (Math.abs(dx) < 3 && followRef.current) return; // a tap, not a drag
     goal.current = null;
-    offset.current = drag.current.start + dx;
+    offset.current = d.start + dx;
+    // instantaneous velocity for the fling (world px per ms), lightly smoothed
+    const now = performance.now();
+    const dt = Math.max(1, now - d.lastAt);
+    const v = (d.lastX - e.clientX) / zoomRef.current / dt;
+    d.v = d.v * 0.5 + v * 0.5;
+    d.lastX = e.clientX;
+    d.lastAt = now;
     if (followRef.current) setFollowing(false);
   };
-  const onPointerUp = () => { drag.current = null; };
-  const recenter = () => { goal.current = null; setFollowing(true); };
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    // let go with speed → keep gliding, dying down
+    if (d && performance.now() - d.lastAt < 80 && Math.abs(d.v) > 0.05) fling.current = d.v;
+  };
+  const recenter = () => { goal.current = null; fling.current = 0; setFollowing(true); };
   /** Glide the view to a stop's world x (centred). */
-  const goTo = (x: number) => { setFollowing(false); goal.current = x - vwRef.current / 2; };
+  const goTo = (x: number) => { fling.current = 0; setFollowing(false); goal.current = x - vwRef.current / 2; };
 
   // A console reset everything → this view should reload for a fresh state.
   const reloadPanel = c.reloadRequired && (
@@ -674,7 +699,7 @@ export default function App() {
               "fixed z-header flex items-center gap-2 rounded-full border border-line bg-white px-3 py-2 text-base text-ink shadow-card",
               side === "left" ? "left-6" : "right-6",
             )}
-            style={{ top: trackY - 22 }}
+            style={vw < 700 ? { bottom: 84 } : { top: trackY - 22 }}
           >
             {side === "left" && <ChevronLeft size={18} />}
             <span>{t.stops[i]!.name[lang]}</span>
@@ -733,9 +758,9 @@ export default function App() {
           aria-label={L("Fahrtdaten", "Journey data")}
           aria-expanded={infoOpen}
           onClick={() => setInfoOpen((o) => !o)}
-          className="flex size-11 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink shadow-card"
+          className="flex size-11 cursor-pointer items-center justify-center bg-transparent text-ink"
         >
-          <Info size={20} />
+          <Info size={26} strokeWidth={1.8} />
         </button>
       </div>
 
