@@ -9,7 +9,14 @@
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
 import type { Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type VoiceCatalogEntry } from "@cosimo/shared";
+import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry } from "@cosimo/shared";
+
+/** Today's effective values (Qwen generation_config + our max_tokens). */
+export const DEFAULT_GENERATION: LlmGeneration = { temperature: 0.7, topP: 0.8, maxTokens: 1024, repetitionPenalty: 1.0, thinking: false };
+const clampNum = (v: unknown, lo: number, hi: number, fallback: number): number => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
+};
 
 export type LlmProviderKind = "anthropic" | "openai-compatible";
 
@@ -22,6 +29,7 @@ export interface ResolvedOperatorConfig {
     model: string;
     /** Used when the primary is unreachable (probe); null = canned on outage. */
     fallback: { provider: LlmProviderKind; baseUrl: string; model: string } | null;
+    generation: LlmGeneration;
   };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] };
@@ -38,6 +46,7 @@ function envDefaults(): ResolvedOperatorConfig {
       baseUrl: config.llm.baseUrl,
       model: config.anthropic.model,
       fallback: null,
+      generation: { ...DEFAULT_GENERATION },
     },
     stt: {
       baseUrl: config.speech.deepgramBaseUrl,
@@ -83,6 +92,7 @@ interface PayloadOperatorConfigDoc {
     fallbackProvider?: string | null;
     fallbackBaseUrl?: string | null;
     fallbackModel?: string | null;
+    generation?: { temperature?: number | null; topP?: number | null; maxTokens?: number | null; repetitionPenalty?: number | null; thinking?: boolean | null } | null;
   };
   stt?: { baseUrl?: string | null; model?: string | null };
   tts?: {
@@ -119,6 +129,7 @@ export class OperatorConfigProvider {
     const c = this.cache;
     const fp: Record<string, string> = {
       llm: `${c.llm.provider} · ${c.llm.model} @ ${c.llm.baseUrl}`,
+      generation: JSON.stringify(c.llm.generation),
       fallback: c.llm.fallback ? `${c.llm.fallback.provider} · ${c.llm.fallback.model}` : "—",
       stt: `${c.stt.model} @ ${c.stt.baseUrl}`,
       tts: `${c.tts.model} · voice ${c.tts.voiceId}/${c.tts.voiceIdMale || "—"} · ${c.tts.voices.length} voices`,
@@ -144,7 +155,7 @@ export class OperatorConfigProvider {
     return {
       source: this.loadedAt ? "cms" : "defaults",
       loadedAt: this.loadedAt,
-      llm: { provider: c.llm.provider, baseUrl: c.llm.baseUrl, model: c.llm.model, fallback: c.llm.fallback ? { ...c.llm.fallback } : null },
+      llm: { provider: c.llm.provider, baseUrl: c.llm.baseUrl, model: c.llm.model, fallback: c.llm.fallback ? { ...c.llm.fallback } : null, generation: { ...c.llm.generation } },
       stt: { baseUrl: c.stt.baseUrl, model: c.stt.model },
       tts: { baseUrl: c.tts.baseUrl, model: c.tts.model, voices: c.tts.voices.length },
       cabin: {
@@ -187,6 +198,13 @@ export class OperatorConfigProvider {
                   model: str(doc.llm.fallbackModel, doc.llm.fallbackProvider === "anthropic" ? config.anthropic.model : ""),
                 }
               : null,
+          generation: {
+            temperature: clampNum(doc.llm?.generation?.temperature, 0.1, 1, DEFAULT_GENERATION.temperature),
+            topP: clampNum(doc.llm?.generation?.topP, 0.5, 1, DEFAULT_GENERATION.topP),
+            maxTokens: Math.round(clampNum(doc.llm?.generation?.maxTokens, 128, 2048, DEFAULT_GENERATION.maxTokens)),
+            repetitionPenalty: clampNum(doc.llm?.generation?.repetitionPenalty, 1, 1.3, DEFAULT_GENERATION.repetitionPenalty),
+            thinking: doc.llm?.generation?.thinking === true,
+          },
         },
         stt: {
           baseUrl: str(doc.stt?.baseUrl, base.stt.baseUrl),

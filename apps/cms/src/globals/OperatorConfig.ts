@@ -91,6 +91,32 @@ export const OperatorConfig: GlobalConfig = {
             { name: "fallbackModel", type: "text", label: "Fallback Modell", admin: { description: "Leer = Server-Default." } },
           ],
         },
+        {
+          name: "generation",
+          type: "group",
+          label: "Generierung",
+          admin: {
+            description:
+              "Wirkt live (≤ 15 s) auf jeden Turn. Vorsicht: Temperatur 1,0 hat auf Qwen degenerierte Ein-Wort-Antworten erzeugt — deshalb sind die Bereiche begrenzt. Leer = Server-Default.",
+          },
+          fields: [
+            {
+              type: "row",
+              fields: [
+                { name: "temperature", type: "number", label: "Temperatur", min: 0.1, max: 1, admin: { step: 0.05, description: "Default 0,7" } },
+                { name: "topP", type: "number", label: "Top-p", min: 0.5, max: 1, admin: { step: 0.05, description: "Default 0,8" } },
+                { name: "maxTokens", type: "number", label: "Max. Tokens", min: 128, max: 2048, admin: { step: 64, description: "Default 1024" } },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                { name: "repetitionPenalty", type: "number", label: "Wiederholungs-Strafe", min: 1, max: 1.3, admin: { step: 0.05, description: "Default 1,0 (nur vLLM)" } },
+                { name: "thinking", type: "checkbox", label: "Thinking", defaultValue: false, admin: { description: "Qwen-Denkmodus pro Anfrage — kostet Latenz." } },
+              ],
+            },
+          ],
+        },
       ],
     },
     {

@@ -437,10 +437,15 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           state={!lastSvc ? "starting" : st.llm ? (fallbackActive ? "warn" : "ok") : "down"}
           icon={Brain}
           name="LLM"
-          detail="Das Gehirn: welches Modell der Hub gerade anspricht und über welche Route. „System-Prompt“ zeigt den Prompt, wie ihn ein frischer Turn bekäme (Kern aus dem CMS + Stimmkatalog + Standard-Fahrgast). „Testen“ schickt eine kurze Testanfrage über genau diese Route und zeigt Antwort und Dauer."
+          detail="Das Gehirn: welches Modell der Hub gerade anspricht, über welche Route und mit welchen Generierungs-Einstellungen (CMS → Operator-Config → LLM → Generierung, wirkt live). „System-Prompt“ zeigt den Prompt, wie ihn ein frischer Turn bekäme (Kern aus dem CMS + Stimmkatalog + Standard-Fahrgast). „Testen“ schickt eine kurze Testanfrage über genau diese Route und zeigt Antwort und Dauer."
           facts={[
             ["LLM", cfg ? `${cfg.llm.provider} · ${cfg.llm.model}${fallbackActive ? " · Fallback aktiv" : ""}` : "—"],
             ["LLM-Route", cfg ? hostOf(cfg.llm.baseUrl) || (cfg.llm.provider === "anthropic" ? "api.anthropic.com (SDK)" : "—") : "—"],
+            ["Temperatur", cfg ? cfg.llm.generation.temperature.toLocaleString("de-DE") : "—"],
+            ["Top-p", cfg ? cfg.llm.generation.topP.toLocaleString("de-DE") : "—"],
+            ["Max. Tokens", cfg ? String(cfg.llm.generation.maxTokens) : "—"],
+            ["Wdh.-Strafe", cfg ? cfg.llm.generation.repetitionPenalty.toLocaleString("de-DE") : "—"],
+            ["Thinking", cfg ? (cfg.llm.generation.thinking ? <span className="text-warn">an (langsamer)</span> : "aus") : "—"],
           ]}
         >
           <div className="flex flex-wrap items-center gap-2">

@@ -113,6 +113,20 @@ export interface TtsChunk {
   mime: string;
 }
 
+/** Per-request generation settings (CMS-editable, applied live). */
+export interface LlmGeneration {
+  /** 0.1–1.0 — 1.0 produced degenerate one-token replies on Qwen (2026-08-23). */
+  temperature: number;
+  /** 0.5–1.0 */
+  topP: number;
+  /** 128–2048 */
+  maxTokens: number;
+  /** 1.0–1.3 (vLLM extra; ignored by Anthropic) */
+  repetitionPenalty: number;
+  /** Qwen thinking mode per request (chat_template_kwargs); costs latency. */
+  thinking: boolean;
+}
+
 /**
  * What the hub is actually routing to right now, for the operator console:
  * the CMS operator-config merged over the env defaults. `source` says
@@ -122,7 +136,7 @@ export interface HostConfigBroadcast {
   source: "cms" | "defaults";
   /** ISO time the CMS copy was last loaded; null while on defaults. */
   loadedAt: string | null;
-  llm: { provider: string; baseUrl: string; model: string; fallback: { provider: string; baseUrl: string; model: string } | null };
+  llm: { provider: string; baseUrl: string; model: string; fallback: { provider: string; baseUrl: string; model: string } | null; generation: LlmGeneration };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; model: string; voices: number };
   cabin: { lpu2BaseUrl: string; mapped: number; controls: number; timeoutMs: number };

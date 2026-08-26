@@ -1,3 +1,4 @@
+import type { LlmGeneration } from "@cosimo/shared";
 /**
  * LLM adapter layer. The agent loop speaks one neutral interface (start a
  * turn, stream a step, feed tool results back); the two implementations are
@@ -10,7 +11,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
 import { TOOL_DEFINITIONS } from "./tools.js";
-import type { LlmProviderKind, OperatorConfigProvider } from "./operatorConfig.js";
+import { type LlmProviderKind, type OperatorConfigProvider, DEFAULT_GENERATION } from "./operatorConfig.js";
 
 export interface LlmToolCall {
   id: string;
@@ -111,6 +112,7 @@ class AnthropicTurn implements LlmTurn {
   constructor(
     private readonly client: Anthropic,
     private readonly model: string,
+    private readonly gen: LlmGeneration,
     private readonly system: string,
     userText: string,
     private readonly signal?: AbortSignal,
@@ -126,7 +128,8 @@ class AnthropicTurn implements LlmTurn {
     const stream = this.client.messages.stream(
       {
         model: this.model,
-        max_tokens: 1024,
+        max_tokens: this.gen.maxTokens,
+        temperature: this.gen.temperature,
         thinking: { type: "adaptive" },
         system: this.system,
         tools: TOOL_DEFINITIONS,
@@ -173,6 +176,7 @@ class AnthropicProvider implements LlmProvider {
   private readonly client: Anthropic;
   constructor(
     readonly model: string,
+    private readonly gen: LlmGeneration = DEFAULT_GENERATION,
     baseUrl: string,
   ) {
     this.client = new Anthropic({
@@ -186,7 +190,7 @@ class AnthropicProvider implements LlmProvider {
     signal?: AbortSignal,
     history?: LlmHistoryMessage[],
   ): LlmTurn {
-    return new AnthropicTurn(this.client, this.model, system, userText, signal, history);
+    return new AnthropicTurn(this.client, this.model, this.gen, system, userText, signal, history);
   }
   async probe(): Promise<boolean> {
     return true;
@@ -241,6 +245,7 @@ class OpenAiCompatTurn implements LlmTurn {
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly model: string,
+    private readonly gen: LlmGeneration,
     system: string,
     userText: string,
     private readonly signal?: AbortSignal,
@@ -262,7 +267,12 @@ class OpenAiCompatTurn implements LlmTurn {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 1024,
+        max_tokens: this.gen.maxTokens,
+        temperature: this.gen.temperature,
+        top_p: this.gen.topP,
+        // vLLM extras: ignored by strict OpenAI servers, honoured by vLLM
+        repetition_penalty: this.gen.repetitionPenalty,
+        chat_template_kwargs: { enable_thinking: this.gen.thinking },
         stream: true,
         messages: this.messages,
         tools: OPENAI_TOOLS,
@@ -373,6 +383,7 @@ class OpenAiCompatProvider implements LlmProvider {
   readonly kind = "openai-compatible" as const;
   constructor(
     readonly model: string,
+    private readonly gen: LlmGeneration = DEFAULT_GENERATION,
     private readonly baseUrl: string,
     private readonly apiKey: string,
   ) {}
@@ -395,7 +406,7 @@ class OpenAiCompatProvider implements LlmProvider {
     history?: LlmHistoryMessage[],
   ): LlmTurn {
     return new OpenAiCompatTurn(
-      this.baseUrl, this.apiKey, this.model, system, userText, signal, history,
+      this.baseUrl, this.apiKey, this.model, this.gen, system, userText, signal, history,
     );
   }
 }
@@ -427,16 +438,16 @@ export class LlmRouter {
    *  while the primary is unreachable, or null (→ canned). */
   async current(): Promise<LlmProvider | null> {
     const { llm } = await this.operatorConfig.refresh();
-    const key = `${llm.provider}|${llm.baseUrl}|${llm.model}`;
+    const key = `${llm.provider}|${llm.baseUrl}|${llm.model}|${JSON.stringify(llm.generation)}`;
     if (key !== this.cacheKey) {
-      this.cached = this.build(llm);
+      this.cached = this.build(llm, llm.generation);
       this.cacheKey = key;
       this.primaryReachable = true; // a new endpoint gets the benefit of the doubt
     }
     const fb = llm.fallback;
-    const fbKey = fb ? `${fb.provider}|${fb.baseUrl}|${fb.model}` : "";
+    const fbKey = fb ? `${fb.provider}|${fb.baseUrl}|${fb.model}|${JSON.stringify(llm.generation)}` : "";
     if (fbKey !== this.fallbackKey) {
-      this.cachedFallback = fb ? this.build(fb) : null;
+      this.cachedFallback = fb ? this.build(fb, llm.generation) : null;
       this.fallbackKey = fbKey;
     }
     if (this.cached && this.primaryReachable) return this.cached;
@@ -466,12 +477,12 @@ export class LlmRouter {
     }
   }
 
-  private build(llm: { provider: LlmProviderKind; baseUrl: string; model: string }): LlmProvider | null {
+  private build(llm: { provider: LlmProviderKind; baseUrl: string; model: string }, gen: LlmGeneration = DEFAULT_GENERATION): LlmProvider | null {
     if (llm.provider === "openai-compatible") {
       return llm.baseUrl
-        ? new OpenAiCompatProvider(llm.model, llm.baseUrl, config.llm.apiKey)
+        ? new OpenAiCompatProvider(llm.model, gen, llm.baseUrl, config.llm.apiKey)
         : null;
     }
-    return config.anthropic.apiKey ? new AnthropicProvider(llm.model, llm.baseUrl) : null;
+    return config.anthropic.apiKey ? new AnthropicProvider(llm.model, gen, llm.baseUrl) : null;
   }
 }

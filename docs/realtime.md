@@ -150,6 +150,17 @@ must be rebuilt (old binaries still listen for `tts:audio`).
 
 ## LLM adapters (`src/agent/llm.ts`)
 
+**Generation settings** come from the CMS (Operator-Config → LLM →
+Generierung) and apply live (15 s TTL, the router rebuilds the provider when
+they change): `temperature` 0.1–1.0, `topP` 0.5–1.0, `maxTokens` 128–2048,
+`repetitionPenalty` 1.0–1.3 (vLLM extra), `thinking` (Qwen
+`chat_template_kwargs.enable_thinking` per request). Defaults = today's
+effective values (0.7 / 0.8 / 1024 / 1.0 / off). Ranges are clamped
+server-side because temperature 1.0 once produced degenerate one-token
+replies in prod. Anthropic gets temperature + max_tokens only. The console's
+LLM card shows one row per setting; a change is a `config.loaded` event.
+
+
 The loop speaks one neutral interface (`startTurn` → `step`/`addToolResults`).
 Two implementations:
 
