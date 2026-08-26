@@ -13,7 +13,9 @@ import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type Llm
 
 /** Today's effective values (Qwen generation_config + our max_tokens). */
 export const DEFAULT_GENERATION: LlmGeneration = { temperature: 0.7, topP: 0.8, maxTokens: 1024, repetitionPenalty: 1.0, thinking: false };
+/** Empty CMS field (null/undefined/"") = default; anything else is clamped. */
 const clampNum = (v: unknown, lo: number, hi: number, fallback: number): number => {
+  if (v == null || v === "") return fallback;
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
 };
@@ -165,6 +167,7 @@ export class OperatorConfigProvider {
         timeoutMs: c.cabin.lpu2TimeoutMs,
       },
       systemPrompt: c.agent.systemPrompt,
+      tools: [],
     };
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Activity,
+  Wrench,
   FlaskConical,
   Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
   DoorClosed, DoorOpen, Ear, Flag, Frown, IdCard,
@@ -313,6 +314,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
     return () => clearInterval(t);
   }, []);
   const [promptOpen, setPromptOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   // The log stream carries the richer facts: which brain answers, whether the
   // fallback is standing in, how long the last turns took, what the light did.
@@ -452,6 +454,9 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             <Button size="xs" variant="secondary" onClick={() => setPromptOpen(true)} disabled={!cfg?.systemPrompt}>
               <ScrollText size={13} /> System-Prompt
             </Button>
+            <Button size="xs" variant="secondary" onClick={() => setToolsOpen(true)} disabled={!cfg?.tools?.length}>
+              <Wrench size={13} /> Tools{cfg?.tools?.length ? ` (${cfg.tools.length})` : ""}
+            </Button>
             <Button size="xs" variant="secondary" onClick={() => c.testLlm()} disabled={c.llmTest === "pending"}>
               <FlaskConical size={13} /> {c.llmTest === "pending" ? "testet …" : "Testen"}
             </Button>
@@ -483,6 +488,37 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
               <pre className="m-0 overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-well p-3 text-sm leading-snug">
                 {cfg?.systemPrompt}
               </pre>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+        <Dialog.Root open={toolsOpen} onOpenChange={setToolsOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-drawer bg-ink/10" />
+            <Dialog.Content
+              className="fixed left-1/2 top-1/2 z-drawer flex max-h-[86vh] w-[min(760px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-xl border border-line bg-white p-4 shadow-drawer focus:outline-none"
+              aria-describedby={undefined}
+            >
+              <div className="flex items-center justify-between">
+                <Dialog.Title className="m-0 text-base font-normal">
+                  <b><Wrench size={14} className="-mb-0.5 inline" /> Tools</b>{" "}
+                  <span className="opacity-55">· {cfg?.tools?.length ?? 0} Definitionen, wie sie das Modell bekommt</span>
+                </Dialog.Title>
+                <Dialog.Close asChild>
+                  <Button icon size="sm" aria-label="schließen"><X size={16} /></Button>
+                </Dialog.Close>
+              </div>
+              <div className="flex flex-col gap-3 overflow-y-auto pr-1">
+                {(cfg?.tools ?? []).map((t) => (
+                  <details key={t.name} className="rounded-lg border border-line p-3">
+                    <summary className="cursor-pointer text-sm">
+                      <b>{t.name}</b>
+                      <span className="text-mute"> — {t.description.length > 140 ? `${t.description.slice(0, 140)}…` : t.description}</span>
+                    </summary>
+                    <p className="mb-2 mt-2 text-sm leading-snug">{t.description}</p>
+                    <pre className="m-0 overflow-x-auto rounded-lg border border-line bg-well p-2.5 text-xs leading-snug">{JSON.stringify(t.schema, null, 2)}</pre>
+                  </details>
+                ))}
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

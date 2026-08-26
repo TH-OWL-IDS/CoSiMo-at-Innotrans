@@ -143,6 +143,9 @@ export interface HostConfigBroadcast {
   /** The system prompt as the agent builds it right now (core + voice
    *  catalog, default rider) — for the console's prompt popup. */
   systemPrompt: string;
+  /** The agent's tool definitions as sent to the model (name, description,
+   *  JSON schema) — for the console's tools popup. */
+  tools: { name: string; description: string; schema: unknown }[];
 }
 
 /** Result of a console-triggered LLM round-trip (no seat involved). */

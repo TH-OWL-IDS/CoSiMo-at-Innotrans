@@ -28,6 +28,7 @@ import { createTtsProvider } from "./speech/tts.js";
 import { startHealthMonitor } from "./health.js";
 import { ServicesMonitor } from "./services.js";
 import { logger } from "./log/logger.js";
+import { TOOL_DEFINITIONS } from "./agent/tools.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -61,7 +62,11 @@ hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
 const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig);
 // After the agent exists: the console's config card carries the prompt as
 // the agent builds it (the lister runs synchronously on set/connect).
-hub.setConfigLister(() => ({ ...operatorConfig.toBroadcast(), systemPrompt: agent.currentSystemPrompt() }));
+hub.setConfigLister(() => ({
+  ...operatorConfig.toBroadcast(),
+  systemPrompt: agent.currentSystemPrompt(),
+  tools: TOOL_DEFINITIONS.map((t) => ({ name: t.name, description: t.description ?? "", schema: t.input_schema })),
+}));
 
 // Load personas + operator config from the CMS (best-effort; env/built-in
 // defaults otherwise), then re-resolve the active persona for the clients and
