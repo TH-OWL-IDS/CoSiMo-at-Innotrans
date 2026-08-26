@@ -54,12 +54,14 @@ hub.setCabinActuator(() => {
     timeoutMs: cabin.lpu2TimeoutMs,
   };
 });
-hub.setConfigLister(() => ({ ...operatorConfig.toBroadcast(), systemPrompt: agent.currentSystemPrompt() }));
 hub.setPersonaResolver((key) => personas.toBroadcast(key));
 hub.setPersonaLister(() => personas.list());
 hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));
 hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
 const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig);
+// After the agent exists: the console's config card carries the prompt as
+// the agent builds it (the lister runs synchronously on set/connect).
+hub.setConfigLister(() => ({ ...operatorConfig.toBroadcast(), systemPrompt: agent.currentSystemPrompt() }));
 
 // Load personas + operator config from the CMS (best-effort; env/built-in
 // defaults otherwise), then re-resolve the active persona for the clients and
