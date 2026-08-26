@@ -25,6 +25,9 @@ const TREES_FACTOR = 1.7;
 /** Small grass right under the track: between the world and the trees. */
 const VERGE_FACTOR = 1.12;
 const VERGE_TILE = 900;
+/** Small bushes in front of the verge, behind the trees. */
+const BUSH_FACTOR = 1.4;
+const BUSH_TILE = 1100;
 const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse)
 const GRASS_TILE = 1400;
@@ -192,6 +195,7 @@ export default function App() {
   const vwRef = useRef(0);
   const treesLayer = useRef<SVGGElement>(null);
   const vergeLayer = useRef<SVGGElement>(null);
+  const bushLayer = useRef<SVGGElement>(null);
   const grassLayer = useRef<SVGGElement>(null);
   const hillsLayer = useRef<SVGGElement>(null);
 
@@ -235,6 +239,7 @@ export default function App() {
           if (g) g.style.transform = `translate3d(${-((sl * f) % tile)}px, 0, 0)`;
         };
         shift(vergeLayer.current, VERGE_FACTOR, VERGE_TILE);
+        shift(bushLayer.current, BUSH_FACTOR, BUSH_TILE);
         shift(treesLayer.current, TREES_FACTOR, TREES_TILE);
         shift(grassLayer.current, GRASS_FACTOR, GRASS_TILE);
         shift(hillsLayer.current, HILLS_FACTOR, HILLS_TILE);
@@ -426,6 +431,32 @@ export default function App() {
         </g>
       </svg>
 
+      {/* ── bushes: small, lumpy, in front of the verge grass ──────────── */}
+      <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 26, height: 64 }} width="100%" height={64} aria-hidden>
+        <defs>
+          <radialGradient id="bush-shadow">
+            <stop offset="0" stopColor="#181817" stopOpacity="0.28" />
+            <stop offset="0.6" stopColor="#181817" stopOpacity="0.1" />
+            <stop offset="1" stopColor="#181817" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <g ref={bushLayer} style={{ willChange: "transform" }}>
+          {Array.from({ length: tiles(BUSH_TILE) }, (_, k) => (
+            <g key={k} transform={`translate(${k * BUSH_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+              <ellipse cx={146} cy={60} rx={44} ry={4} fill="url(#bush-shadow)" stroke="none" />
+              <path d="M120 58 C104 58 100 40 116 36 C114 24 134 20 142 30 C150 18 172 22 172 34 C188 34 190 56 172 58 Z" />
+              <path fill="none" d="M128 44 C134 38 142 40 146 46 M156 40 C160 34 168 36 170 42" />
+              <ellipse cx={624} cy={60} rx={34} ry={4} fill="url(#bush-shadow)" stroke="none" />
+              <path d="M600 58 C588 58 586 44 598 42 C598 30 618 28 624 36 C634 28 650 34 648 44 C660 46 658 58 646 58 Z" />
+              <path fill="none" d="M610 48 C616 42 624 44 628 50" />
+              <ellipse cx={944} cy={60} rx={44} ry={4} fill="url(#bush-shadow)" stroke="none" />
+              <path d="M970 58 C986 58 990 40 974 36 C976 24 956 20 948 30 C940 18 918 22 918 34 C902 34 900 56 918 58 Z" />
+              <path fill="none" d="M962 44 C956 38 948 40 944 46 M934 40 C930 34 922 36 920 42" />
+            </g>
+          ))}
+        </g>
+      </svg>
+
       {/* ── foreground parallax: trees (mid), grasses (nearest) — repeated
           tiles moved by GPU transforms; shadows are gradient ellipses ── */}
       <svg className="pointer-events-none fixed inset-x-0 z-sticky overflow-hidden" style={{ top: trackY + 40, height: vh - trackY - 40 }} width="100%" height={vh - trackY - 40} aria-hidden>
@@ -439,13 +470,18 @@ export default function App() {
         <g ref={treesLayer} style={{ willChange: "transform" }}>
           {Array.from({ length: tiles(TREES_TILE) }, (_, k) => (
             <g key={k} transform={`translate(${k * TREES_TILE} 0)`} fill="var(--color-bg)" stroke={INK} strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round">
+              {/* pine: trunk behind, one jagged silhouette, two bough lines inside */}
               <ellipse cx={240} cy={222} rx={70} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
-              <path d="M240 150 L200 150 L240 60 L280 150 Z" />
-              <path d="M240 118 L212 118 L240 60 L268 118" fill="none" />
-              <path d="M240 220 V150" fill="none" />
-              <ellipse cx={1180} cy={222} rx={80} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
-              <path d="M1180 220 V160" fill="none" />
-              <path d="M1180 160 C1130 160 1122 96 1172 92 C1168 52 1230 52 1226 92 C1276 96 1268 160 1218 160 Z" />
+              <path d="M234 220 V160 H246 V220 Z" />
+              <path d="M240 58 L222 92 L230 90 L206 128 L216 126 L196 158 L210 156 L186 190 L294 190 L272 156 L286 158 L266 126 L276 128 L252 90 L260 92 Z" />
+              <path fill="none" d="M214 154 C226 148 254 148 268 154 M218 126 C230 120 252 120 264 126" />
+              <path fill="none" d="M246 176 L262 168" />
+              {/* oak: forked trunk, lumpy crown with inner foliage, a knot */}
+              <ellipse cx={1180} cy={222} rx={82} ry={9} fill="url(#fg-ground-shadow)" stroke="none" />
+              <path d="M1170 220 L1172 176 Q1180 168 1188 176 L1190 220 Z" />
+              <path fill="none" d="M1180 176 L1164 156 M1181 178 L1198 160 M1184 198 C1181 200 1181 204 1184 206" />
+              <path d="M1130 150 C1112 150 1108 122 1128 118 C1122 96 1150 86 1162 100 C1170 78 1204 80 1206 102 C1230 96 1244 122 1226 134 C1246 146 1232 172 1210 164 C1204 184 1170 186 1160 168 C1140 178 1124 166 1130 150 Z" />
+              <path fill="none" d="M1150 132 C1156 124 1168 124 1174 130 M1192 118 C1200 112 1210 116 1212 126 M1166 156 C1174 150 1186 152 1190 160" />
               <ellipse cx={2070} cy={222} rx={60} ry={8} fill="url(#fg-ground-shadow)" stroke="none" />
               <path d="M2060 220 C2020 220 2016 180 2048 178 C2050 156 2090 156 2092 178 C2124 180 2120 220 2080 220 Z" />
             </g>
