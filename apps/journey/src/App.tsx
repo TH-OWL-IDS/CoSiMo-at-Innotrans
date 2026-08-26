@@ -50,6 +50,9 @@ function GroundShadow({ w, h = 10, y = 2 }: { w: number; h?: number; y?: number 
   return <ellipse cx={0} cy={y} rx={w / 2} ry={h} fill="url(#ground-shadow)" />;
 }
 
+/** Tallest point of each town variant in its own coordinates (for the name above). */
+const TOWN_HEIGHT = [122, 96, 60];
+
 function Town({ variant }: { variant: number }) {
   // silhouettes: one CLOSED path per building/tree, filled — they occlude each
   // other cleanly; details (doors, windows, cross, fence) are stroke-only on top
@@ -345,7 +348,7 @@ export default function App() {
                   <Town variant={i % 3} />
                 </g>
                 <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={INK} strokeWidth={3} />
-                <text y={40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
+                <text y={-(TOWN_HEIGHT[i % 3]! * 2.25) - 26} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
               </g>
