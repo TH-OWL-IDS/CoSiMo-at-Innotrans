@@ -31,6 +31,63 @@ const ACCENT = "var(--color-accent)";
 const WARN = "var(--color-warn)";
 const OK = "var(--color-ok)";
 
+/**
+ * A stop as a small town — three line-art variants in the CI drawing's
+ * language (stroke only, round joins), ground at y=0, centred on x=0.
+ * Deterministic per stop index so the map is stable.
+ */
+function Town({ variant }: { variant: number }) {
+  const common = { fill: "none", stroke: INK, strokeWidth: 3, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (variant === 0) {
+    // Dorf: house, church with tower, a tree
+    return (
+      <g {...common}>
+        <path d="M-84 0 V-38 L-60 -60 L-36 -38 V0" />
+        <path d="M-70 0 V-20 H-56 V0" />
+        <path d="M-20 0 V-46 H24 V0" />
+        <path d="M-20 -46 L2 -64 L24 -46" />
+        <path d="M30 0 V-92 H50 V0" />
+        <path d="M30 -92 L40 -110 L50 -92" />
+        <path d="M40 -110 V-122 M34 -116 H46" />
+        <path d="M72 0 V-26" />
+        <path d="M72 -26 C56 -26 54 -50 70 -52 C68 -68 90 -68 88 -52 C102 -50 100 -26 84 -26 Z" />
+      </g>
+    );
+  }
+  if (variant === 1) {
+    // Stadt: a row of houses of different heights
+    return (
+      <g {...common}>
+        <path d="M-96 0 V-52 H-60 V0" />
+        <path d="M-96 -52 L-78 -70 L-60 -52" />
+        <path d="M-60 0 V-80 H-20 V0" />
+        <path d="M-60 -80 H-20" />
+        <path d="M-32 -80 V-96 H-24 V-80" />
+        <path d="M-20 0 V-62 H22 V0" />
+        <path d="M-20 -62 L1 -78 L22 -62" />
+        <path d="M22 0 V-44 H60 V0" />
+        <path d="M22 -44 L41 -58 L60 -44" />
+        <path d="M-84 -30 H-72 M-48 -40 H-34 M-48 -22 H-34 M-8 -36 H8 M34 -22 H48" />
+        <path d="M70 0 V-30 M62 -30 H78" />
+      </g>
+    );
+  }
+  // Weiler: one house, two trees, a fence
+  return (
+    <g {...common}>
+      <path d="M-30 0 V-40 L-4 -60 L22 -40 V0" />
+      <path d="M-14 0 V-22 H0 V0" />
+      <path d="M8 -38 H16" />
+      <path d="M-70 0 V-28" />
+      <path d="M-70 -28 L-84 -28 L-70 -60 L-56 -28 Z" />
+      <path d="M50 0 V-24" />
+      <path d="M50 -24 C36 -24 34 -46 48 -48 C46 -62 66 -62 64 -48 C78 -46 76 -24 62 -24 Z" />
+      <path d="M-104 -12 H-90 M-104 -6 H-90 M-100 0 V-16 M-94 0 V-16" />
+      <path d="M78 -12 H98 M78 -6 H98 M82 0 V-16 M94 0 V-16" />
+    </g>
+  );
+}
+
 function fmt(n: number): string {
   return n.toLocaleString("de-DE");
 }
@@ -194,11 +251,15 @@ export default function App() {
             const eta = t.nextStops.find((ns) => ns.id === s.id)?.etaMinutes;
             return (
               <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
-                <circle r={here ? 16 : 11} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={3.5} />
-                <text y={-40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
+                {/* the town stands on the line; the marker below is the halt */}
+                <g transform="translate(0 -14)">
+                  <Town variant={i % 3} />
+                </g>
+                <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={2.5} />
+                <text y={40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
-                <text y={52} textAnchor="middle" fill={MUTE} fontSize={15} fontVariant="tabular-nums">
+                <text y={64} textAnchor="middle" fill={MUTE} fontSize={15} fontVariant="tabular-nums">
                   {eta != null ? (eta === 0 ? L("jetzt", "now") : `${eta} min`) : i === 0 || i === n - 1 ? L("Endhalt", "terminal") : ""}
                 </text>
               </g>
