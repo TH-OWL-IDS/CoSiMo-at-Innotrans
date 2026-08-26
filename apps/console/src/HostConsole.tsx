@@ -1013,7 +1013,7 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
            above its top is hidden, so the panel sliding down from -100%
            genuinely emerges from beneath the header. The padding leaves
            room for the panel's shadow on the sides and below. */
-        <div className="absolute right-6 top-full overflow-hidden pb-6 pl-6">
+        <div className="absolute right-6 top-full z-menu overflow-hidden pb-6 pl-6">
           <nav
             role="menu"
             aria-label="Ansichten"
