@@ -29,7 +29,7 @@ const TREES_FACTOR = 1.7;
 const VERGE_FACTOR = 1.12;
 const VERGE_TILE = 900;
 /** Small bushes in front of the verge, behind the trees. */
-const BUSH_FACTOR = 1.18;
+const BUSH_FACTOR = 1.3; // 1.18 × 1.1
 const BUSH_TILE = 1100;
 const GRASS_FACTOR = 2.6;
 const TREES_TILE = 2600; // px, one repeat of the tree pattern (sparse), before scale
