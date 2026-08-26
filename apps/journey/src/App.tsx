@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LocateFixed, RotateCw, TriangleAlert } from "lucide-react";
+import { Info, LocateFixed, RotateCw, TriangleAlert } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 import { useCosimoSocket } from "@cosimo/client";
 import { Brand, Button, Card } from "@cosimo/ui";
@@ -67,6 +67,7 @@ export default function App() {
   /* ── follow-the-cab scrolling ─────────────────────────────────────── */
   const scroller = useRef<HTMLDivElement>(null);
   const [following, setFollowing] = useState(true);
+  const [infoOpen, setInfoOpen] = useState(false);
   const followRef = useRef(true);
   followRef.current = following;
   const ourScroll = useRef(false);
@@ -213,12 +214,6 @@ export default function App() {
             <g transform={outbound ? undefined : "scale(-1 1)"}>
               <image href={cabUrl} x={-CAB_W / 2} y={-CAB_H + 10} width={CAB_W} height={CAB_H} />
             </g>
-            <text y={-CAB_H - 8} textAnchor="middle" fill={INK} fontSize={18} fontWeight={600} fontVariant="tabular-nums">
-              {fmt(Math.round(t.speedKmh))} km/h{t.simPaused ? ` · ${L("pausiert", "paused")}` : ""}
-            </text>
-            <text y={34} textAnchor="middle" fill={holding ? WARN : MUTE} fontSize={15}>
-              {holding ? L("Halt", "held") : t.doorsOpen ? L("Türen offen", "doors open") : outbound ? `→ ${t.destination[lang]}` : `← ${t.destination[lang]}`}
-            </text>
           </g>
         </svg>
       </div>
@@ -239,13 +234,51 @@ export default function App() {
       {!following && (
         <Button
           variant="primary"
-          className="fixed bottom-5 left-6 z-header rounded-full"
+          className="fixed right-6 top-6 z-header rounded-full"
           onClick={recenter}
           aria-label={L("Zum MonoCab zurück", "Back to the MonoCab")}
         >
           <LocateFixed size={16} /> {L("Zum MonoCab", "To the MonoCab")}
         </Button>
       )}
+
+      {/* ── the numbers, on demand: hover (or tap) the info icon ─────── */}
+      <div
+        className="fixed bottom-5 left-6 z-header"
+        onMouseEnter={() => setInfoOpen(true)}
+        onMouseLeave={() => setInfoOpen(false)}
+      >
+        {infoOpen && (
+          <div role="tooltip" className="absolute bottom-full left-0 mb-3 w-[280px] rounded-xl border border-line bg-white p-4 shadow-float">
+            <dl className="m-0 flex flex-col gap-2 text-sm leading-snug">
+              {([
+                [L("Tempo", "Speed"), `${fmt(Math.round(t.speedKmh))} km/h${t.simPaused ? ` · ${L("pausiert", "paused")}` : ""}`],
+                [L("Richtung", "Heading"), `${outbound ? "→" : "←"} ${t.destination[lang]}`],
+                [L("Position", "Position"), t.location[lang]],
+                [L("Nächster Halt", "Next stop"), next ? `${next.name[lang]} · ${next.etaMinutes === 0 ? L("jetzt", "now") : `${next.etaMinutes} min`}` : "—"],
+                [L("Status", "Status"), holding ? L("Halt am Signal", "held at signal") : t.doorsOpen ? L("Türen offen", "doors open") : L("fährt", "moving")],
+                [L("Verspätung", "Delay"), t.delayMinutes > 0 ? `+${t.delayMinutes} min` : L("pünktlich", "on time")],
+                [L("Fahrgäste", "Passengers"), `${t.occupancy} / ${t.capacity}`],
+                [L("Akku", "Battery"), `${Math.round(t.batteryPct)} %`],
+              ] as [string, string][]).map(([k, v]) => (
+                <div key={k} className="flex gap-3">
+                  <dt className="w-[104px] shrink-0 text-mute">{k}</dt>
+                  <dd className="m-0 min-w-0 flex-1 text-ink tabular-nums">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+        <button
+          type="button"
+          aria-label={L("Fahrtdaten", "Journey data")}
+          aria-expanded={infoOpen}
+          onClick={() => setInfoOpen((o) => !o)}
+          className="flex size-11 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink shadow-card"
+        >
+          <Info size={20} />
+        </button>
+      </div>
 
       {brand}
       {reloadPanel}
