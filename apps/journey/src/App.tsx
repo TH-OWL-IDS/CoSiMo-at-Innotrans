@@ -17,7 +17,10 @@ import { resolveServerUrl } from "./serverUrl";
  * No header, no cards — the line is the page; the wordmark sits bottom-right.
  */
 
-const STOP_GAP = 1300; // px between stops — the world's scale
+/** The line's scale: distance between stops is proportional to the travel
+ *  time between them (3 px per second of driving; at least MIN_GAP). */
+const PX_PER_SEC = 3;
+const MIN_GAP = 500;
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 /** Foreground parallax: layers between camera and track scroll FASTER
  *  than the world (factor > 1) — the classic depth cue. */
@@ -155,14 +158,25 @@ function fmt(n: number): string {
   return n.toLocaleString("de-DE");
 }
 
-/** 0..1 position of the cab along the whole line, in outbound coordinates. */
-function lineProgress(t: MonoCabTelemetry): number {
-  const n = t.stops.length;
-  if (n < 2) return 0;
+/** World x of every stop: cumulative travel time, scaled. */
+function stopPositions(t: MonoCabTelemetry, pad: number): number[] {
+  const xs: number[] = [];
+  let x = pad;
+  t.stops.forEach((s, i) => {
+    if (i > 0) x += Math.max(MIN_GAP, s.travelSecondsFromPrev * PX_PER_SEC);
+    xs.push(x);
+  });
+  return xs;
+}
+
+/** World x of the cab: between the stop it is at/just left and the next one
+ *  in its direction of travel, by the sim's leg progress. */
+function cabPosition(t: MonoCabTelemetry, xs: number[]): number {
   const { stopIndex, progress, direction } = t.position;
-  const from = stopIndex / (n - 1);
-  const step = 1 / (n - 1);
-  return direction === "outbound" ? from + progress * step : from - progress * step;
+  const here = xs[stopIndex] ?? xs[0] ?? 0;
+  const nextIdx = direction === "outbound" ? stopIndex + 1 : stopIndex - 1;
+  const next = xs[nextIdx];
+  return next == null ? here : here + (next - here) * progress;
 }
 
 function useViewport(): { w: number; h: number } {
@@ -204,11 +218,11 @@ export default function App() {
   const grassLayer = useRef<SVGGElement>(null);
   const hillLayers = [useRef<SVGGElement>(null), useRef<SVGGElement>(null), useRef<SVGGElement>(null)];
 
-  const n = t?.stops.length ?? 0;
   const pad = vw / 2; // a terminal can sit dead centre too
-  const worldW = pad * 2 + STOP_GAP * Math.max(1, n - 1);
-  const stopX = (i: number) => pad + i * STOP_GAP;
-  const cabX = t ? pad + lineProgress(t) * STOP_GAP * (n - 1) : pad;
+  const xs = t ? stopPositions(t, pad) : [pad];
+  const worldW = (xs[xs.length - 1] ?? pad) + pad;
+  const stopX = (i: number) => xs[i] ?? pad;
+  const cabX = t ? cabPosition(t, xs) : pad;
   cabTarget.current = cabX;
   if (cabSmooth.current === null && t) cabSmooth.current = cabX;
   vwRef.current = vw;
