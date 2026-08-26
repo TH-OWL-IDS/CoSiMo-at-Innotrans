@@ -18,7 +18,6 @@ import { resolveServerUrl } from "./serverUrl";
  */
 
 const STOP_GAP = 650; // px between stops — the world's scale
-const TICK = 65; // px between the small distance ticks (10 per stop gap)
 const TRACK_Y = 0.5; // the line's vertical position, fraction of the viewport
 const CAB_W = 220; // the CI drawing's width on screen (1400×760 → keeps ratio)
 const CAB_H = Math.round((CAB_W * 760) / 1400);
@@ -35,7 +34,7 @@ const OK = "var(--color-ok)";
  * Deterministic per stop index so the map is stable.
  */
 function Town({ variant }: { variant: number }) {
-  const common = { fill: "none", stroke: INK, strokeWidth: 3 / 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { fill: "none", stroke: INK, strokeWidth: 3 / 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (variant === 0) {
     // Dorf: house, church with tower, a tree
     return (
@@ -234,7 +233,6 @@ export default function App() {
   const holding = t.position.phase === "hold";
   const next = t.nextStops[0];
   const trackY = Math.round(vh * TRACK_Y);
-  const ticks = Math.round((worldW - pad * 2) / TICK);
 
   return (
     <main className="relative h-screen overflow-hidden bg-bg text-ink">
@@ -250,14 +248,6 @@ export default function App() {
         style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
       >
         <svg width={worldW} height={vh} viewBox={`0 0 ${worldW} ${vh}`} className="block font-mono" style={{ minWidth: worldW }}>
-          {/* distance ticks — the "background" that flies by between stops */}
-          {Array.from({ length: ticks + 1 }, (_, i) => {
-            const tx = pad + i * TICK;
-            const major = i % 10 === 0;
-            return major ? null : (
-              <line key={i} x1={tx} y1={trackY - 6} x2={tx} y2={trackY + 6} stroke={INK} strokeWidth={3} opacity={0.35} />
-            );
-          })}
           {/* track */}
           <line x1={pad} y1={trackY} x2={worldW - pad} y2={trackY} stroke={INK} strokeWidth={3} strokeLinecap="round" />
           {/* travelled part of the current trip, in the direction of travel */}
@@ -275,19 +265,15 @@ export default function App() {
           {t.stops.map((s, i) => {
             const here = t.position.phase !== "drive" && t.position.stopIndex === i && t.position.progress === 0;
             const isNext = next?.id === s.id;
-            const eta = t.nextStops.find((ns) => ns.id === s.id)?.etaMinutes;
             return (
               <g key={s.id} transform={`translate(${stopX(i)} ${trackY})`}>
                 {/* the town stands on the line; the marker below is the halt */}
-                <g transform="translate(0 -14) scale(1.5)">
+                <g transform="translate(0 -14) scale(2.25)">
                   <Town variant={i % 3} />
                 </g>
                 <circle r={here ? 9 : 6} fill="var(--color-bg)" stroke={here || isNext ? ACCENT : INK} strokeWidth={2.5} />
                 <text y={40} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
-                </text>
-                <text y={64} textAnchor="middle" fill={MUTE} fontSize={15} fontVariant="tabular-nums">
-                  {eta != null ? (eta === 0 ? L("jetzt", "now") : `${eta} min`) : i === 0 || i === n - 1 ? L("Endhalt", "terminal") : ""}
                 </text>
               </g>
             );
