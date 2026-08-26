@@ -113,6 +113,30 @@ function Town({ variant }: { variant: number }) {
   );
 }
 
+/**
+ * The MonoCab CI drawing, inlined so it can carry a fill. The viewBox is the
+ * artwork's (1400×760); on screen it is CAB_W wide, so the stroke is scaled
+ * to read exactly like the towns' 3 px lines. Its shadow is a gradient
+ * ellipse on the track (drawn by the caller) — no filter.
+ */
+function MonoCab({ width, height }: { width: number; height: number }) {
+  const stroke = 3 / (width / 1400);
+  return (
+    <svg viewBox="0 0 1400 760" width={width} height={height} overflow="visible" style={{ overflow: "visible" }}>
+      <g fill="#ffffff" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+        {/* chassis first, so the cabin body overlaps its top edge */}
+        <path fill="#f6f6f6" d="M171 594 Q183 610 214 614 L1186 614 Q1217 610 1229 594 L1247 630 Q1253 644 1245 660 Q1237 678 1212 686 Q1186 694 1154 694 L247 694 Q215 694 189 686 Q164 678 156 660 Q148 644 154 630 Z" />
+        <path d="M165 540 L177 395 Q185 320 268 287 Q322 265 400 258 L1000 258 Q1078 265 1132 287 Q1215 320 1223 395 L1235 540 Q1238 576 1208 594 L191 594 Q162 576 165 540 Z" />
+      </g>
+      <g fill="none" stroke={INK} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M278 694 Q334 702 402 702 L998 702 Q1066 702 1122 694" />
+        <path d="M345 257 L448 223 L603 223 L614 257" />
+        <path d="M786 257 L797 223 L952 223 L1055 257" />
+      </g>
+    </svg>
+  );
+}
+
 function fmt(n: number): string {
   return n.toLocaleString("de-DE");
 }
