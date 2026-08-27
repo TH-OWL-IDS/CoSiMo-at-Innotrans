@@ -3,7 +3,7 @@
 What booth staff have open on a phone or spare iPad during the show. One
 header — the wordmark **CoSiMo × MonoCab-Logo** (`Brand` from
 `@cosimo/ui`; CoSiMo and the × in Schoolbell, the hand-written face font),
-separated from the content by a hairline — and five views (the view switcher is a hamburger on the header's right; open, a full-width panel slides out from beneath the header; the active tab survives a reload
+separated from the content by a hairline — and drei views (the view switcher is a hamburger on the header's right; open, a full-width panel slides out from beneath the header; the active tab survives a reload
 via the URL hash):
 
 - **Übersicht** — one card per dependency in a three-column grid (two on a
@@ -87,3 +87,6 @@ ersetzt" panel and is disconnected; reloading it takes a slot back from
 the then-oldest. Forgotten tabs therefore can't pile up. Only real consoles count (`kind:
 "console"`); journey views are host-role too but are listed as their own
 rows and never evicted.
+
+
+> 2026-08-27: the Fahrzeug and Diagramm views were removed; the console has Übersicht · Sessions · Logs. Sessions shows one full-width card per active seat — configuration left, the whole conversation (rebuilt from the log stream) right. The wordmark links to Übersicht.

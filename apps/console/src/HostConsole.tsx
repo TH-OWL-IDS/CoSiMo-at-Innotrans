@@ -4,11 +4,9 @@ import {
   Activity,
   Wrench,
   FlaskConical,
-  Armchair, BatteryLow, BatteryMedium, Brain, Cable, Check, Clock,
-  DoorClosed, DoorOpen, Ear, Flag, Frown, IdCard,
-  Database, LayoutDashboard, LifeBuoy, MapPin, Meh, Menu, MessageCircle, Mic, Moon,
-  Pause, Play, RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, TriangleAlert,
-  AppWindow, Box, Monitor, RadioTower, Route, TabletSmartphone, Users, Volume2, Waypoints, X, Zap, type LucideIcon,
+  Armchair, Brain, Cable, Check, Ear, Frown, IdCard,
+  Database, LayoutDashboard, LifeBuoy, Meh, Menu, MessageCircle, Mic, Moon,
+  RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, AppWindow, Box, Monitor, RadioTower, Route, TabletSmartphone, Volume2, X, Zap, type LucideIcon,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -19,29 +17,24 @@ import {
   type ServiceInfo,
   type DeviceHealth,
   type LogEvent,
-  type MonoCabTelemetry,
   type PersonaBroadcast,
   type PersonaKey,
   type SeatInspection,
   type SeatSummary,
 } from "@cosimo/shared";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
-import { Banner, Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, Meter, SeatGlyph, Select, StatTile, Tip, cn } from "@cosimo/ui";
+import { Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, SeatGlyph, Select, Tip, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
-import DiagramView from "./DiagramView";
-import cabUrl from "./assets/monocab-base.svg";
 
 /**
- * Die Konsole — the live operator surface, five views behind one header:
+ * Die Konsole — the live operator surface, three views behind one header:
  *
  *  ÜBERSICHT  every service the demo depends on, with a detail line.
- *  FAHRZEUG   the MonoCab itself: the CI line drawing, live state around it,
- *             and the journey/fault controls.
  *  SESSIONS   the Betrieb card (recover, demo mode, all-seat persona, reset
  *             all — "seats" = every kiosk-role client, the emulator too),
- *             then one card per active seat, idle seats as chips.
- *  DIAGRAMM   the system as live, draggable bubbles (DiagramView).
+ *             then one full-width card per active seat: its configuration
+ *             on the left, the whole conversation on the right.
  *  LOGS       the structured debug stream (LogView).
  *
  * Served by apps/console (its own static service, not the CMS) so it stays
@@ -93,18 +86,6 @@ function Emotion({ emotion }: { emotion: string }) {
   return <Icon size={16} className="-mb-[3px] inline" aria-label={emotion} />;
 }
 
-/** Compact chips describing the accommodations a seat is presenting with. */
-function accommodationChips(a: Accommodations): string[] {
-  return [
-    a.theme,
-    `Text ${a.textSize.toUpperCase()}`,
-    a.contrast === "high" ? "Kontrast" : null,
-    a.audioOutput ? "Audio" : "🔇",
-    a.showText ? "Text sichtbar" : null,
-    a.reduceMotion ? "ruhig" : null,
-    `Eingabe: ${a.input}`,
-  ].filter((c): c is string => Boolean(c));
-}
 
 /* ────────────────────────────────────────────────────────────────
  * ÜBERSICHT — one card per dependency: status, consequence, live facts
@@ -566,118 +547,6 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
     </div>
   );
 }/* ────────────────────────────────────────────────────────────────
- * FAHRZEUG — the MonoCab itself, state arranged around the CI drawing
- * ──────────────────────────────────────────────────────────────── */
-
-function VehicleTab({ c, t }: { c: CosimoState; t: MonoCabTelemetry | null }) {
-  if (!t) return <span className="text-mute">keine Telemetrie …</span>;
-  const fault = t.faults?.[0];
-  const outbound = t.position?.direction !== "return";
-  const holding = t.position?.phase === "hold";
-  const next = t.nextStops[0];
-  const seats = Array.from({ length: t.capacity }, (_, i) => ({
-    live: i < (t.seats?.liveSessions ?? 0),
-    taken: i < t.occupancy,
-  }));
-
-  return (
-    <div className="mx-auto flex max-w-[980px] flex-col gap-5">
-      {/* disruption first — it is the one thing that changes everything below */}
-      {fault && (
-        <Banner className="self-center">
-          <TriangleAlert size={16} />
-          <span>{fault.cause.de}</span>
-          <span className="tabular-nums opacity-85">
-            {Math.floor(fault.remainingSec / 60)}:{String(fault.remainingSec % 60).padStart(2, "0")}
-          </span>
-        </Banner>
-      )}
-
-      {/* the vehicle */}
-      <div className="flex flex-col items-center gap-1.5">
-        <div className={cn("text-4xl font-bold tabular-nums", holding ? "text-warn" : "text-ink")}>
-          {Math.round(t.speedKmh)} <span className="text-lg font-medium text-mute">km/h</span>
-        </div>
-        <img src={cabUrl} alt="MonoCab" className="block w-[min(560px,90%)]" />
-        <div className="text-base text-mute">
-          {outbound ? "→" : "←"} {t.destination.de} · {t.line.de}
-          {t.simPaused ? " · ⏸ pausiert" : ""}
-          {holding ? " · Halt" : t.doorsOpen ? " · Türen offen" : ""}
-        </div>
-      </div>
-
-      {/* the state, symmetric around it */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-        <StatTile icon={MapPin} label="Position" value={t.location.de} />
-        <StatTile
-          icon={Flag}
-          label="Nächster Halt"
-          value={next ? next.name.de : "—"}
-          sub={next ? (next.etaMinutes === 0 ? "jetzt" : `in ${next.etaMinutes} min`) : ""}
-        />
-        <StatTile
-          icon={Clock}
-          label="Verspätung"
-          value={t.delayMinutes > 0 ? `+${t.delayMinutes} min` : "pünktlich"}
-          warn={t.delayMinutes > 0}
-        />
-        <StatTile
-          icon={BatteryMedium}
-          label="Akku"
-          value={`${Math.round(t.batteryPct)} %`}
-          warn={t.batteryPct < 20}
-          sub={<Meter pct={t.batteryPct} warn={t.batteryPct < 20} className="mt-1" />}
-        />
-        <StatTile icon={t.doorsOpen ? DoorOpen : DoorClosed} label="Türen" value={t.doorsOpen ? "offen" : "geschlossen"} />
-        <StatTile
-          icon={Users}
-          label="Fahrgäste"
-          value={`${t.occupancy} / ${t.capacity}`}
-          sub={
-            <span className="mt-1 inline-flex gap-1">
-              {seats.map((s, i) => (
-                <SeatGlyph
-                  key={i}
-                  state={s.live ? "live" : s.taken ? "taken" : "free"}
-                  title={s.live ? "echter Fahrgast (CoSiMo-Sitz aktiv)" : s.taken ? "simuliert" : "frei"}
-                />
-              ))}
-            </span>
-          }
-        />
-      </div>
-
-      {/* controls that belong to the vehicle */}
-      <Card>
-        <Eyebrow>Fahrt steuern</Eyebrow>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => c.patchTelemetry({ paused: !t.simPaused })}>
-            {t.simPaused ? <Play size={15} /> : <Pause size={15} />}
-            {t.simPaused ? "Weiterfahren" : "Fahrt anhalten"}
-          </Button>
-          <Button onClick={() => c.patchTelemetry({ batteryPct: 15 })}>
-            <BatteryLow size={15} /> Akku schwach
-          </Button>
-        </div>
-        <Eyebrow className="mt-1.5">Störung auslösen</Eyebrow>
-        <div className="flex flex-wrap gap-2">
-          {([["signal-hold", "Halt vor Signal"], ["door-fault", "Türstörung"], ["slow-order", "Langsamfahrt"], ["low-battery", "Akku niedrig"]] as const).map(([kind, label]) => (
-            <Button key={kind} onClick={() => c.patchTelemetry({ fault: { kind } })}>
-              <TriangleAlert size={15} className="text-warn" /> {label}
-            </Button>
-          ))}
-          {(t.faults?.length ?? 0) > 0 && (
-            <Button variant="secondary" onClick={() => c.patchTelemetry({ clearFaults: true })}>
-              <Check size={15} className="text-ok" /> Störung beheben
-            </Button>
-          )}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────
  * SESSIONS — the seats and their conversations
  * ──────────────────────────────────────────────────────────────── */
 
@@ -770,24 +639,103 @@ function InspectorDrawer({
   );
 }
 
+/**
+ * One turn of a seat's conversation, rebuilt from the log stream: the
+ * rider's text (turn.start), the tool calls in between, CoSiMo's reply
+ * (turn.end) — and the slit cards shown/answered along the way.
+ */
+interface ConvoTurn {
+  turn: number;
+  user?: { text: string; modality: string; ts: string };
+  tools: { tool: string; input: Record<string, unknown>; ok: boolean; durationMs: number }[];
+  cards: string[];
+  reply?: { text: string; outcome: string; latencyMs: number; error?: string; ts: string };
+}
+
+/** The latest session's turns at a device, oldest first. */
+function conversationOf(logs: LogEvent[], deviceId: string): ConvoTurn[] {
+  const mine = logs.filter((e) => e.deviceId === deviceId && e.sessionId);
+  const lastSession = mine.length ? mine[mine.length - 1]!.sessionId : undefined;
+  const turns = new Map<number, ConvoTurn>();
+  const get = (n: number) => {
+    let t = turns.get(n);
+    if (!t) { t = { turn: n, tools: [], cards: [] }; turns.set(n, t); }
+    return t;
+  };
+  for (const e of mine) {
+    if (e.sessionId !== lastSession || e.turn == null) continue;
+    if (e.kind === "turn.start") get(e.turn).user = { text: e.data.text, modality: e.data.modality, ts: e.ts };
+    else if (e.kind === "tool.call") get(e.turn).tools.push({ tool: e.data.tool, input: e.data.input, ok: e.data.ok, durationMs: e.data.durationMs });
+    else if (e.kind === "card.show") get(e.turn).cards.push(`${e.data.kind}: ${e.data.question}`);
+    else if (e.kind === "card.answer") get(e.turn).cards.push(`↳ ${e.data.value}`);
+    else if (e.kind === "turn.end") get(e.turn).reply = { text: e.data.reply, outcome: e.data.outcome, latencyMs: e.data.latencyMs, error: e.data.error, ts: e.ts };
+  }
+  return [...turns.values()].sort((x, y) => x.turn - y.turn);
+}
+
+function Conversation({ turns }: { turns: ConvoTurn[] }) {
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [turns.length, turns[turns.length - 1]?.reply?.text]);
+  if (turns.length === 0) return <span className="text-md text-mute">noch keine Unterhaltung</span>;
+  return (
+    <div className="flex max-h-[520px] flex-col gap-3 overflow-y-auto pr-1">
+      {turns.map((t) => (
+        <div key={t.turn} className="flex flex-col gap-1.5">
+          {t.user && (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xs uppercase tracking-caps text-ok">Gast · {t.user.modality} · {clock(t.user.ts)}</span>
+              <div className="whitespace-pre-wrap rounded-lg rounded-tl-none bg-well px-3 py-2 text-md">{t.user.text}</div>
+            </div>
+          )}
+          {(t.tools.length > 0 || t.cards.length > 0) && (
+            <div className="flex flex-wrap gap-1.5 pl-3">
+              {t.tools.map((a, j) => (
+                <CodeChip key={j} tone={a.ok ? "default" : "error"} title={JSON.stringify(a.input)}>
+                  ⚙ {a.tool}{Object.keys(a.input).length ? ` ${JSON.stringify(a.input)}` : ""} · {a.durationMs} ms
+                </CodeChip>
+              ))}
+              {t.cards.map((cd, j) => <CodeChip key={`c${j}`}>▭ {cd}</CodeChip>)}
+            </div>
+          )}
+          {t.reply && (
+            <div className="flex flex-col gap-0.5 items-end">
+              <span className="text-2xs uppercase tracking-caps text-mute">CoSiMo · {(t.reply.latencyMs / 1000).toFixed(1)} s · {t.reply.outcome}</span>
+              <div className={cn("max-w-[92%] whitespace-pre-wrap rounded-lg rounded-tr-none border border-line px-3 py-2 text-md", t.reply.error && "border-accent")}>
+                {t.reply.text || <i className="text-mute">(leer)</i>}
+                {t.reply.error && <div className="mt-1 text-sm text-accent">✖ {t.reply.error}</div>}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <div ref={end} />
+    </div>
+  );
+}
+
 function SeatCard({
   seat,
   personas,
+  turns,
   onPersona,
   onLight,
   onReset,
   onInspect,
+  onLogs,
 }: {
   seat: SeatSummary;
   personas: PersonaBroadcast[];
+  turns: ConvoTurn[];
   onPersona: (key: PersonaKey) => void;
   onLight: (control: (typeof TOGGLE_CONTROLS)[number]["id"], on: boolean) => void;
   onReset: () => void;
   onInspect: () => void;
+  onLogs: () => void;
 }) {
   const personaId = `persona-${seat.deviceId}`;
+  const a = seat.accommodations;
   return (
-    <Card active={seat.phase !== "idle"}>
+    <Card active={seat.phase !== "idle"} className="gap-4">
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-2 text-lg font-semibold">
           <Emotion emotion={seat.emotion} /> <code className="text-sm opacity-70">{seat.deviceId}</code>
@@ -798,80 +746,60 @@ function SeatCard({
         </span>
       </div>
 
-      {/* persona — set by NFC chip or manually here */}
-      <div className="flex items-center gap-2 text-md">
-        <label htmlFor={personaId} className="inline-flex items-center gap-1.5 opacity-55"><IdCard size={14} /> Persona</label>
-        <Select id={personaId} value={seat.persona} onChange={(e) => onPersona(e.target.value)}>
-          {personaOptions(personas, seat.persona).map((p) => (
-            <option key={p.key} value={p.key}>{p.label}</option>
-          ))}
-        </Select>
-        <span className="text-sm opacity-55">{seat.personaLabel}</span>
-      </div>
-
-      {/* accommodations CoSiMo is presenting with (live, voice-mutable) */}
-      <div className="flex flex-wrap gap-1.5">
-        {accommodationChips(seat.accommodations).map((c) => (
-          <Chip key={c} className="opacity-70">{c}</Chip>
-        ))}
-      </div>
-
-      {/* what CoSiMo has remembered about this rider */}
-      {seat.memories.length > 0 && (
-        <div className="flex flex-col gap-0.5 text-sm opacity-85">
-          <span className="opacity-55">Erinnert:</span>
-          {seat.memories.map((m, i) => (
-            <span key={i}>· {m}</span>
-          ))}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(280px,2fr)_3fr]">
+        {/* ── left: the seat's configuration ── */}
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex items-center gap-2 text-md">
+            <label htmlFor={personaId} className="inline-flex items-center gap-1.5 opacity-55"><IdCard size={14} /> Persona</label>
+            <Select id={personaId} value={seat.persona} onChange={(e) => onPersona(e.target.value)}>
+              {personaOptions(personas, seat.persona).map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </Select>
+          </div>
+          <KeyValue
+            keyWidth="w-[104px]"
+            rows={[
+              ["Sprache", a.language],
+              ["Farben", `${a.theme}${a.contrast === "high" ? " · hoher Kontrast" : ""}`],
+              ["Schrift", a.textSize.toUpperCase()],
+              ["Eingabe", a.input],
+              ["Text", a.showText ? "sichtbar" : "aus"],
+              ["Audio", a.audioOutput ? `an · ${Math.round((a.volume ?? 1) * 100)} %` : "aus"],
+              ["Stimme", `${a.voice || (a.voiceGender === "male" ? "männlich" : "weiblich")} · ${a.voiceTone ?? "neutral"} · ${(a.speechRate ?? 1).toLocaleString("de-DE")}×`],
+              ["Bewegung", a.reduceMotion ? "ruhig" : "normal"],
+              ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
+            ]}
+          />
+          <div className="flex flex-wrap gap-2">
+            {TOGGLE_CONTROLS.map((def) => {
+              const st = seat.controls.find((x) => x.id === def.id);
+              const on = Boolean(st?.on);
+              return (
+                <Button key={def.id} size="sm" variant={on ? "on" : "default"} aria-pressed={on} onClick={() => onLight(def.id, !on)} title={def.real ? "real hardware" : "simulated"}>
+                  {def.label.de} {on ? "an" : "aus"}{st?.degraded ? " ⚠" : ""}
+                </Button>
+              );
+            })}
+          </div>
+          <div className="mt-auto flex flex-wrap gap-2">
+            <Button size="sm" onClick={onInspect}><Search size={14} /> Systemprompt</Button>
+            <Button size="sm" onClick={onLogs}><ScrollText size={14} /> Log</Button>
+            <Button size="sm" onClick={onReset}><RotateCcw size={14} /> Zurücksetzen</Button>
+          </div>
         </div>
-      )}
 
-      {/* per-seat cabin (reading lamp etc.) */}
-      <div className="flex flex-wrap gap-2">
-        {TOGGLE_CONTROLS.map((def) => {
-          const s = seat.controls.find((x) => x.id === def.id);
-          const on = Boolean(s?.on);
-          return (
-            <Button
-              key={def.id}
-              size="sm"
-              variant={on ? "on" : "default"}
-              aria-pressed={on}
-              onClick={() => onLight(def.id, !on)}
-              title={def.real ? "real hardware" : "simulated"}
-            >
-              {def.label.de} {on ? "an" : "aus"}{s?.degraded ? " ⚠" : ""}
-            </Button>
-          );
-        })}
-      </div>
-
-      {/* live conversation snippet */}
-      <div className="flex min-h-10 flex-col gap-1 text-md">
-        {seat.lastUser && (
-          <div className="opacity-70">
-            <span className="opacity-55">Gast: </span>{seat.lastUser}
-          </div>
-        )}
-        {seat.lastReply && (
-          <div className="opacity-85">
-            <span className="opacity-55">CoSiMo: </span>{seat.lastReply}
-          </div>
-        )}
-        {!seat.lastUser && !seat.lastReply && (
-          <span className="opacity-40">noch keine Unterhaltung</span>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <Button onClick={onInspect}><Search size={15} /> Verlauf</Button>
-        <Button onClick={onReset}><RotateCcw size={15} /> Sitz zurücksetzen</Button>
+        {/* ── right: the whole conversation ── */}
+        <div className="flex min-w-0 flex-col gap-2 md:border-l md:border-line-soft md:pl-6">
+          <Eyebrow>Unterhaltung{turns.length ? ` · ${turns.length} Turns` : ""}</Eyebrow>
+          <Conversation turns={turns} />
+        </div>
       </div>
     </Card>
   );
 }
 
-function SessionsTab({ c }: { c: CosimoState }) {
+function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId: string) => void }) {
   const activeSeats = c.seats.filter((s) => s.active);
   const idleSeats = c.seats.filter((s) => !s.active);
   return (
@@ -926,12 +854,14 @@ function SessionsTab({ c }: { c: CosimoState }) {
         </div>
       </Card>
       {activeSeats.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4">
+        <div className="flex flex-col gap-4">
           {activeSeats.map((seat) => (
             <SeatCard
               key={seat.deviceId}
               seat={seat}
               personas={c.personas}
+              turns={conversationOf(c.logs, seat.deviceId)}
+              onLogs={() => onShowLogs(seat.deviceId)}
               onInspect={() => c.inspectSeat(seat.deviceId)}
               onPersona={(p) => c.setPersona(p, seat.deviceId)}
               onLight={(control, on) => c.overrideLight(seat.deviceId, control, on)}
@@ -957,12 +887,10 @@ function SessionsTab({ c }: { c: CosimoState }) {
  * Shell — header with the view switcher
  * ──────────────────────────────────────────────────────────────── */
 
-type Tab = "uebersicht" | "fahrzeug" | "sessions" | "diagramm" | "logs";
+type Tab = "uebersicht" | "sessions" | "logs";
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "uebersicht", label: "Übersicht", icon: LayoutDashboard },
-  { id: "fahrzeug", label: "Fahrzeug", icon: TramFront },
   { id: "sessions", label: "Sessions", icon: Armchair },
-  { id: "diagramm", label: "Diagramm", icon: Waypoints },
   { id: "logs", label: "Logs", icon: ScrollText },
 ];
 
@@ -1058,7 +986,7 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
 function tabFromHash(): Tab {
   const hash = window.location.hash.replace("#", "");
   if (hash === "log" || hash === "logs") return "logs";
-  return (TABS.some((t) => t.id === hash) ? hash : "uebersicht") as Tab;
+  return (TABS.some((t) => t.id === hash) ? hash : "uebersicht") as Tab; // fahrzeug/diagramm (removed) → Übersicht
 }
 
 export default function HostConsole({ token, onUnauthorized }: { token: string; onUnauthorized: () => void }) {
@@ -1074,7 +1002,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
     setTab(t);
     window.location.hash = t;
   };
-  /** Jump to the Logs view pre-filtered to one device (Übersicht rows, Diagramm popups). */
+  /** Jump to the Logs view pre-filtered to one device (Übersicht rows, Session cards). */
   const showLogsFor = (deviceId: string) => {
     setLogSeatFilter((f) => ({ seat: deviceId, n: (f?.n ?? 0) + 1 }));
     switchTab("logs");
@@ -1094,21 +1022,19 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
              left zone is its counterweight. `relative` anchors the menu's clip box. ── */}
       <header className="relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
         <div className="flex-1" />
-        <h1 className="m-0 text-2xl font-semibold" aria-label="CoSiMo Konsole">
-          <Brand />
+        <h1 className="m-0 text-2xl font-semibold">
+          <a href="#uebersicht" aria-label="CoSiMo Konsole — zur Übersicht" onClick={(e) => { e.preventDefault(); switchTab("uebersicht"); }} className="inline-flex text-ink no-underline">
+            <Brand />
+          </a>
         </h1>
         <div className="flex flex-1 justify-end">
           <TabMenu tab={tab} onSwitch={switchTab} badge={badge} />
         </div>
       </header>
 
-      <div className={tab === "diagramm" ? "p-0" : "p-6"}>
+      <div className="p-6">
         {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor}  onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} />}
-        {tab === "fahrzeug" && <VehicleTab c={c} t={c.telemetry} />}
-        {tab === "sessions" && <SessionsTab c={c} />}
-        {tab === "diagramm" && (
-          <DiagramView c={c} st={st} t={c.telemetry} onShowLogs={showLogsFor} />
-        )}
+        {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
 
