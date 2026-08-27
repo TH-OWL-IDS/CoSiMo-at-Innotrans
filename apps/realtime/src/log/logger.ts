@@ -43,6 +43,7 @@ const DEFAULT_LEVEL: Record<LogEvent["kind"], LogLevel> = {
   "service.boot": "info",
   "config.loaded": "info",
   "service.restart": "warn",
+  "session.start": "info",
   "card.show": "info",
   "card.answer": "info",
   "cabin.actuate": "info",

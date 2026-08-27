@@ -69,6 +69,7 @@ export type LogEvent = Base &
     | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; light: string; node: string } }
     | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }
     | { kind: "service.restart"; data: { id: string; ok: boolean; error?: string; durationMs: number } }
+    | { kind: "session.start"; data: { persona: string; by: string; consent: boolean | null; previousSessionId?: string } }
     | { kind: "card.show"; data: { kind: string; question: string; options: string[]; local: boolean; step?: string } }
     | { kind: "card.answer"; data: { kind: string; value: string; applied?: Record<string, unknown> } }
     | {
@@ -120,6 +121,7 @@ export const LOG_KINDS: readonly LogKind[] = [
   "service.boot",
   "config.loaded",
   "service.restart",
+  "session.start",
   "card.show",
   "card.answer",
   "tts.done",

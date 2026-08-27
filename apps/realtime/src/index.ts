@@ -61,6 +61,7 @@ hub.setPersonaLister(() => personas.list());
 hub.setMemoriesResolver((key) => personas.memoriesOf(key).map((m) => m.note));
 hub.setStatus({ serverStt: stt.available, serverTts: tts.available });
 const agent = new CosimoAgent(hub, personas, tts, telemetry, llm, operatorConfig);
+const profiles = agent.profileSink;
 // After the agent exists: the console's config card carries the prompt as
 // the agent builds it (the lister runs synchronously on set/connect).
 hub.setConfigLister(() => ({
@@ -133,6 +134,14 @@ hub.onCardAnswer((p) => {
   void agent.handleCardAnswer(p);
 });
 hub.onLlmTest(() => agent.testLlm());
+// Sessions belong to riders: a persona switch closes the old session's
+// record; a card rider's consent decision is stored on the profile.
+hub.onSessionEnd(({ sessionId, deviceId }) => agent.endSession(sessionId, deviceId));
+hub.onConsentPersist((key, consent) => {
+  personas.setConsentLocal(key, consent);
+  void profiles.saveConsent(key, consent);
+});
+hub.setProfileResolvers((key) => personas.isPersistable(key), (key) => personas.get(key).consent);
 hub.onRepeat((p) => {
   void agent.repeatLast(p);
 });
@@ -158,6 +167,7 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
   logger.log("nfc.scan", { tagId, persona: key }, { deviceId, sessionId, level: key ? "info" : "warn" });
   if (key) {
     hub.setPersonaForDevice(deviceId, key, "nfc");
+    const newSession = hub.sessionOf(deviceId) || sessionId;
     const p = personas.get(key);
     // Greet in the rider's own preferred language — the card tells us who they
     // are, so the kiosk's UI toggle no longer has to guess.
@@ -166,7 +176,7 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
     // the rider's own pace — and the fact their style wants first.
     const ns = telemetry.get().nextStops[0];
     const text = greetingFor(p, ns ? { name: ns.name[riderLang], etaMinutes: ns.etaMinutes } : null);
-    void agent.announce(sessionId, text, riderLang, key, "happy");
+    void agent.announce(newSession, text, riderLang, key, "happy");
   } else {
     const text =
       lang === "de"
@@ -197,6 +207,7 @@ hub.onVoice(async (v) => {
       lang: v.lang,
       persona: v.persona,
       modality: "voice",
+    rider: v.rider,
       consent: v.consent,
       sttMs,
     });

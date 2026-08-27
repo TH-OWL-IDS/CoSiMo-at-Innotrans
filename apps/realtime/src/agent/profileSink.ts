@@ -39,6 +39,11 @@ export class ProfileSink {
     await this.patch(personaKey, { accommodations });
   }
 
+  /** Persist a card-bound rider's recording consent (it then applies at every login). */
+  async saveConsent(personaKey: PersonaKey, consent: boolean): Promise<void> {
+    await this.patch(personaKey, { consent });
+  }
+
   /** Persist a user's memories (personal data — caller must gate on consent). */
   async saveMemories(personaKey: PersonaKey, memories: PersonaMemory[]): Promise<void> {
     await this.patch(personaKey, {

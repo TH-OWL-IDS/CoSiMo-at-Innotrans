@@ -66,6 +66,7 @@ interface PayloadPersonaDoc {
   brief?: string;
   accommodations?: Partial<Accommodations>;
   traits?: Partial<Record<keyof InteractionTraits, string | null>> | null;
+  consent?: boolean | null;
   /** Notes CoSiMo remembered (array field in Payload). */
   memories?: { note?: string; at?: string }[];
   /** NFC chip ids that "log in" as this profile (array field in Payload). The
@@ -93,6 +94,7 @@ function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
     brief: doc.brief ?? base.brief,
     accommodations: { ...base.accommodations, ...(doc.accommodations ?? {}) },
     traits: mergeTraits(base.traits, doc.traits),
+    consent: doc.consent === true,
     memories: doc.memories
       ? doc.memories
           .map((m) => ({ note: (m.note ?? "").trim(), at: m.at ?? "" }))
@@ -120,7 +122,7 @@ export class PersonaProvider {
   /** The client-facing slice for broadcasting. */
   toBroadcast(key: PersonaKey): PersonaBroadcast {
     const p = this.get(key);
-    return { persona: p.key, label: p.label, accommodations: p.accommodations };
+    return { persona: p.key, label: p.label, accommodations: p.accommodations, traits: p.traits };
   }
 
   /** Every authored persona as a client-facing slice, `default` first — for the
@@ -141,6 +143,12 @@ export class PersonaProvider {
    *  the anonymous walk-up profile); every other, card-bound profile is. */
   isPersistable(key: PersonaKey): boolean {
     return this.has(key) && key !== "default";
+  }
+
+  /** Reflect a stored consent decision locally (card-bound riders only). */
+  setConsentLocal(key: PersonaKey, consent: boolean): void {
+    const p = this.cache[key];
+    if (p && key !== "default") p.consent = consent;
   }
 
   /** Current memories for a profile (to persist after a change). */

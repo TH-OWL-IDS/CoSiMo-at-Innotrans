@@ -15,6 +15,7 @@ import { logger } from "./log/logger.js";
 import { config } from "./config.js";
 import {
   CABIN_CONTROLS,
+  DEFAULT_TRAITS,
   type Accommodations,
   type CabinControlId,
   type CabinControlState,
@@ -29,6 +30,7 @@ import {
   type PersonaBroadcast,
   type PersonaKey,
   type PipelinePhase,
+  type RiderContext,
   type SeatCard,
   type SeatInspection,
   type SeatSummary,
@@ -81,6 +83,8 @@ export interface IncomingChat {
   persona: PersonaKey;
   modality: Modality;
   consent: boolean;
+  /** The seat's rider — THE source for prompt, speech and cards this turn. */
+  rider: RiderContext;
 }
 
 export type ChatHandler = (chat: IncomingChat) => void;
@@ -94,6 +98,7 @@ export interface IncomingVoice {
   lang: Locale;
   persona: PersonaKey;
   consent: boolean;
+  rider: RiderContext;
 }
 
 export type VoiceHandler = (voice: IncomingVoice) => void;
@@ -113,9 +118,13 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 
 /** Composes the host inspector view for one seat (system prompt + turns). */
 export type InspectResolver = (deviceId: string) => SeatInspection | null;
-export type CardAnswerHandler = (payload: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey }) => void;
+export type CardAnswerHandler = (payload: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
+/** A session ended (persona switch / reset): the agent closes its records. */
+export type SessionEndHandler = (payload: { sessionId: string; deviceId: string; consent: boolean }) => void;
+/** A card-bound rider decided on consent: persist it on the profile. */
+export type ConsentPersister = (persona: PersonaKey, consent: boolean) => void;
 export type LlmTester = () => Promise<LlmTestResult>;
-export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey }) => void;
+export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
 
@@ -234,8 +243,13 @@ export class Hub {
   private cardAnswerHandler: CardAnswerHandler | undefined;
   private repeatHandler: RepeatHandler | undefined;
   private llmTester: LlmTester | undefined;
+  private sessionEndHandler: SessionEndHandler | undefined;
+  private consentPersister: ConsentPersister | undefined;
+  /** Whether a profile is card-bound (consent + settings persist). */
+  private persistableResolver: ((key: PersonaKey) => boolean) | undefined;
+  private profileConsentResolver: ((key: PersonaKey) => boolean | undefined) | undefined;
+  private sessionCounter = 0;
   private lastTelemetry: MonoCabTelemetry | undefined;
-  private readonly consentBySession = new Map<string, boolean>();
   // Offline-mode inputs: host can force it; the health monitor sets network.
   private llmConfigured = false;
   /** Set by the health monitor's LLM probe (primary or fallback answering). */
@@ -356,6 +370,78 @@ export class Hub {
   /** Register how a seat's deep inspection (prompt + turns) is composed. */
   onCardAnswer(handler: CardAnswerHandler): void {
     this.cardAnswerHandler = handler;
+  }
+
+  onSessionEnd(handler: SessionEndHandler): void {
+    this.sessionEndHandler = handler;
+  }
+
+  onConsentPersist(persister: ConsentPersister): void {
+    this.consentPersister = persister;
+  }
+
+  setProfileResolvers(persistable: (key: PersonaKey) => boolean, storedConsent: (key: PersonaKey) => boolean | undefined): void {
+    this.persistableResolver = persistable;
+    this.profileConsentResolver = storedConsent;
+  }
+
+  /** The seat's rider context for a session — accommodations LIVE from the
+   *  seat, traits from the profile snapshot, memories from the profile. */
+  riderOf(sessionId: string): RiderContext | undefined {
+    const entry = this.entryOf(sessionId);
+    if (!entry) return undefined;
+    return this.riderOfEntry(entry, sessionId);
+  }
+
+  private riderOfEntry(entry: DeviceEntry, sessionId: string): RiderContext {
+    const key = entry.persona.persona;
+    return {
+      sessionId,
+      persona: key,
+      label: entry.persona.label,
+      accommodations: entry.persona.accommodations,
+      traits: entry.persona.traits ?? DEFAULT_TRAITS,
+      memories: (this.memoriesResolver?.(key) ?? []).map((note) => ({ note, at: "" })),
+      consent: entry.consent,
+    };
+  }
+
+  /**
+   * A new session on a seat — the ONE place sessions start: persona switch
+   * (NFC login, host), host reset. Closes the previous session for the agent,
+   * hands the client the new id, applies a card rider's stored consent.
+   */
+  beginSession(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot"): string | undefined {
+    const entry = this.devices.get(deviceId);
+    if (!entry || entry.role !== "kiosk") return undefined;
+    const previous = entry.sessionId || undefined;
+    if (previous) {
+      this.interruptHandler?.({ deviceId, sessionId: previous });
+      this.sessionEndHandler?.({ sessionId: previous, deviceId, consent: entry.consent });
+      this.sessionDevice.delete(previous);
+    }
+    const sessionId = `s-${Date.now().toString(36)}-${(this.sessionCounter++).toString(36)}`;
+    entry.sessionId = sessionId;
+    this.sessionDevice.set(sessionId, deviceId);
+    entry.persona = this.resolvePersona(persona);
+    const stored = this.persistableResolver?.(persona) ? this.profileConsentResolver?.(persona) : undefined;
+    entry.consent = stored === true;
+    entry.active = stored === true;
+    entry.turn = 0;
+    entry.lastUser = "";
+    entry.lastReply = "";
+    entry.lastReplyFull = "";
+    entry.replyBuffer = "";
+    entry.phase = "idle";
+    entry.wizardStep = undefined;
+    if (entry.cardTimer) clearTimeout(entry.cardTimer);
+    entry.cardTimer = undefined;
+    entry.card = undefined;
+    logger.log("session.start", { persona, by, consent: stored === true ? true : null, ...(previous ? { previousSessionId: previous } : {}) }, { deviceId, sessionId });
+    entry.socket.emit("session:reset", { deviceId, sessionId, consent: stored === true ? true : null });
+    entry.socket.emit("persona:active", entry.persona);
+    this.pushSeats();
+    return sessionId;
   }
 
   onLlmTest(tester: LlmTester): void {
@@ -631,6 +717,7 @@ export class Hub {
         sessionId, deviceId, cardId, value: String(value),
         lang: entry.persona.accommodations.language,
         persona: this.personaOf(deviceId),
+        rider: this.riderOfEntry(entry, sessionId),
       });
     });
 
@@ -639,19 +726,21 @@ export class Hub {
       const entry = this.devices.get(deviceId);
       if (!entry) return;
       entry.lastActivity = Date.now();
-      this.repeatHandler?.({ sessionId, deviceId, lang: entry.persona.accommodations.language, persona: this.personaOf(deviceId) });
+      this.repeatHandler?.({ sessionId, deviceId, lang: entry.persona.accommodations.language, persona: this.personaOf(deviceId), rider: this.riderOfEntry(entry, sessionId) });
     });
 
     socket.on("consent:set", ({ sessionId, consent }) => {
       const deviceId = this.trackSession(socket, sessionId);
       this.countEvent("consent:set", deviceId);
-      this.consentBySession.set(sessionId, consent);
       logger.log("consent", { consent }, { deviceId, sessionId });
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.consent = consent;
         entry.active = true;
         entry.lastActivity = Date.now();
+        // A card-bound rider's decision is stored on the profile — it then
+        // applies at every login without asking again.
+        if (this.persistableResolver?.(entry.persona.persona)) this.consentPersister?.(entry.persona.persona, consent);
         // A visitor arrived — a sleeping face wakes up.
         if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
       }
@@ -670,11 +759,13 @@ export class Hub {
         entry.lastActivity = Date.now();
       }
       this.pushSeats();
+      if (!entry) return;
       this.chatHandler?.({
         sessionId, deviceId, text, lang,
         persona: this.personaOf(deviceId),
         modality: modality ?? "text",
-        consent: this.consentBySession.get(sessionId) ?? false,
+        consent: entry.consent,
+        rider: this.riderOfEntry(entry, sessionId),
       });
     });
 
@@ -703,10 +794,12 @@ export class Hub {
       if (!this.allowTurn(deviceId)) return;
       const e = this.devices.get(deviceId);
       if (e) e.lastActivity = Date.now();
+      if (!e) return;
       this.voiceHandler?.({
         sessionId, deviceId, audioBase64, mime, lang,
         persona: this.personaOf(deviceId),
-        consent: this.consentBySession.get(sessionId) ?? false,
+        consent: e.consent,
+        rider: this.riderOfEntry(e, sessionId),
       });
     });
 
@@ -760,7 +853,6 @@ export class Hub {
       hostAction("resetSession", { deviceId });
       if (deviceId === "*") this.parked.clear();
       else this.parked.delete(deviceId);
-      this.io.emit("session:reset", { deviceId });
       const targets =
         deviceId === "*"
           ? [...this.devices.keys()]
@@ -768,17 +860,13 @@ export class Hub {
       for (const id of targets) {
         const entry = this.devices.get(id);
         if (!entry || entry.role !== "kiosk") continue;
-        entry.active = false;
-        entry.consent = false;
-        entry.lastUser = "";
-        entry.lastReply = "";
-        entry.replyBuffer = "";
-        entry.phase = "idle";
-        // Next visitor starts fresh: default persona, sleeping attract face.
+        // Next visitor starts fresh: default persona, new session, sleeping face.
         this.clearDecay(id);
         this.emitEmotion(entry, "sleeping");
-        this.setPersonaForDevice(id, "default", "host");
+        this.beginSession(id, "default", "host");
       }
+      // non-seat clients (journey views) still get told to reload on "*"
+      if (deviceId === "*") this.io.emit("session:reset", { deviceId: "*" });
       this.pushSeats();
     });
     socket.on("host:toggleOffline", ({ offline }) => {
@@ -844,9 +932,16 @@ export class Hub {
   /** Remember which device a session lives on (routes replies back to it). */
   private trackSession(socket: Sock, sessionId: string): string {
     const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
-    this.sessionDevice.set(sessionId, deviceId);
     const entry = this.devices.get(deviceId);
-    if (entry) entry.sessionId = sessionId;
+    if (entry && entry.sessionId && entry.sessionId !== sessionId) {
+      // The hub owns session ids: a stale client id (pre-switch) is bound to
+      // the seat's CURRENT session rather than resurrecting the old one.
+      logger.log("seat.connect", { role: entry.role, restored: false }, { deviceId, sessionId: entry.sessionId, level: "debug" });
+      this.sessionDevice.set(sessionId, deviceId);
+      return deviceId;
+    }
+    this.sessionDevice.set(sessionId, deviceId);
+    if (entry && !entry.sessionId) entry.sessionId = sessionId;
     return deviceId;
   }
 
@@ -1018,10 +1113,14 @@ export class Hub {
   /** Switch one kiosk's persona (NFC "account" registration / host). */
   setPersonaForDevice(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot" = "host"): void {
     const entry = this.devices.get(deviceId);
-    if (entry && entry.persona.persona !== persona) {
-      logger.log("persona.switch", { persona, by }, { deviceId, sessionId: entry.sessionId });
-    }
     if (!entry) return;
+    if (entry.persona.persona !== persona) {
+      // A different rider = a new session (history, consent, cards start over).
+      logger.log("persona.switch", { persona, by }, { deviceId, sessionId: entry.sessionId });
+      this.beginSession(deviceId, persona, by);
+      return;
+    }
+    // Same profile (e.g. refreshed from the CMS): re-broadcast its current state.
     entry.persona = this.resolvePersona(persona);
     entry.socket.emit("persona:active", entry.persona);
     this.pushSeats();

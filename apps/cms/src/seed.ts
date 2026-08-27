@@ -44,6 +44,7 @@ type ProfileSeed = {
   };
   nfcIds?: { tag: string }[];
   memories?: { note: string; at: string }[];
+  consent?: boolean;
 };
 
 // The `default` clean plate: neutral accommodations. It is the profile a

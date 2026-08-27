@@ -73,13 +73,17 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
     cosimo.setConsent(kept);
   }, [cosimo.connected]);
 
-  // Host reset → return to the consent screen for the next visitor.
+  // A new session (persona switch, host reset): back to the consent screen —
+  // unless the hub handed us a card rider's STORED decision, which applies
+  // at every login without asking again.
   useEffect(() => {
     if (cosimo.resetNonce > 0) {
-      rememberConsent(null);
+      const stored = cosimo.lastReset?.consent ?? null;
+      rememberConsent(stored);
       resent.current = false;
-      setConsentDecided(false);
+      setConsentDecided(stored !== null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cosimo.resetNonce]);
 
   // The active profile's preferred language becomes the seat's UI language

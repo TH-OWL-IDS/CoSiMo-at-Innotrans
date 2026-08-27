@@ -219,7 +219,13 @@ export interface ServerToClientEvents {
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */
-  "session:reset": (payload: { deviceId: string }) => void;
+  /**
+   * A NEW session on this seat — the hub owns session ids: a persona switch
+   * (NFC login, host), a host reset. The client adopts `sessionId`, clears
+   * its conversation view and, unless `consent` is a stored decision (card
+   * riders), shows the consent screen again. `"*"` = every seat.
+   */
+  "session:reset": (payload: { deviceId: string; sessionId?: string; consent?: boolean | null }) => void;
   /** Currently connected devices (for the operator console). */
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
   /** Per-seat live summaries (host consoles only). */

@@ -301,6 +301,16 @@ export const Personas: CollectionConfig = {
       ],
     },
     {
+      name: "consent",
+      type: "checkbox",
+      label: "Einwilligung gespeichert",
+      defaultValue: false,
+      admin: {
+        description:
+          "Diese Person hat der Aufzeichnung ihrer Sessions zugestimmt — gilt bei jedem Login, ohne erneute Abfrage. Von CoSiMo gesetzt, wenn die Person am Kiosk zustimmt; hier widerrufbar.",
+      },
+    },
+    {
       name: "memories",
       type: "array",
       admin: {

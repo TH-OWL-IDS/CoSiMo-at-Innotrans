@@ -1,13 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Brain, CircleCheck, CircleCheckBig, CornerDownLeft, Download, FlagTriangleRight,
-  IdCard, Joystick, Lightbulb, MessageSquare, Mic, Pause, Play, Plug, RadioTower,
-  Activity, RotateCw, Trash2, TriangleAlert, Unplug, UserRound, Volume2, Wrench,
+  Brain,
+  CircleCheck,
+  CircleCheckBig,
+  CornerDownLeft,
+  Download,
+  FlagTriangleRight,
+  IdCard,
+  Joystick,
+  Lightbulb,
+  MessageSquare,
+  Mic,
+  Pause,
+  Play,
+  Plug,
+  RadioTower,
+  Activity,
+  RotateCw,
+  Trash2,
+  TriangleAlert,
+  Unplug,
+  UserRound,
+  Volume2,
+  Wrench,
   type LucideIcon,
   ListTodo,
   MousePointerClick,
   Power,
   Settings2,
+  UserPlus,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 import { Button, ChipButton, Input, Select, cn } from "@cosimo/ui";
@@ -37,6 +58,7 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "service.boot": Power,
   "config.loaded": Settings2,
   "service.restart": RotateCw,
+  "session.start": UserPlus,
   "card.show": ListTodo,
   "card.answer": MousePointerClick,
   "tts.done": Volume2,
@@ -83,6 +105,8 @@ export function summarize(e: LogEvent): string {
       return `Konfig ${e.data.source === "cms" ? "aus dem CMS" : "env-Defaults"} · ${e.data.llm} · Fallback ${e.data.fallback ?? "keiner"} · ${e.data.voices} Stimmen · LPU-2 ${e.data.lpu2Mapped} gemappt${e.data.changed.length ? ` · geändert: ${e.data.changed.join(", ")}` : ""}`;
     case "service.restart":
       return `Container „${e.data.id}“ ${e.data.ok ? "neu gestartet" : "Neustart fehlgeschlagen"} (${e.data.durationMs} ms)${e.data.error ? ` · ${e.data.error}` : ""}`;
+    case "session.start":
+      return `neue Session · ${e.data.persona} (${e.data.by})${e.data.consent === true ? " · Consent gespeichert" : ""}${e.data.previousSessionId ? ` · vorher ${e.data.previousSessionId}` : ""}`;
     case "card.show":
       return `${e.data.kind}${e.data.step ? ` ${e.data.step}` : ""}${e.data.local ? " · lokal" : ""} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
     case "card.answer":

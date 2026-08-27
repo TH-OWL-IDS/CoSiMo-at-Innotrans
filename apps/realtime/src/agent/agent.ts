@@ -8,6 +8,8 @@
  */
 
 import {
+  type Persona,
+  type RiderContext,
   type LlmTestResult,
   type Accommodations,
   CABIN_CONTROLS,
@@ -47,6 +49,8 @@ export interface AgentTurnInput {
   consent: boolean;
   /** How long server STT took for this utterance (voice turns). */
   sttMs?: number;
+  /** The seat's rider — accommodations LIVE, traits, memories, consent. */
+  rider: RiderContext;
 }
 
 /**
@@ -157,6 +161,8 @@ export class CosimoAgent {
   private readonly tts: TtsProvider;
   private readonly sink = new PayloadSink();
   private readonly profiles = new ProfileSink();
+  /** For index.ts: consent persistence shares the same sink. */
+  get profileSink(): ProfileSink { return this.profiles; }
   readonly recorder = new SessionRecorder();
   /** In-flight turn per seat — aborted on barge-in / a newer input. */
   private readonly activeTurns = new Map<string, AbortController>();
@@ -195,7 +201,7 @@ export class CosimoAgent {
       sessionId,
       persona,
       systemPrompt: buildSystemPrompt(
-        this.personas.get(persona),
+        (() => { const r = this.hub.riderOf(sessionId); return r ? this.profileFor(r) : this.personas.get(persona); })(),
         this.operatorConfig.get().agent.systemPrompt,
         this.operatorConfig.get().tts.voices,
       ),
@@ -219,7 +225,7 @@ export class CosimoAgent {
    * same seat aborts this turn mid-stream (see interrupt()).
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
-    const { sessionId, deviceId, text, lang, persona, modality, consent, sttMs } = input;
+    const { sessionId, deviceId, text, lang, persona, modality, consent, sttMs, rider } = input;
     const startedAt = Date.now();
     const ctx = { deviceId, sessionId, turn: -1 };
     // A new turn invalidates any option card still on screen — the rider
@@ -281,7 +287,7 @@ export class CosimoAgent {
     // Core prompt is CMS-editable (operator-config, refreshed by llm.current()
     // just above); the rider section is always appended in code.
     const system = buildSystemPrompt(
-      this.personas.get(persona),
+      this.profileFor(rider),
       this.operatorConfig.get().agent.systemPrompt,
       this.operatorConfig.get().tts.voices,
     );
@@ -307,7 +313,7 @@ export class CosimoAgent {
     let streamClosed = false;
     // Speech streams as the text does: every finished sentence is synthesized
     // and shipped while the model still writes the next one.
-    const traits = this.personas.get(persona).traits;
+    const traits = rider.traits;
     const speaker = this.newSpeaker(sessionId, persona, lang, turnNo, startedAt, ctrl.signal);
     const llmStarted = Date.now();
     let llmMs = 0;
@@ -611,6 +617,27 @@ export class CosimoAgent {
   private persist(sessionId: string): void {
     const rec = this.recorder.get(sessionId);
     if (rec) void this.sink.save(rec);
+  }
+
+  /** The rider as the prompt builder sees it: profile identity + brief, but
+   *  the SEAT's live accommodations, traits and memories. */
+  private profileFor(rider: RiderContext): Persona {
+    const profile = this.personas.get(rider.persona);
+    return {
+      ...profile,
+      label: rider.label,
+      accommodations: rider.accommodations,
+      traits: rider.traits,
+      memories: rider.memories.length ? rider.memories : profile.memories,
+    };
+  }
+
+  /** A session ended (persona switch / reset): close and persist its record. */
+  endSession(sessionId: string, deviceId: string): void {
+    this.interrupt(deviceId);
+    const rec = this.recorder.end(sessionId);
+    if (rec) void this.sink.save(rec);
+    this.historyStart.delete(deviceId);
   }
 
   /** The seat's voice + whether it wants audio at all, for one turn. */

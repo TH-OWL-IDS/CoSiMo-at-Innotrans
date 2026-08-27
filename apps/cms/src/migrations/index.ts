@@ -4,6 +4,7 @@ import * as migration_20260824_092230_voice_catalog from './20260824_092230_voic
 import * as migration_20260824_101152_cabin_controls_trim from './20260824_101152_cabin_controls_trim';
 import * as migration_20260826_065908_llm_generation from './20260826_065908_llm_generation';
 import * as migration_20260827_104113_persona_traits from './20260827_104113_persona_traits';
+import * as migration_20260827_112844_persona_consent from './20260827_112844_persona_consent';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20260827_104113_persona_traits.up,
     down: migration_20260827_104113_persona_traits.down,
-    name: '20260827_104113_persona_traits'
+    name: '20260827_104113_persona_traits',
+  },
+  {
+    up: migration_20260827_112844_persona_consent.up,
+    down: migration_20260827_112844_persona_consent.down,
+    name: '20260827_112844_persona_consent'
   },
 ];

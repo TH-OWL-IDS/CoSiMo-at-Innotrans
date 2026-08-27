@@ -39,6 +39,16 @@ function storedSession(role: string): string | null {
     return null;
   }
 }
+/** Take over a hub-issued session id (remembered like our own). */
+function adoptSession(role: string, id: string): string {
+  try {
+    sessionStorage.setItem(sessionKey(role), id);
+  } catch {
+    // private mode — fine
+  }
+  return id;
+}
+
 /** A fresh session id, remembered for this tab. */
 function newSession(role: string): string {
   const id = makeId("s");
@@ -172,6 +182,9 @@ export interface CosimoState {
   /** Last restart outcome, keyed by service id. */
   restartResults: Partial<Record<ServiceInfo["id"], { ok: boolean; error?: string; at: number }>>;
   clearInspection: () => void;
+  /** The last hub-driven session start: `consent` is a stored decision (card
+   *  rider → no consent screen) or null (ask again). */
+  lastReset: { nonce: number; consent: boolean | null } | null;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
   /** Host actions. */
@@ -242,6 +255,7 @@ export function useCosimoSocket(
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
   /** CoSiMo's option/info card for this seat (null = none). */
   const [card, setCard] = useState<SeatCard | null>(null);
+  const [lastReset, setLastReset] = useState<{ nonce: number; consent: boolean | null } | null>(null);
   const [lastReplyAt, setLastReplyAt] = useState(0);
   const [lastActivityAt, setLastActivityAt] = useState(() => Date.now());
   const touch = () => setLastActivityAt(Date.now());
@@ -421,15 +435,20 @@ export function useCosimoSocket(
         return next.length > LOG_MAX ? next.slice(next.length - LOG_MAX) : next;
       });
     });
-    socket.on("session:reset", ({ deviceId: target }) => {
+    socket.on("session:reset", ({ deviceId: target, sessionId: given, consent }) => {
       if (target !== deviceId && target !== "*") return;
-      sessionRef.current = newSession(role);
+      // The hub owns session ids: adopt the one it hands us (persona switch,
+      // reset); only a legacy hub without one makes us mint our own.
+      sessionRef.current = given ? adoptSession(role, given) : newSession(role);
+      turnRef.current = 0;
       replyRef.current = "";
       setReply("");
       setHeard("");
       setReplying(false);
       setTranscript([]);
       setCard(null);
+      stopPlayback();
+      setLastReset({ nonce: Date.now(), consent: consent ?? null });
       setResetNonce((n) => n + 1);
     });
 
@@ -647,7 +666,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt, lastReset,
     telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm,
     setCabinActuator,

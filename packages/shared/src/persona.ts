@@ -182,6 +182,26 @@ export interface Persona {
   traits: InteractionTraits;
   /** CoSiMo-written notes. Empty for presets; accumulates for users. */
   memories: PersonaMemory[];
+  /** A card-bound rider's stored recording consent (walk-ups never store it). */
+  consent?: boolean;
+}
+
+/**
+ * Everything personal a seat needs for ONE session — the single source of
+ * truth for prompt, speech, cards and kiosk. Instantiated from the profile
+ * when a rider logs in (or the walk-up `default` starts), written back to
+ * the profile only for card-bound riders.
+ */
+export interface RiderContext {
+  sessionId: string;
+  persona: PersonaKey;
+  label: string;
+  name?: string;
+  accommodations: Accommodations;
+  traits: InteractionTraits;
+  memories: PersonaMemory[];
+  /** Recording consent for this session (stored on the profile for card riders). */
+  consent: boolean;
 }
 
 /**
@@ -193,4 +213,6 @@ export interface PersonaBroadcast {
   persona: PersonaKey;
   label: string;
   accommodations: Accommodations;
+  /** Interaction traits — the console shows them; the hub keeps them per seat. */
+  traits?: InteractionTraits;
 }

@@ -22,6 +22,23 @@ it.** Nuance that drives no mechanism lives in the prose (brief/memories), which
 is unbounded and read by the LLM. So the accommodations schema stays small; the
 richness of "who this rider is" lives in the brief.
 
+### Sessions belong to riders (`RiderContext`)
+
+The hub owns session ids. A seat carries ONE `RiderContext` — persona key,
+LIVE accommodations, traits, memories, consent — and every consumer (prompt
+via `profileFor(rider)`, streaming TTS, cards, kiosk) reads that, never the
+CMS profile directly. The profile is the template a context is instantiated
+from on login, and the write-back target for card-bound riders only.
+`hub.beginSession()` is the one place a session starts: NFC login, host
+persona switch and host reset all go through it — it interrupts the running
+turn, hands the previous session to the agent (`endSession` → record closed,
+persisted if consented), mints a new id, resets turn numbering/cards/wizard,
+tells the client (`session:reset {sessionId, consent}`) and greets. A stale
+client session id is bound to the seat's current session, never resurrected.
+**Consent is stored on the profile** for card-bound riders (CMS „Einwilligung
+gespeichert", set when they consent at the kiosk, revocable there) and applies
+at every login without asking again; walk-ups decide per session.
+
 ### Interaction traits (how the profile is *felt*)
 
 Six machine-actionable axes (`Persona.traits`, CMS group „Interaktion"):
