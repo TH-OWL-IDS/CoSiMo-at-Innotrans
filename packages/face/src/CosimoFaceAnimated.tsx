@@ -153,7 +153,16 @@ export default function CosimoFaceAnimated({
   idle = true,
   gazeY,
   mouthDrive,
+  gazeDrive,
 }: ScribbleEntityProps & {
+  /**
+   * Live gaze target (-1…1 on each axis, like the rig's gaze), e.g. the
+   * rider's finger on the face. Sampled per frame; while it returns a
+   * point the eyes ease onto it (wins over the idle wander and `gazeY`),
+   * when it returns null they ease back into the idle life. A getter, so
+   * pointer moves never re-render React.
+   */
+  gazeDrive?: () => { x: number; y: number } | null;
   /**
    * Live mouth drive from the actually-playing voice: `open` = loudness
    * envelope (0..1), `tilt` = spectral brightness (0..1). Sampled once per
@@ -178,6 +187,11 @@ export default function CosimoFaceAnimated({
   gazeYRef.current = gazeY;
   const mouthDriveRef = useRef(mouthDrive);
   mouthDriveRef.current = mouthDrive;
+  const gazeDriveRef = useRef(gazeDrive);
+  gazeDriveRef.current = gazeDrive;
+  /** The eased follow: where the eyes are heading and how much the drive
+   *  currently outweighs the idle wander (0 = none, 1 = pinned). */
+  const follow = useRef({ x: 0, y: 0, w: 0 });
   /** Last applied frame — re-renders (prop/theme changes) reproduce it, so
    *  React reconciliation never snaps the face to a stale pose. */
   const lastFrameRef = useRef<ScribbleFrame | null>(null);
@@ -214,6 +228,21 @@ export default function CosimoFaceAnimated({
       // A scene can force the vertical gaze (e.g. glance down at buttons);
       // that wins over the idle wander.
       if (gazeYRef.current != null) rig.p.gazeY = gazeYRef.current;
+      // A live gaze target (a finger on the face): ease the eyes onto it,
+      // and ease back into the idle life when it lets go.
+      const g = gazeDriveRef.current?.() ?? null;
+      const f = follow.current;
+      if (g) {
+        f.x += (g.x - f.x) * 0.25;
+        f.y += (g.y - f.y) * 0.25;
+        f.w += (1 - f.w) * 0.2;
+      } else {
+        f.w += (0 - f.w) * 0.08;
+      }
+      if (f.w > 0.001) {
+        rig.p.gazeX = rig.p.gazeX * (1 - f.w) + f.x * f.w;
+        rig.p.gazeY = rig.p.gazeY * (1 - f.w) + f.y * f.w;
+      }
       // While speaking with real audio available, the mouth follows the
       // VOICE: loudness opens it, brightness widens it. Overrides the
       // synthetic cadence, which remains the fallback without a drive.

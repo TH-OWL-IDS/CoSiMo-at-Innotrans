@@ -145,6 +145,31 @@ export default function SeatView({
 }) {
   const { cosimo, lang, scheme, textScale, highContrast, showText, reduceMotion, ptt } = seat;
 
+  // CoSiMo follows a finger on its face: while the circle is pressed (not on
+  // a button or card), the pointer's position relative to the face becomes
+  // the gaze target; releasing lets the eyes drift back into the idle life.
+  const faceRef = useRef<HTMLDivElement>(null);
+  const gazeRef = useRef<{ x: number; y: number } | null>(null);
+  const gazeFrom = (e: React.PointerEvent) => {
+    const r = faceRef.current?.getBoundingClientRect();
+    if (!r || r.width === 0) return null;
+    const x = ((e.clientX - (r.left + r.width / 2)) / (r.width / 2)) * 1.2;
+    const y = ((e.clientY - (r.top + r.height / 2)) / (r.height / 2)) * 1.2;
+    return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
+  };
+  const gazeStart = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button, input, select, textarea, a, [role=button]")) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    gazeRef.current = gazeFrom(e);
+  };
+  const gazeMove = (e: React.PointerEvent) => {
+    if (gazeRef.current) gazeRef.current = gazeFrom(e);
+  };
+  const gazeEnd = () => {
+    gazeRef.current = null;
+  };
+  const gazeDrive = () => gazeRef.current;
+
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdStart = () => {
     if (onSlitHold) holdTimer.current = setTimeout(onSlitHold, 3000);
@@ -264,6 +289,10 @@ export default function SeatView({
         {/* ── circle cutout: the Face ─────────────────────────────── */}
         <div
           onContextMenu={(e) => e.preventDefault()}
+          onPointerDown={gazeStart}
+          onPointerMove={gazeMove}
+          onPointerUp={gazeEnd}
+          onPointerCancel={gazeEnd}
           style={{
             position: "absolute",
             left: `${layout.circleX}%`,
@@ -288,6 +317,7 @@ export default function SeatView({
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
           <div
+            ref={faceRef}
             style={{
               position: "absolute",
               // 52%: the artwork's visual mass (eyes mid 125, mouth 104) sits
@@ -303,6 +333,7 @@ export default function SeatView({
               emotion={cosimo.faceEmotion}
               idle={!reduceMotion}
               mouthDrive={cosimo.getMouthDrive}
+              gazeDrive={gazeDrive}
               style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
             />
           </div>
