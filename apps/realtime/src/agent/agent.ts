@@ -625,20 +625,25 @@ export class CosimoAgent {
     // The SEAT's live accommodations, not the profile: a walk-up's
     // set_presentation changes exist only on the seat (the profile is the
     // shared clean plate and stays untouched). Same source the client renders.
-    const acc = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
+    const accNow = () => this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
     return new TurnSpeaker({
       tts: this.tts,
       hub: this.hub,
       sessionId,
       turn: turnNo,
       lang,
-      voice: {
-        rate: acc.speechRate ?? 1,
-        gender: acc.voiceGender ?? "female",
-        tone: acc.voiceTone ?? "neutral",
-        voiceKey: acc.voice,
+      // read again for every sentence: a set_presentation in this turn
+      // (tempo, voice, tone) must shape its own confirmation
+      voice: () => {
+        const acc = accNow();
+        return {
+          rate: acc.speechRate ?? 1,
+          gender: acc.voiceGender ?? "female",
+          tone: acc.voiceTone ?? "neutral",
+          voiceKey: acc.voice,
+        };
       },
-      enabled: this.tts.available && acc.audioOutput,
+      enabled: this.tts.available && accNow().audioOutput,
       signal,
       startedAt,
     });

@@ -24,6 +24,7 @@ export class TurnSpeaker {
   private chars = 0;
   private firstChunkAt: number | null = null;
   private readonly spoken: string[] = [];
+  private lastVoice: VoiceOptions | null = null;
   private queue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -33,7 +34,9 @@ export class TurnSpeaker {
       sessionId: string;
       turn: number;
       lang: Locale;
-      voice: VoiceOptions;
+      /** Resolved PER SENTENCE at synth time — "sprich langsamer" in this
+       *  very turn already applies to its own confirmation. */
+      voice: () => VoiceOptions;
       /** False → the rider wants no audio (or no server TTS): everything is a no-op. */
       enabled: boolean;
       signal?: AbortSignal;
@@ -77,7 +80,7 @@ export class TurnSpeaker {
       });
       logger.log(
         "tts.done",
-        { chars: this.chars, bytes: this.bytes, durationMs: ttsMs, voice: this.deps.voice, firstChunkMs, chunks: this.chunks },
+        { chars: this.chars, bytes: this.bytes, durationMs: ttsMs, voice: this.lastVoice ?? this.deps.voice(), firstChunkMs, chunks: this.chunks },
         { sessionId: this.deps.sessionId, turn: this.deps.turn },
       );
     }
@@ -85,10 +88,12 @@ export class TurnSpeaker {
   }
 
   private enqueue(sentence: string): void {
-    const { tts, hub, sessionId, turn, lang, voice, signal } = this.deps;
+    const { tts, hub, sessionId, turn, lang, signal } = this.deps;
     this.queue = this.queue
       .then(async () => {
         if (signal?.aborted) return;
+        const voice = this.deps.voice();
+        this.lastVoice = voice;
         const audio = await tts.synthesize(sentence, lang, { ...voice, previousText: this.spoken.join(" ") || undefined });
         this.spoken.push(sentence);
         this.chars += sentence.length;
