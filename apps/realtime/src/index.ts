@@ -29,6 +29,7 @@ import { startHealthMonitor } from "./health.js";
 import { ServicesMonitor } from "./services.js";
 import { logger } from "./log/logger.js";
 import { TOOL_DEFINITIONS } from "./agent/tools.js";
+import { greetingFor } from "./agent/prompt.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -161,10 +162,10 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
     // Greet in the rider's own preferred language — the card tells us who they
     // are, so the kiosk's UI toggle no longer has to guess.
     const riderLang = p.accommodations.language;
-    const text =
-      riderLang === "de"
-        ? `Hallo! Schön, dass du da bist. Ich habe dein Profil „${p.label}“ geladen und stelle mich auf dich ein.`
-        : `Hello! Great to see you. I've loaded your profile “${p.label}” and will adapt to you.`;
+    // The greeting is where the profile becomes audible: name, language,
+    // the rider's own pace — and the fact their style wants first.
+    const ns = telemetry.get().nextStops[0];
+    const text = greetingFor(p, ns ? { name: ns.name[riderLang], etaMinutes: ns.etaMinutes } : null);
     void agent.announce(sessionId, text, riderLang, key, "happy");
   } else {
     const text =

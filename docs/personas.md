@@ -22,6 +22,23 @@ it.** Nuance that drives no mechanism lives in the prose (brief/memories), which
 is unbounded and read by the LLM. So the accommodations schema stays small; the
 richness of "who this rider is" lives in the brief.
 
+### Interaction traits (how the profile is *felt*)
+
+Six machine-actionable axes (`Persona.traits`, CMS group „Interaktion"):
+`modality` audio-first | visual-first | balanced · `pace` step-by-step |
+normal | brisk · `verbosity` terse | normal | explanatory · `confirmation`
+every-step | result-only · `initiative` leads | responds · `scope` basics |
+full. They **generate** the prompt's rider section (`traitsPrelude` in
+`prompt.ts`; the free-text `brief` is now optional and appended after) and
+drive deterministic behaviour: the NFC greeting (`greetingFor` — name,
+language, the rider's own pace, the fact their style wants first), terse
+templated confirmations („Erledigt."), and the every-step guarantee (if
+actions ran and the model did not name them, the templated confirmation is
+appended). Traits describe the interaction, never the person — same
+principle as accommodations. Unknown/empty CMS values fall back per axis.
+The four fair mock riders (Alex, Noa, Luca, Sam — chips ALEX1 … SAM1) are
+seeded as trait combinations.
+
 ### Accommodations (the machine-actionable levers)
 
 `language` (de/en — the rider's preferred language), `theme`, `textSize`

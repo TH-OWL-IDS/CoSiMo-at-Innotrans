@@ -9,13 +9,7 @@
  * large text — broadcast to the iPads as a PersonaBroadcast).
  */
 
-import type {
-  Accommodations,
-  Persona,
-  PersonaBroadcast,
-  PersonaKey,
-  PersonaMemory,
-} from "@cosimo/shared";
+import { type Accommodations, type Persona, type PersonaBroadcast, type PersonaKey, type PersonaMemory, DEFAULT_TRAITS, TRAIT_OPTIONS, type InteractionTraits } from "@cosimo/shared";
 import { config } from "../config.js";
 
 /** Sensible accommodation defaults; presets override only what differs. */
@@ -50,6 +44,7 @@ export const BASE_PERSONA: Persona = {
   summary: "Allgemeine Begleitung.",
   brief: "Speak naturally and warmly. Keep answers short and clear.",
   accommodations: accommodations(),
+  traits: { ...DEFAULT_TRAITS },
   memories: [],
 };
 
@@ -70,11 +65,22 @@ interface PayloadPersonaDoc {
   summary?: string;
   brief?: string;
   accommodations?: Partial<Accommodations>;
+  traits?: Partial<Record<keyof InteractionTraits, string | null>> | null;
   /** Notes CoSiMo remembered (array field in Payload). */
   memories?: { note?: string; at?: string }[];
   /** NFC chip ids that "log in" as this profile (array field in Payload). The
    *  `tag` is the chip id; the row's own `id` PK is never used as a chip. */
   nfcIds?: { tag?: string }[];
+}
+
+/** Unknown or empty CMS values fall back per axis — a half-filled profile still works. */
+function mergeTraits(base: InteractionTraits, doc: PayloadPersonaDoc["traits"]): InteractionTraits {
+  const out = { ...base };
+  for (const axis of Object.keys(TRAIT_OPTIONS) as (keyof InteractionTraits)[]) {
+    const v = doc?.[axis];
+    if (v && (TRAIT_OPTIONS[axis] as readonly string[]).includes(v)) (out as Record<string, string>)[axis] = v;
+  }
+  return out;
 }
 
 function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
@@ -86,6 +92,7 @@ function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
     summary: doc.summary ?? base.summary,
     brief: doc.brief ?? base.brief,
     accommodations: { ...base.accommodations, ...(doc.accommodations ?? {}) },
+    traits: mergeTraits(base.traits, doc.traits),
     memories: doc.memories
       ? doc.memories
           .map((m) => ({ note: (m.note ?? "").trim(), at: m.at ?? "" }))

@@ -48,6 +48,7 @@ export const Personas: CollectionConfig = {
           });
           if (source) {
             data.accommodations = source.accommodations;
+            data.traits = source.traits;
             if (!data.brief || !String(data.brief).trim()) data.brief = source.brief;
           }
         } catch {
@@ -111,12 +112,60 @@ export const Personas: CollectionConfig = {
       admin: { description: "Kurze Beschreibung für die Operator-Konsole." },
     },
     {
-      name: "brief",
-      type: "textarea",
-      required: true,
+      name: "traits",
+      type: "group",
+      label: "Interaktion",
       admin: {
         description:
-          "Operator-Prosa, wörtlich in CoSiMos System-Prompt injiziert, um zu formen, wie CoSiMo diese Person unterstützt.",
+          "Wie diese Person mit CoSiMo umgehen möchte — sechs Achsen, aus denen der Prompt-Abschnitt erzeugt wird und die Verhalten steuern (Bestätigungen, Begrüßung, Karten). Beschreibt die Interaktion, nie die Person.",
+      },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            { name: "modality", type: "select", label: "Kanal", defaultValue: "balanced", options: [
+              { label: "Hören & Tasten (audio-first)", value: "audio-first" },
+              { label: "Sehen & Lesen (visual-first)", value: "visual-first" },
+              { label: "Ausgewogen", value: "balanced" },
+            ] },
+            { name: "pace", type: "select", label: "Tempo", defaultValue: "normal", options: [
+              { label: "Schritt für Schritt", value: "step-by-step" },
+              { label: "Normal", value: "normal" },
+              { label: "Zügig", value: "brisk" },
+            ] },
+            { name: "verbosity", type: "select", label: "Ausführlichkeit", defaultValue: "normal", options: [
+              { label: "Knapp", value: "terse" },
+              { label: "Normal", value: "normal" },
+              { label: "Erklärend", value: "explanatory" },
+            ] },
+          ],
+        },
+        {
+          type: "row",
+          fields: [
+            { name: "confirmation", type: "select", label: "Bestätigung", defaultValue: "result-only", options: [
+              { label: "Nach jedem Schritt", value: "every-step" },
+              { label: "Nur Ergebnis", value: "result-only" },
+            ] },
+            { name: "initiative", type: "select", label: "Initiative", defaultValue: "responds", options: [
+              { label: "CoSiMo führt", value: "leads" },
+              { label: "CoSiMo reagiert", value: "responds" },
+            ] },
+            { name: "scope", type: "select", label: "Umfang", defaultValue: "full", options: [
+              { label: "Nur Basisfunktionen", value: "basics" },
+              { label: "Alles", value: "full" },
+            ] },
+          ],
+        },
+      ],
+    },
+    {
+      name: "brief",
+      type: "textarea",
+      required: false,
+      admin: {
+        description:
+          "Optionaler Freitext, der die Interaktions-Achsen ergänzt (wörtlich im Prompt, nach dem erzeugten Abschnitt). Leer lassen ist völlig okay.",
       },
     },
     {

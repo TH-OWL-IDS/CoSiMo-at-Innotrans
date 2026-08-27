@@ -34,6 +34,14 @@ type ProfileSeed = {
     showText: boolean;
     reduceMotion: boolean;
   };
+  traits?: {
+    modality: "audio-first" | "visual-first" | "balanced";
+    pace: "step-by-step" | "normal" | "brisk";
+    verbosity: "terse" | "normal" | "explanatory";
+    confirmation: "every-step" | "result-only";
+    initiative: "leads" | "responds";
+    scope: "basics" | "full";
+  };
   nfcIds?: { tag: string }[];
   memories?: { note: string; at: string }[];
 };
@@ -63,6 +71,63 @@ const personas: ProfileSeed[] = [
  * layout flip, large/high-contrast, and calm/slow reduce-motion.
  */
 const users: ProfileSeed[] = [
+  // ── the four fair mock riders (Nutzungsprofile 01–04) ─────────────────
+  {
+    key: "alex",
+    name: "Alex",
+    label: "Alex",
+    summary: "Nutzungsprofil 01 – kommuniziert über Hören und Tasten.",
+    brief: "",
+    accommodations: {
+      language: "de", theme: "classic", textSize: "l", contrast: "normal", input: "voice",
+      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
+      volume: 1, voiceGender: "female", voiceTone: "neutral",
+    },
+    traits: { modality: "audio-first", pace: "normal", verbosity: "normal", confirmation: "every-step", initiative: "responds", scope: "full" },
+    nfcIds: [{ tag: "ALEX1" }],
+  },
+  {
+    key: "noa",
+    name: "Noa",
+    label: "Noa",
+    summary: "Nutzungsprofil 02 – kommuniziert überwiegend visuell.",
+    brief: "",
+    accommodations: {
+      language: "de", theme: "slate", textSize: "l", contrast: "high", input: "both",
+      audioOutput: true, speechRate: 1, showText: true, reduceMotion: true,
+      volume: 0.6, voiceGender: "female", voiceTone: "ruhig",
+    },
+    traits: { modality: "visual-first", pace: "normal", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
+    nfcIds: [{ tag: "NOA1" }],
+  },
+  {
+    key: "luca",
+    name: "Luca",
+    label: "Luca",
+    summary: "Nutzungsprofil 03 – benötigt einfache und verständliche Abläufe.",
+    brief: "",
+    accommodations: {
+      language: "de", theme: "sun", textSize: "l", contrast: "normal", input: "both",
+      audioOutput: true, speechRate: 0.9, showText: true, reduceMotion: false,
+      volume: 1, voiceGender: "female", voiceTone: "warm",
+    },
+    traits: { modality: "balanced", pace: "step-by-step", verbosity: "explanatory", confirmation: "every-step", initiative: "leads", scope: "basics" },
+    nfcIds: [{ tag: "LUCA1" }],
+  },
+  {
+    key: "sam",
+    name: "Sam",
+    label: "Sam",
+    summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
+    brief: "",
+    accommodations: {
+      language: "de", theme: "classic", textSize: "m", contrast: "normal", input: "both",
+      audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
+      volume: 1, voiceGender: "female", voiceTone: "lebhaft",
+    },
+    traits: { modality: "balanced", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
+    nfcIds: [{ tag: "SAM1" }],
+  },
   {
     key: "anna",
     name: "Anna Berg",
@@ -74,6 +139,7 @@ const users: ProfileSeed[] = [
       language: "de", theme: "night", textSize: "xl", contrast: "high", input: "voice",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
     },
+    traits: { modality: "audio-first", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "ANNA1" }],
     memories: [
       { note: "Prefers very short answers.", at: "2026-07-01T09:00:00.000Z" },
@@ -91,6 +157,7 @@ const users: ProfileSeed[] = [
       language: "de", theme: "ocean", textSize: "l", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
     },
+    traits: { modality: "balanced", pace: "normal", verbosity: "normal", confirmation: "result-only", initiative: "leads", scope: "full" },
     nfcIds: [{ tag: "BRUNO1" }],
     memories: [
       { note: "Boards at the front where the ramp is.", at: "2026-07-01T09:00:00.000Z" },
@@ -107,6 +174,7 @@ const users: ProfileSeed[] = [
       language: "de", theme: "slate", textSize: "l", contrast: "normal", input: "text",
       audioOutput: false, speechRate: 1, showText: true, reduceMotion: false,
     },
+    traits: { modality: "visual-first", pace: "normal", verbosity: "normal", confirmation: "every-step", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "CLARA1" }],
     memories: [
       { note: "Reads a little lip movement but prefers text.", at: "2026-07-01T09:00:00.000Z" },
@@ -123,6 +191,7 @@ const users: ProfileSeed[] = [
       language: "en", theme: "classic", textSize: "xl", contrast: "high", input: "both",
       audioOutput: true, speechRate: 1, showText: true, reduceMotion: false,
     },
+    traits: { modality: "balanced", pace: "normal", verbosity: "normal", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "DAVID1" }],
     memories: [
       { note: "Likes the larger text; no need to ask.", at: "2026-07-01T09:00:00.000Z" },
@@ -139,6 +208,7 @@ const users: ProfileSeed[] = [
       language: "de", theme: "sun", textSize: "l", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 0.85, showText: false, reduceMotion: true,
     },
+    traits: { modality: "balanced", pace: "step-by-step", verbosity: "explanatory", confirmation: "every-step", initiative: "leads", scope: "basics" },
     nfcIds: [{ tag: "EMIL1" }],
     memories: [
       { note: "Appreciates an unhurried pace.", at: "2026-07-01T09:00:00.000Z" },

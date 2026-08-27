@@ -116,6 +116,45 @@ export const VOICE_TONE_STABILITY: Record<VoiceTone, number> = {
   lebhaft: 0.3,
 };
 
+/**
+ * How a rider wants to be interacted with — a few machine-actionable axes,
+ * NOT a description of the person. They generate the prompt's rider section
+ * and drive deterministic behaviour (confirmations, greeting, card use), so
+ * a profile is felt, not just read. Defaults = the neutral walk-up.
+ */
+export interface InteractionTraits {
+  /** Which channel carries the conversation. */
+  modality: "audio-first" | "visual-first" | "balanced";
+  /** How fast things should move. */
+  pace: "step-by-step" | "normal" | "brisk";
+  /** How much CoSiMo says. */
+  verbosity: "terse" | "normal" | "explanatory";
+  /** Confirm after every action, or only report the result. */
+  confirmation: "every-step" | "result-only";
+  /** Does CoSiMo lead (offer the next step) or respond? */
+  initiative: "leads" | "responds";
+  /** Basic functions only, or everything (customizer, voices, memory). */
+  scope: "basics" | "full";
+}
+
+export const TRAIT_OPTIONS = {
+  modality: ["audio-first", "visual-first", "balanced"],
+  pace: ["step-by-step", "normal", "brisk"],
+  verbosity: ["terse", "normal", "explanatory"],
+  confirmation: ["every-step", "result-only"],
+  initiative: ["leads", "responds"],
+  scope: ["basics", "full"],
+} as const satisfies { [K in keyof InteractionTraits]: readonly InteractionTraits[K][] };
+
+export const DEFAULT_TRAITS: InteractionTraits = {
+  modality: "balanced",
+  pace: "normal",
+  verbosity: "normal",
+  confirmation: "result-only",
+  initiative: "responds",
+  scope: "full",
+};
+
 /** A note CoSiMo remembered about a user (explicit `remember`, consent-gated). */
 export interface PersonaMemory {
   note: string;
@@ -139,6 +178,8 @@ export interface Persona {
    */
   brief: string;
   accommodations: Accommodations;
+  /** Interaction style — generates the rider section, drives behaviour. */
+  traits: InteractionTraits;
   /** CoSiMo-written notes. Empty for presets; accumulates for users. */
   memories: PersonaMemory[];
 }

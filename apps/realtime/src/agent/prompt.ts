@@ -10,7 +10,7 @@
  *     low-trust context that can never override the instructions above.
  */
 
-import type { Accommodations, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
+import type { Accommodations, InteractionTraits, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
 
 /**
  * Deterministic phrasing (not a rules table) describing how the rider receives
@@ -36,6 +36,87 @@ function accommodationPrelude(a: Accommodations): string {
   if (a.input === "voice") lines.push("Expect spoken input.");
   else if (a.input === "text") lines.push("Expect typed input.");
   return lines.join(" ");
+}
+
+/**
+ * The rider section, GENERATED from the interaction traits — the same six
+ * axes an operator sets in the CMS become concrete instructions. The
+ * free-text brief (if any) is appended after, so it refines, never replaces.
+ */
+export function traitsPrelude(t: InteractionTraits): string {
+  const lines: string[] = [];
+  switch (t.modality) {
+    case "audio-first":
+      lines.push("This rider lives in sound and touch: never point at anything visual, say every option out loud, and confirm each action in words.");
+      break;
+    case "visual-first":
+      lines.push("This rider prefers to read and to see: keep speech to one short sentence and put choices on screen (show_choices) whenever there are options.");
+      break;
+    default:
+      break;
+  }
+  switch (t.pace) {
+    case "step-by-step":
+      lines.push("Go step by step: one thing per reply, then wait. Never bundle several actions or questions into one turn.");
+      break;
+    case "brisk":
+      lines.push("Be fast: act immediately, no preamble, no follow-up questions unless something is truly ambiguous.");
+      break;
+    default:
+      break;
+  }
+  switch (t.verbosity) {
+    case "terse":
+      lines.push("Keep it to one short sentence. A confirmation is a single word or two ('Erledigt.').");
+      break;
+    case "explanatory":
+      lines.push("Explain briefly what you did and what happens next — two calm sentences are fine here.");
+      break;
+    default:
+      break;
+  }
+  if (t.confirmation === "every-step") lines.push("After every action, say plainly what you changed before anything else.");
+  if (t.initiative === "leads") lines.push("Lead the conversation: after answering, offer the one most useful next step (next stop, light, text on screen).");
+  if (t.scope === "basics") lines.push("Stick to the basics — journey information and the cabin light. Do not offer the customizer, voice changes or memory features unless the rider asks for them explicitly.");
+  return lines.join(" ");
+}
+
+/**
+ * The NFC greeting — the second where "my CoSiMo" becomes audible: the
+ * rider's name, in their language, in the style their traits describe, with
+ * the one fact each style wants first. Templated, so it is instant.
+ */
+export function greetingFor(
+  profile: Persona,
+  next: { name: string; etaMinutes: number } | null,
+): string {
+  const t = profile.traits;
+  const de = profile.accommodations.language === "de";
+  const name = profile.name?.split(" ")[0] ?? profile.label;
+  const eta = next ? (de ? `${next.name} in ${next.etaMinutes} Minuten` : `${next.name} in ${next.etaMinutes} minutes`) : null;
+  if (t.pace === "brisk" || t.verbosity === "terse") {
+    return de
+      ? `Hallo ${name}.${eta ? ` Nächster Halt ${eta}.` : ""}`
+      : `Hi ${name}.${eta ? ` Next stop ${eta}.` : ""}`;
+  }
+  if (t.pace === "step-by-step") {
+    return de
+      ? `Hallo ${name}, schön, dass du da bist. Ich sage dir bei jedem Schritt Bescheid. Frag mich einfach, wenn du etwas brauchst.`
+      : `Hello ${name}, good to have you here. I'll tell you at every step what I'm doing. Just ask me whenever you need something.`;
+  }
+  if (t.modality === "audio-first") {
+    return de
+      ? `Hallo ${name}, ich bin da. Sprich einfach los, ich antworte immer laut.${eta ? ` Nächster Halt ist ${eta}.` : ""}`
+      : `Hello ${name}, I'm here. Just speak, I always answer out loud.${eta ? ` Next stop is ${eta}.` : ""}`;
+  }
+  if (t.modality === "visual-first") {
+    return de
+      ? `Hallo ${name}. Ich zeige dir alles auch als Text.${eta ? ` Nächster Halt: ${eta}.` : ""}`
+      : `Hello ${name}. I'll show you everything as text as well.${eta ? ` Next stop: ${eta}.` : ""}`;
+  }
+  return de
+    ? `Hallo ${name}, schön, dass du da bist. Ich stelle mich auf dich ein.${eta ? ` Nächster Halt ist ${eta}.` : ""}`
+    : `Hello ${name}, great to see you. I'll adapt to you.${eta ? ` Next stop is ${eta}.` : ""}`;
 }
 
 /**
@@ -84,12 +165,15 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
       ]
     : [];
 
+  const traitLines = traitsPrelude(profile.traits);
   return [
     core.trim() || DEFAULT_CORE_PROMPT,
     ...voicesBlock,
     "",
     "## This rider",
-    `${who} ${profile.brief}`,
+    who,
+    ...(traitLines ? [traitLines] : []),
+    ...(profile.brief.trim() ? [profile.brief.trim()] : []),
     ...(prelude ? [prelude] : []),
     ...(profile.memories.length ? ["", memoriesBlock(profile.memories)] : []),
   ].join("\n");

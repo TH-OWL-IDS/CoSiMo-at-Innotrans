@@ -111,8 +111,12 @@ const DE_ARTICLE: Record<string, string> = {
   "reading-lamp": "die",
 };
 
-function templatedConfirmation(actions: TurnAction[], lang: Locale): string {
+function templatedConfirmation(actions: TurnAction[], lang: Locale, terse = false): string {
   const de = lang === "de";
+  // a terse rider gets the bare word, whatever was done
+  if (terse && actions.some((a) => ["set_cabin_control", "set_presentation", "request_stop", "remember", "forget"].includes(a.tool))) {
+    return de ? "Erledigt." : "Done.";
+  }
   const parts: string[] = [];
   const cabin = actions.filter((a) => a.tool === "set_cabin_control" && a.control);
   if (cabin.length) {
@@ -303,6 +307,7 @@ export class CosimoAgent {
     let streamClosed = false;
     // Speech streams as the text does: every finished sentence is synthesized
     // and shipped while the model still writes the next one.
+    const traits = this.personas.get(persona).traits;
     const speaker = this.newSpeaker(sessionId, persona, lang, turnNo, startedAt, ctrl.signal);
     const llmStarted = Date.now();
     let llmMs = 0;
@@ -408,7 +413,7 @@ export class CosimoAgent {
         // ends here, saving the 1–2 s the confirmation round used to cost.
         if (!stepToolFailed && toolCalls.every((c) => SPEAK_WHILE_ACTING.has(c.name))) {
           if (stepText.trim().length < DEGENERATE_CHARS) {
-            const confirmation = templatedConfirmation(actions, lang);
+            const confirmation = templatedConfirmation(actions, lang, traits.verbosity === "terse");
             if (!startedSpeaking) {
               startedSpeaking = true;
               this.hub.emitPhase("speaking", sessionId, turnNo);
@@ -475,6 +480,24 @@ export class CosimoAgent {
       });
       this.persist(sessionId);
       return;
+    }
+    // "Bestätigung nach jedem Schritt": if actions ran and the model's own
+    // words did not state them, append the templated confirmation — the
+    // rider hears exactly what changed, every time, not by the model's mood.
+    const acted = actions.filter((a) => ["set_cabin_control", "set_presentation"].includes(a.tool) && a.ok !== false);
+    if (!streamClosed && traits.confirmation === "every-step" && acted.length) {
+      const tpl = templatedConfirmation(acted, lang);
+      const said = assistantText.toLowerCase();
+      const mentioned = acted.every((a) => {
+        const label = a.tool === "set_cabin_control" && a.control ? (CABIN_CONTROLS.find((c) => c.id === a.control)?.label[lang] ?? "").toLowerCase() : String(a.args?.setting ?? "");
+        return label && said.includes(label);
+      });
+      if (!mentioned && !said.includes(tpl.toLowerCase())) {
+        const add = (assistantText.trim() ? " " : "") + tpl;
+        assistantText += add;
+        this.hub.emitChatDelta(sessionId, add, false, turnNo);
+        speaker.push(add);
+      }
     }
     // A local card put on screen this turn must be heard, whatever the model
     // said ("Erledigt." happens): append its question deterministically.
