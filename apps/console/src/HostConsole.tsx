@@ -713,26 +713,7 @@ function Conversation({ turns }: { turns: ConvoTurn[] }) {
   );
 }
 
-function SeatCard({
-  seat,
-  personas,
-  turns,
-  onPersona,
-  onLight,
-  onReset,
-  onInspect,
-  onLogs,
-}: {
-  seat: SeatSummary;
-  personas: PersonaBroadcast[];
-  turns: ConvoTurn[];
-  onPersona: (key: PersonaKey) => void;
-  onLight: (control: (typeof TOGGLE_CONTROLS)[number]["id"], on: boolean) => void;
-  onReset: () => void;
-  onInspect: () => void;
-  onLogs: () => void;
-}) {
-  const personaId = `persona-${seat.deviceId}`;
+function SeatCard({ seat, turns, onReset }: { seat: SeatSummary; turns: ConvoTurn[]; onReset: () => void }) {
   const a = seat.accommodations;
   return (
     <Card active={seat.phase !== "idle"} className="gap-4">
@@ -749,17 +730,10 @@ function SeatCard({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(280px,2fr)_3fr]">
         {/* ── left: the seat's configuration ── */}
         <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center gap-2 text-md">
-            <label htmlFor={personaId} className="inline-flex items-center gap-1.5 opacity-55"><IdCard size={14} /> Persona</label>
-            <Select id={personaId} value={seat.persona} onChange={(e) => onPersona(e.target.value)}>
-              {personaOptions(personas, seat.persona).map((p) => (
-                <option key={p.key} value={p.key}>{p.label}</option>
-              ))}
-            </Select>
-          </div>
           <KeyValue
             keyWidth="w-[104px]"
             rows={[
+              ["Persona", `${seat.personaLabel} (${seat.persona})`],
               ["Sprache", a.language],
               ["Farben", `${a.theme}${a.contrast === "high" ? " · hoher Kontrast" : ""}`],
               ["Schrift", a.textSize.toUpperCase()],
@@ -771,21 +745,13 @@ function SeatCard({
               ["Erinnert", seat.memories.length ? seat.memories.join(" · ") : "—"],
             ]}
           />
-          <div className="flex flex-wrap gap-2">
-            {TOGGLE_CONTROLS.map((def) => {
-              const st = seat.controls.find((x) => x.id === def.id);
-              const on = Boolean(st?.on);
-              return (
-                <Button key={def.id} size="sm" variant={on ? "on" : "default"} aria-pressed={on} onClick={() => onLight(def.id, !on)} title={def.real ? "real hardware" : "simulated"}>
-                  {def.label.de} {on ? "an" : "aus"}{st?.degraded ? " ⚠" : ""}
-                </Button>
-              );
-            })}
-          </div>
-          <div className="mt-auto flex flex-wrap gap-2">
-            <Button size="sm" onClick={onInspect}><Search size={14} /> Systemprompt</Button>
-            <Button size="sm" onClick={onLogs}><ScrollText size={14} /> Log</Button>
-            <Button size="sm" onClick={onReset}><RotateCcw size={14} /> Zurücksetzen</Button>
+          <div className="mt-auto">
+            <Button
+              size="sm"
+              onClick={() => { if (window.confirm(`Session an ${seat.deviceId} beenden? Der Sitz geht zurück zum Consent-Screen; gespeicherte Sessions bleiben.`)) onReset(); }}
+            >
+              <RotateCcw size={14} /> Zurücksetzen
+            </Button>
           </div>
         </div>
 
@@ -859,12 +825,7 @@ function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId:
             <SeatCard
               key={seat.deviceId}
               seat={seat}
-              personas={c.personas}
               turns={conversationOf(c.logs, seat.deviceId)}
-              onLogs={() => onShowLogs(seat.deviceId)}
-              onInspect={() => c.inspectSeat(seat.deviceId)}
-              onPersona={(p) => c.setPersona(p, seat.deviceId)}
-              onLight={(control, on) => c.overrideLight(seat.deviceId, control, on)}
               onReset={() => c.resetSession(seat.deviceId)}
             />
           ))}
