@@ -84,6 +84,7 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "audio-first", pace: "normal", verbosity: "normal", confirmation: "every-step", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "ALEX1" }],
+    consent: true,
     memories: [
       { note: "Orientiert sich über Sprache und Tasten; möchte jede Aktion laut bestätigt bekommen.", at: "2026-08-28T08:00:00.000Z" },
       { note: "Fährt regelmäßig mit öffentlichen Verkehrsmitteln.", at: "2026-08-28T08:00:00.000Z" },
@@ -102,6 +103,7 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "visual-first", pace: "normal", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "NOA1" }],
+    consent: true,
     memories: [
       { note: "Liest lieber mit, als zuzuhören — in lauter Umgebung Text statt Sprache.", at: "2026-08-28T08:00:00.000Z" },
       { note: "Mag hohe Kontraste und klare Symbole.", at: "2026-08-28T08:00:00.000Z" },
@@ -120,6 +122,7 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "balanced", pace: "step-by-step", verbosity: "explanatory", confirmation: "every-step", initiative: "leads", scope: "basics" },
     nfcIds: [{ tag: "LUCA1" }],
+    consent: true,
     memories: [
       { note: "Fühlt sich sicher, wenn Abläufe Schritt für Schritt erklärt werden.", at: "2026-08-28T08:00:00.000Z" },
       { note: "Nutzt hauptsächlich die Basisfunktionen.", at: "2026-08-28T08:00:00.000Z" },
@@ -138,6 +141,7 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "balanced", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "SAM1" }],
+    consent: true,
     memories: [
       { note: "Pendelt täglich; will nur den nächsten Halt und die Zeit — kurz und ohne Rückfragen.", at: "2026-08-28T08:00:00.000Z" },
     ],
