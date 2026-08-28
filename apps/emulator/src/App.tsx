@@ -310,7 +310,7 @@ export default function App() {
               aria-label="chip id"
               value={nfc}
               onChange={(e) => setNfc(e.target.value)}
-              placeholder="chip id, e.g. ANNA1"
+              placeholder="chip id, e.g. ALEX1"
               spellCheck={false}
             />
             <Button type="submit" disabled={!nfc.trim()}>
@@ -318,7 +318,8 @@ export default function App() {
             </Button>
           </form>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {["ANNA1", "BRUNO1", "CLARA1", "DAVID1", "EMIL1"].map((id) => (
+            {/* the four fair riders (Nutzungsprofile 01–04) */}
+            {["ALEX1", "NOA1", "LUCA1", "SAM1"].map((id) => (
               <Button
                 key={id}
                 size="xs"
