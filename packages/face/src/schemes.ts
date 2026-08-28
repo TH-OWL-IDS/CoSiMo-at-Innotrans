@@ -25,13 +25,13 @@ export interface ColorScheme {
 }
 
 export const schemes: ColorScheme[] = [
-  { id: "classic", label: "Klassisch", bg: "#ffffff", ink: "#141414", states: { listening: "#22a55b", thinking: "#8a908c", speaking: "#3b7dd8", error: "#d92d20" } },
-  { id: "night", label: "Nacht", bg: "#16181c", ink: "#f3f4f6", states: { listening: "#4ade80", thinking: "#9aa3ad", speaking: "#60a5fa", error: "#f87171" } },
-  { id: "ocean", label: "Ozean", bg: "#eef6fb", ink: "#0d4a6b", states: { listening: "#1f9d6a", thinking: "#6f8fa3", speaking: "#0d7fc2", error: "#c8362b" } },
-  { id: "forest", label: "Wald", bg: "#eef6ef", ink: "#1f5132", states: { listening: "#2f9e44", thinking: "#7d9a85", speaking: "#2a7fb8", error: "#c23b2b" } },
-  { id: "sun", label: "Sonne", bg: "#fff7e9", ink: "#7a4a00", states: { listening: "#2e9e5a", thinking: "#a58a5c", speaking: "#c77a00", error: "#d13a1e" } },
-  { id: "berry", label: "Beere", bg: "#fdeff5", ink: "#7c1d49", states: { listening: "#2a9a63", thinking: "#a07a8c", speaking: "#b0407a", error: "#d1274f" } },
-  { id: "slate", label: "Schiefer", bg: "#eef0f3", ink: "#28323d", states: { listening: "#2e9d5c", thinking: "#8592a0", speaking: "#3b78c9", error: "#d0342c" } },
+  { id: "weiss", label: "Weiß", bg: "#ffffff", ink: "#141414", states: { listening: "#22a55b", thinking: "#8a908c", speaking: "#3b7dd8", error: "#d92d20" } },
+  { id: "dunkel", label: "Dunkel", bg: "#16181c", ink: "#f3f4f6", states: { listening: "#4ade80", thinking: "#9aa3ad", speaking: "#60a5fa", error: "#f87171" } },
+  { id: "blau", label: "Blau", bg: "#eef6fb", ink: "#0d4a6b", states: { listening: "#1f9d6a", thinking: "#6f8fa3", speaking: "#0d7fc2", error: "#c8362b" } },
+  { id: "gruen", label: "Grün", bg: "#eef6ef", ink: "#1f5132", states: { listening: "#2f9e44", thinking: "#7d9a85", speaking: "#2a7fb8", error: "#c23b2b" } },
+  { id: "gelb", label: "Gelb", bg: "#fff7e9", ink: "#7a4a00", states: { listening: "#2e9e5a", thinking: "#a58a5c", speaking: "#c77a00", error: "#d13a1e" } },
+  { id: "rosa", label: "Rosa", bg: "#fdeff5", ink: "#7c1d49", states: { listening: "#2a9a63", thinking: "#a07a8c", speaking: "#b0407a", error: "#d1274f" } },
+  { id: "grau", label: "Grau", bg: "#eef0f3", ink: "#28323d", states: { listening: "#2e9d5c", thinking: "#8592a0", speaking: "#3b78c9", error: "#d0342c" } },
 ];
 
 export const defaultSchemeId = schemes[0]!.id;

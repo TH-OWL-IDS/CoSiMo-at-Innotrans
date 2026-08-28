@@ -33,17 +33,17 @@ export type PersonaKey = string;
 /**
  * The canonical appearance-scheme ids. The face package's `schemes` list is
  * typed against this, and `set_presentation` validates against it — a theme
- * outside this list would silently fall back to "classic" on the kiosk while
+ * outside this list would silently fall back to "weiss" on the kiosk while
  * CoSiMo claims success (that bug happened: the LLM sent "dark").
  */
 export const SCHEME_IDS = [
-  "classic",
-  "night",
-  "ocean",
-  "forest",
-  "sun",
-  "berry",
-  "slate",
+  "weiss",
+  "dunkel",
+  "blau",
+  "gruen",
+  "gelb",
+  "rosa",
+  "grau",
 ] as const;
 
 export type SchemeId = (typeof SCHEME_IDS)[number];

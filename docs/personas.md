@@ -58,7 +58,10 @@ seeded as trait combinations.
 
 ### Accommodations (the machine-actionable levers)
 
-`language` (de/en — the rider's preferred language), `theme`, `textSize`
+`language` (de/en — the rider's preferred language), `theme` (the colour
+scheme — ids are German colour words `weiss|dunkel|blau|gruen|gelb|rosa|grau`;
+the tool exposes it as the setting `farbe`, so „stell auf grün" maps directly;
+the CMS labels it „Farbe"), `textSize`
 (s/m/l/xl), `contrast` (normal/high), `audioOutput`, `speechRate`, `showText`,
 `reduceMotion`, `input` (voice/text/both), plus the voice itself: `volume`
 (0–1, playback-side — „leiser bitte"), `voiceGender` (female/male — a second

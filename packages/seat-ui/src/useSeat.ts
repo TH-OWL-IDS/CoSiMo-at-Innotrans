@@ -97,7 +97,7 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
   // Profile accommodations drive the theme + accessible presentation, live —
   // all voice-mutable via CoSiMo (set_presentation).
   const acc = cosimo.persona?.accommodations;
-  const scheme = schemeById(acc?.theme ?? "classic");
+  const scheme = schemeById(acc?.theme ?? "weiss");
   const textScale = { s: 0.85, m: 1, l: 1.25, xl: 1.55 }[acc?.textSize ?? "m"];
   const highContrast = acc?.contrast === "high";
   const showText = acc?.showText ?? false;

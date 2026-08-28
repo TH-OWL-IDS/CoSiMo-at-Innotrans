@@ -192,8 +192,9 @@ export const Personas: CollectionConfig = {
             {
               name: "theme",
               type: "text",
-              defaultValue: "classic",
-              admin: { description: "Appearance scheme id (packages/face)." },
+              label: "Farbe",
+              defaultValue: "weiss",
+              admin: { description: "Farbschema: weiss · dunkel · blau · gruen · gelb · rosa · grau (per Sprache: „stell auf grün“)." },
             },
             {
               name: "textSize",

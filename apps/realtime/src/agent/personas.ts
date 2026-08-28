@@ -16,7 +16,7 @@ import { config } from "../config.js";
 function accommodations(over: Partial<Accommodations> = {}): Accommodations {
   return {
     language: "de",
-    theme: "classic",
+    theme: "weiss",
     textSize: "m",
     contrast: "normal",
     audioOutput: true,

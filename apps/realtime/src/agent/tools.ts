@@ -94,13 +94,13 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       properties: {
         setting: {
           type: "string",
-          enum: ["textSize", "contrast", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "theme", "language", "volume", "voice", "tone"],
+          enum: ["textSize", "contrast", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "farbe", "language", "volume", "voice", "tone"],
           description: "Which setting to change.",
         },
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. theme (exact ids): classic (hell/weiß), night (dunkel), ocean (blau), forest (grün), sun (warm/gelb), berry (pink), slate (grau).",
+            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
         },
       },
       required: ["setting", "value"],
@@ -161,6 +161,17 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
 ];
 
+/** Everyday colour words → scheme ids (de/en, old ids kept for stored profiles). */
+const COLOUR_WORDS: Record<string, string> = {
+  "weiß": "weiss", weiss: "weiss", white: "weiss", hell: "weiss", classic: "weiss", klassisch: "weiss",
+  dunkel: "dunkel", schwarz: "dunkel", dark: "dunkel", black: "dunkel", nacht: "dunkel", night: "dunkel",
+  blau: "blau", blue: "blau", ozean: "blau", ocean: "blau",
+  "grün": "gruen", gruen: "gruen", green: "gruen", wald: "gruen", forest: "gruen",
+  gelb: "gelb", yellow: "gelb", sonne: "gelb", sun: "gelb", warm: "gelb", orange: "gelb",
+  rosa: "rosa", pink: "rosa", beere: "rosa", berry: "rosa", lila: "rosa",
+  grau: "grau", gray: "grau", grey: "grau", schiefer: "grau", slate: "grau",
+};
+
 /** Coerce a tool value to boolean (accepts true/false or "true"/"false"). */
 function toBool(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
@@ -204,33 +215,16 @@ function presentationPatch(setting: string, value: unknown, voices: VoiceCatalog
         ? { patch: { speechRate: n } }
         : { error: "speechRate must be a number 0.5–1.5" };
     }
+    case "farbe":
     case "theme": {
-      // Strict: an unknown id would silently render as "classic" on the
-      // kiosk while CoSiMo claims success (the LLM once sent "dark").
-      const id = String(value).trim().toLowerCase();
+      // Strict ids, but the everyday words map onto them ("grün", "pink",
+      // "schwarz", "hell") — an unknown value would silently render as
+      // "weiss" on the kiosk while CoSiMo claims success.
+      const raw = String(value).trim().toLowerCase();
+      const id = COLOUR_WORDS[raw] ?? raw;
       return (SCHEME_IDS as readonly string[]).includes(id)
         ? { patch: { theme: id } }
-        : { error: `theme must be one of: ${SCHEME_IDS.join("|")}` };
-    }
-    case "volume": {
-      let n = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(n)) return { error: "volume must be a number 0–1" };
-      if (n > 1 && n <= 100) n = n / 100; // the model sometimes says 50 for 50%
-      return n >= 0 && n <= 1 ? { patch: { volume: n } } : { error: "volume must be 0–1" };
-    }
-    case "voice": {
-      const g = String(value).trim().toLowerCase();
-      if (g === "female" || g === "male") return { patch: { voiceGender: g, voice: "" } };
-      const entry = voices.find((v) => v.key === g);
-      if (entry) return { patch: { voice: entry.key, voiceGender: entry.gender } };
-      const keys = voices.map((v) => v.key).join("|");
-      return { error: `voice must be female|male${keys ? `|${keys}` : ""}` };
-    }
-    case "tone": {
-      const t = String(value).trim().toLowerCase();
-      return (VOICE_TONES as readonly string[]).includes(t)
-        ? { patch: { voiceTone: t as VoiceTone } }
-        : { error: `tone must be one of: ${VOICE_TONES.join("|")}` };
+        : { error: `farbe must be one of: ${SCHEME_IDS.join("|")}` };
     }
     case "language":
       return value === "de" || value === "en"

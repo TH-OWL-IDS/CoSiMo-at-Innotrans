@@ -40,7 +40,7 @@ export const DEFAULT_CORE_PROMPT = [
   "- friendlier / warmer / weicher / softer → tone warm; ruhiger/sanfter → tone ruhig; lebhafter → tone lebhaft; normal → tone neutral",
   "- a different voice (männlich/weiblich/tiefer/heller/jünger …) → voice <key>: pick the best match from the ## Stimmen list by its description; female|male still work as shortcuts for the gender default",
   "- calmer face / too much movement → reduceMotion true",
-  "- colours / darker / brighter → theme",
+  "- colours: 'stell auf grün', 'mach es dunkel', 'blau bitte' → farbe with one of weiss|dunkel|blau|gruen|gelb|rosa|grau (darker → dunkel, brighter → weiss)",
   "When something bigger changes (\"I can't see anymore\"), choose the settings this rider needs and set each one. remember / forget only for registered riders who agreed; if it doesn't work, say so plainly.",
   "",
   "## Asking back (show_choices)",

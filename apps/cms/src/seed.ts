@@ -56,7 +56,7 @@ const personas: ProfileSeed[] = [
     summary: "Allgemeine Begleitung.",
     brief: "Speak naturally and warmly. Keep answers short and clear.",
     accommodations: {
-      language: "de", theme: "classic", textSize: "m", contrast: "normal", input: "both",
+      language: "de", theme: "weiss", textSize: "m", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
@@ -79,7 +79,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 01 – kommuniziert über Hören und Tasten.",
     brief: "",
     accommodations: {
-      language: "de", theme: "classic", textSize: "l", contrast: "normal", input: "voice",
+      language: "de", theme: "weiss", textSize: "l", contrast: "normal", input: "voice",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
@@ -97,7 +97,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 02 – kommuniziert überwiegend visuell.",
     brief: "",
     accommodations: {
-      language: "de", theme: "slate", textSize: "l", contrast: "high", input: "both",
+      language: "de", theme: "grau", textSize: "l", contrast: "high", input: "both",
       audioOutput: true, speechRate: 1, showText: true, reduceMotion: true,
       volume: 0.6, voiceGender: "female", voiceTone: "ruhig",
     },
@@ -115,7 +115,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 03 – benötigt einfache und verständliche Abläufe.",
     brief: "",
     accommodations: {
-      language: "de", theme: "sun", textSize: "l", contrast: "normal", input: "both",
+      language: "de", theme: "gelb", textSize: "l", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 0.9, showText: true, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "warm",
     },
@@ -133,7 +133,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
     brief: "",
     accommodations: {
-      language: "de", theme: "classic", textSize: "m", contrast: "normal", input: "both",
+      language: "de", theme: "weiss", textSize: "m", contrast: "normal", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "lebhaft",
     },
@@ -167,6 +167,17 @@ const RETIRED_KEYS = ["anna", "bruno", "clara", "david", "emil"];
 
 async function seed(): Promise<void> {
   const payload = await getPayload({ config });
+
+  // One-time remap of the old scheme ids to the colour names (2026-08-28).
+  const OLD_THEME: Record<string, string> = { classic: "weiss", night: "dunkel", ocean: "blau", forest: "gruen", sun: "gelb", berry: "rosa", slate: "grau" };
+  const all = await payload.find({ collection: "personas", limit: 100, depth: 0 });
+  for (const doc of all.docs) {
+    const cur = doc.accommodations?.theme;
+    if (cur && OLD_THEME[cur]) {
+      await payload.update({ collection: "personas", id: doc.id, data: { accommodations: { ...doc.accommodations, theme: OLD_THEME[cur] } } });
+      console.log(`[seed] colour renamed: ${doc.key} ${cur} → ${OLD_THEME[cur]}`);
+    }
+  }
 
   for (const key of RETIRED_KEYS) {
     const gone = await payload.delete({ collection: "personas", where: { key: { equals: key } } });

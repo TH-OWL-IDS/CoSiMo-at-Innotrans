@@ -57,7 +57,7 @@ const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
   label: "Standard",
   accommodations: {
     language: "de",
-    theme: "classic",
+    theme: "weiss",
     textSize: "m",
     contrast: "normal",
     audioOutput: true,

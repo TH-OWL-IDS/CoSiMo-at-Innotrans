@@ -156,8 +156,8 @@ export interface LocalAnswer {
 }
 
 const THEME_LABEL: Record<string, [string, string]> = {
-  classic: ["Klassisch", "Classic"], night: ["Nacht", "Night"], ocean: ["Ozean", "Ocean"],
-  forest: ["Wald", "Forest"], sun: ["Sonne", "Sun"], berry: ["Beere", "Berry"], slate: ["Schiefer", "Slate"],
+  weiss: ["Weiß", "White"], dunkel: ["Dunkel", "Dark"], blau: ["Blau", "Blue"],
+  gruen: ["Grün", "Green"], gelb: ["Gelb", "Yellow"], rosa: ["Rosa", "Pink"], grau: ["Grau", "Grey"],
 };
 
 /** Turn a tapped value on a local card into an accommodation patch + words. */
