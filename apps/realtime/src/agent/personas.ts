@@ -171,6 +171,10 @@ export class PersonaProvider {
     const p = this.cache[key];
     const clean = note.trim();
     if (!p || !clean) return null;
+    // The same note again (a repeated request, a forced re-call) must not
+    // pile up: hand back the existing entry instead.
+    const dup = p.memories.find((m) => m.note.toLowerCase() === clean.toLowerCase());
+    if (dup) return dup;
     const memory: PersonaMemory = { note: clean, at: new Date().toISOString() };
     p.memories = [...p.memories, memory];
     return memory;
