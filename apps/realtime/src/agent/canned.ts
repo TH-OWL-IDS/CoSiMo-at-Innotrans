@@ -138,16 +138,6 @@ export function cannedReply(
     };
   }
 
-  // Battery
-  if (has(t, "akku", "batterie", "battery", "ladung")) {
-    return {
-      matched: true,
-      emotion: "neutral",
-      text: de
-        ? `Der Akku ist bei ${Math.round(telemetry.batteryPct)} Prozent.`
-        : `The battery is at ${Math.round(telemetry.batteryPct)} percent.`,
-    };
-  }
 
   // Thanks
   if (has(t, "danke", "thanks", "thank you")) {

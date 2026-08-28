@@ -5,6 +5,7 @@ import * as migration_20260824_101152_cabin_controls_trim from './20260824_10115
 import * as migration_20260826_065908_llm_generation from './20260826_065908_llm_generation';
 import * as migration_20260827_104113_persona_traits from './20260827_104113_persona_traits';
 import * as migration_20260827_112844_persona_consent from './20260827_112844_persona_consent';
+import * as migration_20260828_080614_route_no_scenario from './20260828_080614_route_no_scenario';
 
 export const migrations = [
   {
@@ -40,6 +41,11 @@ export const migrations = [
   {
     up: migration_20260827_112844_persona_consent.up,
     down: migration_20260827_112844_persona_consent.down,
-    name: '20260827_112844_persona_consent'
+    name: '20260827_112844_persona_consent',
+  },
+  {
+    up: migration_20260828_080614_route_no_scenario.up,
+    down: migration_20260828_080614_route_no_scenario.down,
+    name: '20260828_080614_route_no_scenario'
   },
 ];

@@ -43,7 +43,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "get_telemetry",
     description:
-      "Get the MonoCab's current status: speed, location, line, destination, next stops with arrival times, occupancy, battery and doors. Call this whenever the rider asks anything about the journey, timing, or where we are.",
+      "Get the MonoCab's current status: speed, location, line, destination, next stops with arrival times, occupancy and doors. Call this whenever the rider asks anything about the journey, timing, or where we are.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

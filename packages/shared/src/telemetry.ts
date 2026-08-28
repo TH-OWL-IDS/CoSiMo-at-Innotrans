@@ -21,7 +21,7 @@ export interface RouteStop {
  * Things that go wrong on the line. First-class simulation state, so CoSiMo
  * can see and explain them ("why are we stopped?") and the journey view can
  * show them. Injected by a CMS scenario (unattended booth loop) or by the
- * host on demand.
+ * host on demand (the console's Fahrt card).
  */
 export type FaultKind =
   /** Unscheduled stop between stations; ETAs slip by the hold. */
@@ -29,11 +29,9 @@ export type FaultKind =
   /** Doors won't close; dwell extends, doors stay open. */
   | "door-fault"
   /** Reduced cruise speed on the current leg. */
-  | "slow-order"
-  /** Battery dropped to a low state; the cab limps (slower) to the terminal. */
-  | "low-battery";
+  | "slow-order";
 
-export const FAULT_KINDS: readonly FaultKind[] = ["signal-hold", "door-fault", "slow-order", "low-battery"] as const;
+export const FAULT_KINDS: readonly FaultKind[] = ["signal-hold", "door-fault", "slow-order"] as const;
 
 export interface ActiveFault {
   kind: FaultKind;
@@ -89,8 +87,6 @@ export interface MonoCabTelemetry {
   occupancy: number;
   /** Nominal cabin capacity. */
   capacity: number;
-  /** Battery state of charge, 0..100. */
-  batteryPct: number;
   /** Whether doors are currently open. */
   doorsOpen: boolean;
   /** Free-form extras the author can attach (accessibility notes, etc.). */
@@ -104,7 +100,6 @@ export interface MonoCabTelemetry {
 export interface HostTelemetryPatch {
   /** Pause / resume the journey simulation. */
   paused?: boolean;
-  batteryPct?: number;
   occupancy?: number;
   /** Inject a fault now (host demo), with an optional duration in seconds. */
   fault?: { kind: FaultKind; durationSec?: number };

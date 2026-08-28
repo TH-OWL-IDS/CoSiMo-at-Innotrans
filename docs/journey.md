@@ -26,7 +26,6 @@ Extertalbahn as the no-CMS fallback.
   iPads — are passengers too and are never "boarded over": `occupancy` =
   live sessions + simulated, capped at capacity. The host can still set
   occupancy; the real seats are what they are.
-- **Battery:** drains per driving minute, lump-recharges at the terminals.
 - **Delay:** the minutes the journey has slipped against its timetable since
   the last terminal, from holds and door faults. Resets at the terminal.
 
@@ -40,15 +39,12 @@ stopped?") and the view can show them:
 | `signal-hold` | parks the cab between stations — speed 0, progress frozen, ETAs slip by the hold |
 | `door-fault` | the doors stay open; the dwell extends by the fault |
 | `slow-order` | cruise speed × 0.4 on the current leg(s) |
-| `low-battery` | cruise speed × 0.55 — a gentle limp to the terminal |
 
 Each carries a bilingual cause and a countdown (`faults[]` in telemetry), ends
 on its own, and is logged (`fault.start` / `fault.end`, with `by:
-scenario | host`). One fault at a time.
 
 Two sources, both CMS-editable / host-driven without a restart:
 
-- **The scenario** (`route-config` → *Störungs-Szenario*): rules like
   *signal-hold, every 8 min, 35 %, 45 s*. Each rule rolls its dice once per
   period; the first roll is one period after boot. This is what keeps the
   unattended booth loop lively.
@@ -60,7 +56,6 @@ Two sources, both CMS-editable / host-driven without a restart:
 `position { stopIndex, progress 0..1, direction outbound|return, phase
 dwell|drive|hold }`, `stops[]` (the whole line in outbound order),
 `faults[]`, `delayMinutes`, `seats { liveSessions, simulated }` — on top of
-the existing speed/location/nextStops/ETAs/battery/doors.
 
 ## `apps/journey`
 
@@ -70,7 +65,6 @@ the existing speed/location/nextStops/ETAs/battery/doors.
 - Per stop: name, and the ETA when it is ahead (*jetzt / now* on arrival).
   The cab shows speed, open doors (green), and *Halt* in orange while held.
 - A **fault banner** with cause and countdown (+ delay), status tiles for
-  next stop / position / passengers / battery / delay, and a **seat row**:
   blue = a real rider (live CoSiMo seat), white = simulated, hollow = free.
 - **Mobile:** the diagram keeps its scale and scrolls horizontally — a line
   stays a line. The rest reflows.
@@ -89,9 +83,7 @@ pnpm --filter @cosimo/journey dev       # :6104
 
 | File | Role |
 |---|---|
-| `apps/realtime/src/agent/telemetry.ts` | the simulation: journey, passengers, faults, scenario |
 | `packages/shared/src/telemetry.ts` | `MonoCabTelemetry`, `ActiveFault`, `FaultKind`, `HostTelemetryPatch` |
-| `apps/cms/src/globals/RouteConfig.ts` | stops (+ demand), scenario rules |
 | `apps/console/src/HostConsole.tsx` | the ⚠ fault buttons, fault + delay display |
 | `apps/journey/src/App.tsx` | the diagram |
 
@@ -105,3 +97,11 @@ track and the cab are CI red, a hold turns the cab amber.
 When a console runs "Alles zurücksetzen", the hub sends `host:reload` to
 every other host-role client — the journey view included — and this view
 shows a "Bitte neu laden" panel with a reload button.
+
+## Faults are host-only (since 2026-08-28)
+
+There is no fault scenario any more (the CMS `faults` rules are gone): a
+fault starts only when the operator presses Signalhalt / Türstörung /
+Langsamfahrt on the console's Fahrt card (`host:patchTelemetry {fault}`),
+ends on its own after its default duration or on „Störung beenden". Battery
+state was removed altogether. The journey view is German-only.

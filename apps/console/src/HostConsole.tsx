@@ -4,9 +4,43 @@ import {
   Activity,
   Wrench,
   FlaskConical,
-  Armchair, Brain, Cable, Check, Ear, Frown, IdCard,
-  Database, LayoutDashboard, LifeBuoy, Meh, Menu, MessageCircle, Mic, Moon,
-  RotateCcw, RotateCw, ScrollText, Search, Smile, TramFront, AppWindow, Box, Monitor, RadioTower, Route, TabletSmartphone, Volume2, X, Zap, type LucideIcon,
+  Armchair,
+  Brain,
+  Cable,
+  Check,
+  Ear,
+  Frown,
+  IdCard,
+  Database,
+  LayoutDashboard,
+  LifeBuoy,
+  Meh,
+  Menu,
+  MessageCircle,
+  Mic,
+  Moon,
+  RotateCcw,
+  RotateCw,
+  ScrollText,
+  Search,
+  Smile,
+  TramFront,
+  AppWindow,
+  Box,
+  Monitor,
+  RadioTower,
+  Route,
+  TabletSmartphone,
+  Volume2,
+  X,
+  Zap,
+  type LucideIcon,
+  TrafficCone,
+  DoorOpen,
+  Gauge,
+  CircleCheck,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -516,7 +550,33 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             ["Fahrgäste", t ? `${t.occupancy}/${t.capacity} (${t.seats?.liveSessions ?? 0} echt)` : "—"],
             ["Ansicht", journeyUrl ? <a href={journeyUrl} target="_blank" rel="noreferrer" className="text-accent no-underline hover:underline">Fahrt-Ansicht öffnen ↗</a> : "—"],
           ]}
-        />
+        >
+          {/* faults are host-only: the demo decides when something goes wrong */}
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["signal-hold", "Signalhalt", TrafficCone],
+              ["door-fault", "Türstörung", DoorOpen],
+              ["slow-order", "Langsamfahrt", Gauge],
+            ] as const).map(([kind, label, Icon]) => (
+              <Button
+                key={kind}
+                size="xs"
+                variant="secondary"
+                disabled={!t || fault?.kind === kind}
+                title={`${label} auslösen (Standarddauer)`}
+                onClick={() => c.patchTelemetry({ fault: { kind } })}
+              >
+                <Icon size={13} /> {label}
+              </Button>
+            ))}
+            <Button size="xs" variant="secondary" tone="accent" disabled={!fault} onClick={() => c.patchTelemetry({ clearFaults: true })}>
+              <CircleCheck size={13} /> Störung beenden
+            </Button>
+            <Button size="xs" variant="secondary" disabled={!t} onClick={() => c.patchTelemetry({ paused: !t?.simPaused })}>
+              {t?.simPaused ? <Play size={13} /> : <Pause size={13} />} {t?.simPaused ? "Fahrt fortsetzen" : "Fahrt pausieren"}
+            </Button>
+          </div>
+        </ServiceCard>
       </div>
       {/* the last two share a row so nothing dangles alone in a 3-column grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

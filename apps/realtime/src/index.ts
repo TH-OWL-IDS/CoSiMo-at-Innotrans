@@ -96,7 +96,7 @@ async function broadcastTelemetry(): Promise<void> {
 void broadcastTelemetry();
 setInterval(() => void broadcastTelemetry(), 1000);
 
-// Host telemetry overrides (pause/resume, battery, occupancy) land inside
+// Host telemetry overrides (pause/resume, occupancy, faults) land inside
 // the simulation — so they persist — and rebroadcast immediately.
 hub.onTelemetryPatch((patch) => {
   telemetry.applyPatch(patch);

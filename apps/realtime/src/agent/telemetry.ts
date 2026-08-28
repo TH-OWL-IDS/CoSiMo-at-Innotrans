@@ -3,23 +3,22 @@
  * a small state machine drives the line from the first stop to the last and
  * back again (ping-pong), forever: cruise between stops (with accel/decel
  * ramps), dwell with open doors at each stop, turn around at the terminals.
- * Telemetry (speed, position, ETAs, doors, battery, occupancy) is *derived*
+ * Telemetry (speed, position, ETAs, doors, occupancy) is *derived*
  * from the simulation clock each tick.
  *
  * The route (stops, leg travel times, dwell times, cruise speed, per-stop
- * passenger demand, the fault scenario) is authored in Payload's
+ * passenger demand) is authored in Payload's
  * `route-config` global and refreshed on a TTL — an operator edit resets the
  * journey to the start of the new route. If Payload is unreachable the
  * built-in Extertalbahn route keeps the demo alive.
  *
  * Faults are first-class state: a signal hold parks the cab between
- * stations, a door fault extends the dwell, a slow order or low battery
- * reduces cruise speed. They come from the CMS scenario (the unattended
- * booth loop rolls dice on a schedule) or from the host on demand, end on
+ * stations, a door fault extends the dwell, a slow order reduces cruise
+ * speed. They come ONLY from the host (the console's Fahrt card), end on
  * their own, are visible to CoSiMo through get_telemetry and to the journey
  * view through telemetry:update, and are logged.
  *
- * The host console can pause/resume the journey and set battery/occupancy;
+ * The host console can pause/resume the journey and set the occupancy;
  * those land INSIDE the simulation state, so they persist (no snapshot loop
  * overwrites them). No real MonoCab integration (out of scope).
  */
@@ -31,7 +30,6 @@ import type {
   Locale,
   MonoCabTelemetry,
 } from "@cosimo/shared";
-import { FAULT_KINDS } from "@cosimo/shared";
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
 
@@ -46,22 +44,12 @@ export interface SimStop {
   demand: number;
 }
 
-/** One line of the fault scenario: roll the dice every `everyMinutes`. */
-export interface FaultRule {
-  kind: FaultKind;
-  everyMinutes: number;
-  /** 0–100 */
-  chancePct: number;
-  durationSec: number;
-}
-
 export interface SimRoute {
   line: Record<Locale, string>;
   stops: SimStop[];
   cruiseSpeedKmh: number;
   capacity: number;
   notes?: Record<Locale, string>;
-  faults: FaultRule[];
 }
 
 /** Built-in fallback route so the demo works standalone (no Payload, no DB). */
@@ -79,35 +67,25 @@ export const DEFAULT_ROUTE: SimRoute = {
     de: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
     en: "Step-free boarding, wheelchair space available.",
   },
-  faults: [
-    { kind: "signal-hold", everyMinutes: 8, chancePct: 35, durationSec: 45 },
-    { kind: "door-fault", everyMinutes: 15, chancePct: 20, durationSec: 30 },
-  ],
 };
-
-/** Battery: drained per driving minute, lump-recharged at each terminal. */
-const DRAIN_PCT_PER_DRIVE_MIN = 0.8;
-const TERMINAL_RECHARGE_PCT = 25;
 
 /** Fraction of a leg spent accelerating / braking (speed ramp). */
 const RAMP = 0.15;
 
-/** Speed factor while a slow order / low battery is active. */
-const SLOW_FACTOR: Partial<Record<FaultKind, number>> = { "slow-order": 0.4, "low-battery": 0.55 };
+/** Speed factor while a slow order is active. */
+const SLOW_FACTOR: Partial<Record<FaultKind, number>> = { "slow-order": 0.4 };
 
 /** Default durations when the host injects without one. */
 const DEFAULT_FAULT_SEC: Record<FaultKind, number> = {
   "signal-hold": 45,
   "door-fault": 30,
   "slow-order": 120,
-  "low-battery": 180,
 };
 
 const FAULT_CAUSE: Record<FaultKind, Record<Locale, string>> = {
   "signal-hold": { de: "Halt vor Signal – wir warten auf Fahrtfreigabe.", en: "Held at a signal – waiting for clearance." },
   "door-fault": { de: "Türstörung – die Türen bleiben noch offen.", en: "Door fault – the doors stay open a little longer." },
   "slow-order": { de: "Langsamfahrstelle – wir fahren vorübergehend langsamer.", en: "Slow order – temporarily reduced speed." },
-  "low-battery": { de: "Akku niedrig – wir fahren schonend zum Endhalt.", en: "Battery low – driving gently to the terminal." },
 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -128,12 +106,6 @@ interface PayloadRouteDoc {
     dwellSeconds?: number;
     demand?: number | null;
   }>;
-  faults?: Array<{
-    kind?: string | null;
-    everyMinutes?: number | null;
-    chancePct?: number | null;
-    durationSec?: number | null;
-  }> | null;
 }
 
 function routeFromPayload(doc: PayloadRouteDoc): SimRoute | null {
@@ -145,14 +117,6 @@ function routeFromPayload(doc: PayloadRouteDoc): SimRoute | null {
     demand: clamp(Math.round(s.demand ?? 2), 0, 5),
   }));
   if (stops.length < 2) return null; // a journey needs at least two stops
-  const faults: FaultRule[] = (doc.faults ?? [])
-    .filter((f) => (FAULT_KINDS as readonly string[]).includes(f.kind ?? ""))
-    .map((f) => ({
-      kind: f.kind as FaultKind,
-      everyMinutes: Math.max(1, f.everyMinutes ?? 10),
-      chancePct: clamp(f.chancePct ?? 30, 0, 100),
-      durationSec: Math.max(5, f.durationSec ?? DEFAULT_FAULT_SEC[f.kind as FaultKind]),
-    }));
   return {
     line: { de: doc.lineDe ?? "", en: doc.lineEn ?? doc.lineDe ?? "" },
     stops,
@@ -162,7 +126,6 @@ function routeFromPayload(doc: PayloadRouteDoc): SimRoute | null {
       doc.notesDe || doc.notesEn
         ? { de: doc.notesDe ?? "", en: doc.notesEn ?? "" }
         : undefined,
-    faults,
   };
 }
 
@@ -170,7 +133,7 @@ interface Fault {
   kind: FaultKind;
   startedAt: number;
   endsAt: number;
-  by: "scenario" | "host";
+  by: "host";
   /** Set when the host ended it early (its fault.end is logged there). */
   cleared?: boolean;
 }
@@ -189,15 +152,12 @@ export class TelemetrySimulation {
   private phaseStart: number;
   private paused = false;
   private pausedAt = 0;
-  private batteryPct = 92;
   /** Simulated passengers (the real seats are added by the hub). */
   private simulated = 1;
   /** Seats with a live CoSiMo session right now — set by the hub each tick. */
   private liveSessions = 0;
 
   private readonly faults: Fault[] = [];
-  /** Last time each scenario rule rolled its dice. */
-  private readonly lastRoll = new Map<FaultKind, number>();
   /** Delay against the timetable since the last terminal, in ms. */
   private delayMs = 0;
   /** Where the drive progress stood when a hold began (it freezes). */
@@ -285,18 +245,6 @@ export class TelemetrySimulation {
     }
   }
 
-  /** Roll the scenario dice: each rule fires at most once per `everyMinutes`. */
-  private rollScenario(now: number): void {
-    for (const rule of this.route.faults) {
-      const last = this.lastRoll.get(rule.kind) ?? now; // first roll one period from boot
-      if (!this.lastRoll.has(rule.kind)) this.lastRoll.set(rule.kind, now);
-      if (now - last < rule.everyMinutes * 60_000) continue;
-      this.lastRoll.set(rule.kind, now);
-      if (this.faults.some((f) => f.endsAt > now)) continue; // one fault at a time
-      if (Math.random() * 100 < rule.chancePct) this.injectFault(rule.kind, rule.durationSec, "scenario", now);
-    }
-  }
-
   /** True while a fault parks the journey clock (hold / door fault). */
   private stalled(now: number): boolean {
     return Boolean(this.active("signal-hold", now) && this.phase === "drive") ||
@@ -307,7 +255,6 @@ export class TelemetrySimulation {
   update(now: number = Date.now()): void {
     if (this.paused) return;
     this.expire(now);
-    this.rollScenario(now);
     if (this.stalled(now)) return; // the clock is parked until the fault ends
     for (;;) {
       const elapsed = now - this.phaseStart;
@@ -324,12 +271,10 @@ export class TelemetrySimulation {
         this.phaseStart += durMs;
         this.idx += this.direction;
         this.phase = "dwell";
-        this.batteryPct = clamp(this.batteryPct - (legSec / 60) * DRAIN_PCT_PER_DRIVE_MIN, 5, 100);
         this.board(this.idx);
         if (this.isTerminal(this.idx)) {
-          // Turnaround: flip direction, top the battery up, reset the timetable.
+          // Turnaround: flip direction, reset the timetable.
           this.direction = this.direction === 1 ? -1 : 1;
-          this.batteryPct = clamp(this.batteryPct + TERMINAL_RECHARGE_PCT, 5, 100);
           this.delayMs = 0;
         }
       }
@@ -462,7 +407,6 @@ export class TelemetrySimulation {
       nextStops,
       occupancy: clamp(this.liveSessions + simulated, 0, this.route.capacity),
       capacity: this.route.capacity,
-      batteryPct: Math.round(this.batteryPct),
       doorsOpen,
       notes: this.route.notes,
       ...(this.paused ? { simPaused: true } : {}),
@@ -486,7 +430,6 @@ export class TelemetrySimulation {
       }
       this.paused = false;
     }
-    if (typeof patch.batteryPct === "number") this.batteryPct = clamp(patch.batteryPct, 0, 100);
     if (typeof patch.occupancy === "number") {
       // The host sets total occupancy; the real seats are what they are.
       this.simulated = clamp(Math.round(patch.occupancy) - this.liveSessions, 0, this.route.capacity);
@@ -515,7 +458,6 @@ export class TelemetrySimulation {
             this.direction = 1;
             this.phaseStart = now;
             this.faults.length = 0;
-            this.lastRoll.clear();
             this.delayMs = 0;
           }
         }
