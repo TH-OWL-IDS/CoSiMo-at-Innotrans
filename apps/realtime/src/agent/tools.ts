@@ -43,7 +43,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "get_telemetry",
     description:
-      "Get the MonoCab's current status: speed, location, line, destination, next stops with arrival times, occupancy and doors. Call this whenever the rider asks anything about the journey, timing, or where we are.",
+      "Fetch journey details the Fahrt-jetzt line does not carry: passenger count, doors, dwell time at this stop, the full stop list (incl. the way back), accessibility notes. For position, speed, upcoming stops/ETAs, delay and faults use the Fahrt-jetzt line instead — no call needed.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -270,7 +270,28 @@ export async function executeTool(
     case "get_telemetry": {
       const t = await ctx.telemetry.refresh();
       ctx.hub.emitTelemetry(t);
-      return { text: JSON.stringify(t), action: { tool: name } };
+      // Compact, single-language: the same facts the Fahrt-jetzt line carries
+      // plus the details it leaves out — not the whole bilingual object.
+      const l = ctx.lang;
+      const here = t.stops[t.position.stopIndex];
+      const compact = {
+        location: t.location[l],
+        speedKmh: Math.round(t.speedKmh),
+        phase: t.position.phase,
+        direction: t.position.direction,
+        line: t.line[l],
+        destination: t.destination[l],
+        upcomingStops: t.nextStops.map((st, i, all) => ({ name: st.name[l], etaMinutes: st.etaMinutes, ...(i === all.length - 1 ? { terminal: true } : {}) })),
+        allStops: t.stops.map((st) => st.name[l]),
+        delayMinutes: t.delayMinutes,
+        fault: t.faults[0] ? { kind: t.faults[0].kind, cause: t.faults[0].cause[l], remainingSec: t.faults[0].remainingSec } : null,
+        passengers: { aboard: t.occupancy, capacity: t.capacity },
+        doorsOpen: t.doorsOpen,
+        dwellSecondsAtThisStop: here?.dwellSeconds ?? null,
+        ...(t.notes ? { notes: t.notes[l] } : {}),
+        ...(t.simPaused ? { simulationPaused: true } : {}),
+      };
+      return { text: JSON.stringify(compact), action: { tool: name } };
     }
 
     case "set_cabin_control": {

@@ -139,7 +139,17 @@ export interface HostConfigBroadcast {
   llm: { provider: string; baseUrl: string; model: string; fallback: { provider: string; baseUrl: string; model: string } | null; generation: LlmGeneration };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; model: string; voices: number };
-  cabin: { lpu2BaseUrl: string; mapped: number; controls: number; timeoutMs: number };
+  cabin: {
+    lpu2BaseUrl: string;
+    mapped: number;
+    controls: number;
+    timeoutMs: number;
+    /** One row per cabin control: which playback drives it (null = not
+     *  assigned in the CMS, simulated only) and the exact URLs the kiosk
+     *  fires for on / off — the console shows them so the mapping can be
+     *  checked against the LPU-2 without a cabin. */
+    routes: { control: CabinControlId; label: string; real: boolean; playback: number | null; on: string | null; off: string | null }[];
+  };
   /** The system prompt as the agent builds it right now (core + voice
    *  catalog, default rider) — for the console's prompt popup. */
   systemPrompt: string;
@@ -155,6 +165,24 @@ export interface LlmTestResult {
   model: string;
   ms: number;
   text?: string;
+  error?: string;
+}
+
+/**
+ * Result of a console-triggered speech round-trip. TTS: one fixed sentence
+ * synthesized on the live route (the audio comes back so the console can
+ * play it). STT: that same synthesized sentence transcribed on the live
+ * route — `ms` is the recognition alone, `text` what came back.
+ */
+export interface SpeechTestResult {
+  ok: boolean;
+  route: string;
+  model: string;
+  ms: number;
+  text?: string;
+  bytes?: number;
+  audioBase64?: string;
+  mime?: string;
   error?: string;
 }
 
@@ -241,6 +269,9 @@ export interface ServerToClientEvents {
   "host:restart-result": (payload: { id: ServiceInfo["id"]; ok: boolean; error?: string }) => void;
   /** Answer to host:llm-test. */
   "host:llm-test-result": (payload: LlmTestResult) => void;
+  /** Answers to host:tts-test / host:stt-test. */
+  "host:tts-test-result": (payload: SpeechTestResult) => void;
+  "host:stt-test-result": (payload: SpeechTestResult) => void;
   /** The deployables and their reachability — pushed to host consoles on hello and on change. */
   "host:services": (payload: { services: ServiceInfo[] }) => void;
   /** A console should reload itself (another console reset everything). */
@@ -314,6 +345,9 @@ export interface ClientToServerEvents {
   "host:restart-service": (payload: { id: ServiceInfo["id"] }) => void;
   /** Console "Testen": one short generation on the current LLM route. */
   "host:llm-test": (payload: Record<string, never>) => void;
+  /** Console "Testen" on the TTS / STT cards: one round-trip on the live route, no seat. */
+  "host:tts-test": (payload: Record<string, never>) => void;
+  "host:stt-test": (payload: Record<string, never>) => void;
   /** Reset everything: every seat back to the consent screen (session:reset
    *  "*"), every *other* console told to reload (host:reload). */
   "host:reset-all": (payload: Record<string, never>) => void;

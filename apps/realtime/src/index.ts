@@ -134,6 +134,32 @@ hub.onCardAnswer((p) => {
   void agent.handleCardAnswer(p);
 });
 hub.onLlmTest(() => agent.testLlm());
+// Console "Testen" on the speech cards. TTS: one sentence on the live route,
+// audio returned for playback. STT: that sentence synthesized, then
+// recognized — a real round-trip without a microphone in the loop.
+const TEST_SENTENCE = "Funktionstest: eins, zwei, drei.";
+hub.onSpeechTest(async (kind) => {
+  const cfg = operatorConfig.get();
+  const route = kind === "tts" ? cfg.tts.baseUrl : cfg.stt.baseUrl;
+  const model = kind === "tts" ? cfg.tts.model : cfg.stt.model;
+  const fail = (error: string, ms = 0) => ({ ok: false, route, model, ms, error });
+  if (!tts.available) return fail(kind === "tts" ? "kein Server-TTS (ELEVENLABS_API_KEY fehlt)" : "kein Server-TTS für das Testaudio");
+  try {
+    const t0 = Date.now();
+    const audio = await tts.synthesize(TEST_SENTENCE, "de", { rate: 1, gender: "female", tone: "neutral" });
+    const ttsMs = Date.now() - t0;
+    if (!audio) return fail("keine Audioantwort", ttsMs);
+    const buf = Buffer.from(audio.audioBase64, "base64");
+    if (kind === "tts") return { ok: true, route, model, ms: ttsMs, text: TEST_SENTENCE, bytes: buf.byteLength, audioBase64: audio.audioBase64, mime: audio.mime };
+    if (!stt.available) return fail("kein Server-STT (DEEPGRAM_API_KEY fehlt) — die iPads diktieren lokal");
+    const t1 = Date.now();
+    const text = await stt.transcribe(buf, audio.mime, "de");
+    const ms = Date.now() - t1;
+    return { ok: text.trim().length > 0, route, model, ms, text: text.trim() || undefined, bytes: buf.byteLength, error: text.trim() ? undefined : "leeres Transkript" };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
+});
 // Sessions belong to riders: a persona switch closes the old session's
 // record; a card rider's consent decision is stored on the profile.
 hub.onSessionEnd(({ sessionId, deviceId }) => agent.endSession(sessionId, deviceId));

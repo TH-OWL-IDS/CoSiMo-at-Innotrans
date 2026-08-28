@@ -41,6 +41,7 @@ import {
   CircleCheck,
   Play,
   Pause,
+  Lightbulb,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -55,6 +56,7 @@ import {
   type PersonaKey,
   type SeatInspection,
   type SeatSummary,
+  type SpeechTestResult,
 } from "@cosimo/shared";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, SeatGlyph, Select, Tip, cn } from "@cosimo/ui";
@@ -321,6 +323,49 @@ function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; 
   );
 }
 
+/** The "Testen" row of a speech card: button, then outcome, duration, route — and for TTS a play button. */
+function SpeechTest({ kind, result, onTest, disabled, hint }: {
+  kind: "tts" | "stt";
+  result: SpeechTestResult | "pending" | null;
+  onTest: () => void;
+  disabled: boolean;
+  hint: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const r = result && result !== "pending" ? result : null;
+  const play = () => {
+    if (!r?.audioBase64) return;
+    audioRef.current?.pause();
+    const a = new Audio(`data:${r.mime ?? "audio/mpeg"};base64,${r.audioBase64}`);
+    audioRef.current = a;
+    void a.play();
+  };
+  // Play the TTS test sound as soon as it arrives — that is what one tests.
+  useEffect(() => { if (kind === "tts" && r?.ok) play(); }, [r]);
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="xs" variant="secondary" onClick={onTest} disabled={disabled || result === "pending"} title={disabled ? hint : undefined}>
+          <FlaskConical size={13} /> {result === "pending" ? "testet …" : "Testen"}
+        </Button>
+        {r?.audioBase64 && (
+          <Button size="xs" variant="secondary" onClick={play}>
+            <Play size={13} /> Anhören
+          </Button>
+        )}
+        {disabled && <span className="text-xs text-mute">{hint}</span>}
+      </div>
+      {r && (
+        <div className={cn("text-sm", r.ok ? "text-ink" : "text-accent")}>
+          <span className={r.ok ? "text-ok" : "text-accent"}>{r.ok ? "ok" : "Fehler"}</span>
+          <span className="text-mute"> · {(r.ms / 1000).toFixed(1)} s · {hostOf(r.route) || r.route} · {r.model}{r.bytes ? ` · ${Math.round(r.bytes / 1024)} kB` : ""}</span>
+          <div className="mt-1 whitespace-pre-wrap break-words">{r.ok ? `„${r.text}“` : r.error}</div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void; onShowSystemLogs: () => void }) {
   // A minute tick, so "vor 40 s" stays honest without the log changing.
   const [now, setNow] = useState(() => Date.now());
@@ -352,6 +397,17 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   const ttsMs = mean(turns.map((t) => t.data.timings.ttsMs).filter((x): x is number => x != null));
   const lastStt = last("stt.result");
   const lastTts = last("tts.done");
+  // The light: what the kiosks reported back after firing the LPU-2 URLs.
+  const cabinResults = recent("cabin.result", 50);
+  const cabinOk = cabinResults.filter((e) => e.data.ok).length;
+  const cabinFailed = cabinResults.length - cabinOk;
+  const lastCabin = cabinResults[cabinResults.length - 1];
+  const control = (id: string) => c.cabin.find((x) => x.id === id);
+  const onOff = (id: string) => {
+    const x = control(id);
+    if (!x) return "—";
+    return <span className={x.degraded ? "text-warn" : undefined}>{x.on ? "an" : "aus"}{x.degraded ? " · nicht bestätigt" : ""}</span>;
+  };
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
   // Rows: real kiosks, then emulators, then journey views (lost ones last
@@ -578,31 +634,70 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           </div>
         </ServiceCard>
       </div>
-      {/* the last two share a row so nothing dangles alone in a 3-column grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ServiceCard
+          state={!cfg ? "starting" : st.light ? (control("interior-light")?.degraded ? "warn" : "ok") : "warn"}
+          icon={Lightbulb}
+          name="Licht"
+          detail="Das Kabinenlicht: der Hub entscheidet, das iPad schaltet — es ist das einzige Gerät im Kabinen-LAN und feuert die fertigen LPU-2-URLs. „Innenlicht“ ist die echte Lampe, „Leselampe“ nur auf den Bildschirmen. „nicht bestätigt“ heißt: der letzte Schaltversuch kam nicht beim Controller an, gezeigt wird der letzte bekannte Stand."
+          facts={[
+            ["Innenlicht", onOff("interior-light")],
+            ["Leselampe", onOff("reading-lamp")],
+            ["LPU-2", cfg ? (cfg.cabin.lpu2BaseUrl ? `${hostOf(cfg.cabin.lpu2BaseUrl)} · ${cfg.cabin.timeoutMs} ms Timeout` : <span className="text-warn">keine Adresse im CMS</span>) : "—"],
+            ["Schaltungen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""} · zuletzt ${ago(lastCabin!.ts, now)}${lastCabin!.data.ok ? "" : ` (${lastCabin!.data.error ?? "Fehler"})`}` : "noch keine"],
+          ]}
+        >
+          {/* the routes, as the CMS maps them: control → playback → the URLs the iPad fires */}
+          <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
+            {(cfg?.cabin.routes ?? []).map((r) => (
+              <div key={r.control} className="flex min-w-0 flex-col gap-0.5 text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="font-semibold">{r.label}</span>
+                  <span className="text-mute">{r.real ? "echt" : "nur Bildschirm"}</span>
+                  <span className="ml-auto shrink-0 tabular-nums">{r.playback != null ? `Playback ${String(r.playback).padStart(2, "0")}` : <span className="text-mute">nicht zugeordnet</span>}</span>
+                </span>
+                {r.on && r.off ? (
+                  <span className="flex flex-col gap-0.5 text-xs text-mute">
+                    <span className="truncate" title={r.on}>an → <code>{r.on.replace(/^https?:\/\//, "")}</code></span>
+                    <span className="truncate" title={r.off}>aus → <code>{r.off.replace(/^https?:\/\//, "")}</code></span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-mute">{cfg?.cabin.lpu2BaseUrl ? "kein Playback im CMS — wird nur simuliert" : "keine LPU-2-Adresse im CMS — wird nur simuliert"}</span>
+                )}
+              </div>
+            ))}
+            {cfg && cfg.cabin.routes.length === 0 && <span className="text-sm text-mute">keine Kabinenfunktionen definiert</span>}
+          </div>
+        </ServiceCard>
         <ServiceCard
           state={st.serverTts ? "ok" : "warn"}
           icon={Volume2}
           name="Sprechen (TTS)"
           detail="Sprachausgabe: ob die Stimme auf dem Server (ElevenLabs) erzeugt und als Audio an den Sitz gestreamt wird oder das iPad mit der Systemstimme spricht. „Erstes Audio“ ist die Zeit bis zum ersten hörbaren Satz."
           facts={[
-            ["Pfad", st.serverTts ? "ElevenLabs (Server)" : "Browser-Synthese"],
+            ["Pfad", st.serverTts ? "ElevenLabs (Server)" : <span className="text-warn">Systemstimme auf dem iPad</span>],
+            ["TTS-Route", cfg ? `${hostOf(cfg.tts.baseUrl)} · ${cfg.tts.model}${cfg.tts.voices ? ` · ${cfg.tts.voices} Stimmen` : ""}` : "—"],
             ["Ø Dauer", ms(ttsMs)],
             ["Erstes Audio", lastTts?.data.firstChunkMs != null ? `nach ${ms(lastTts.data.firstChunkMs)}${lastTts.data.chunks ? ` · ${lastTts.data.chunks} Clips` : ""}` : "—"],
             ["Zuletzt", lastTts ? `${ago(lastTts.ts, now)} · ${lastTts.data.chars} Zeichen` : "—"],
           ]}
-        />
+        >
+          <SpeechTest kind="tts" result={c.ttsTest} onTest={c.testTts} disabled={!st.serverTts} hint="kein Server-TTS — nichts zu testen" />
+        </ServiceCard>
         <ServiceCard
-          state={st.serverStt ? "ok" : "warn"}
+          state="ok"
           icon={Mic}
           name="Hören (STT)"
-          detail="Spracherkennung: ob die Aufnahmen der Sitze auf dem Server (Deepgram) transkribiert werden oder das iPad selbst erkennt. Ø Dauer und „Zuletzt“ beziehen sich auf die letzten Erkennungen."
+          detail="Spracherkennung. Standard ist das Diktat auf dem iPad selbst (Web Speech) — dann sieht der Server nur Text. Ist Server-STT konfiguriert (DEEPGRAM_API_KEY), laden die Sitze die Aufnahme hoch und Deepgram erkennt. „Testen“ lässt die TTS einen Testsatz sprechen und schickt ihn durch die Erkennung — ein Round-Trip ohne Mikrofon."
           facts={[
-            ["Pfad", st.serverStt ? "Deepgram (Server)" : "Browser-Erkennung"],
+            ["Pfad", st.serverStt ? "Deepgram (Server)" : "Diktat auf dem iPad (Standard)"],
+            ["STT-Route", cfg ? (st.serverStt ? `${hostOf(cfg.stt.baseUrl)} · ${cfg.stt.model}` : <span className="text-mute">{hostOf(cfg.stt.baseUrl)} · {cfg.stt.model} (nicht aktiv)</span>) : "—"],
             ["Ø Dauer", ms(sttMs)],
             ["Zuletzt", lastStt ? `${ago(lastStt.ts, now)} · ${lastStt.data.chars} Zeichen aus ${Math.round(lastStt.data.bytes / 1024)} kB` : "—"],
           ]}
-        />
+        >
+          <SpeechTest kind="stt" result={c.sttTest} onTest={c.testStt} disabled={!st.serverStt || !st.serverTts} hint={!st.serverStt ? "kein Server-STT — die iPads diktieren lokal" : "kein Server-TTS für das Testaudio"} />
+        </ServiceCard>
       </div>
     </div>
   );

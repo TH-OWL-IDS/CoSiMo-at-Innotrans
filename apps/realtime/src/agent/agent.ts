@@ -22,7 +22,7 @@ import {
   type TurnOutcome,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
-import { buildSystemPrompt } from "./prompt.js";
+import { buildSystemPrompt, journeyLine } from "./prompt.js";
 import type { LlmHistoryAction, LlmHistoryMessage, LlmRouter } from "./llm.js";
 import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
@@ -204,6 +204,7 @@ export class CosimoAgent {
         (() => { const r = this.hub.riderOf(sessionId); return r ? this.profileFor(r) : this.personas.get(persona); })(),
         this.operatorConfig.get().agent.systemPrompt,
         this.operatorConfig.get().tts.voices,
+        journeyLine(this.telemetry.get(), this.hub.riderOf(sessionId)?.accommodations.language ?? "de"),
       ),
       turns: this.recorder.get(sessionId)?.turns ?? [],
     };
@@ -286,10 +287,14 @@ export class CosimoAgent {
 
     // Core prompt is CMS-editable (operator-config, refreshed by llm.current()
     // just above); the rider section is always appended in code.
+    // The live journey rides the prompt: one generation for the common
+    // questions; get_telemetry only for what the line leaves out.
+    this.telemetry.update();
     const system = buildSystemPrompt(
       this.profileFor(rider),
       this.operatorConfig.get().agent.systemPrompt,
       this.operatorConfig.get().tts.voices,
+      journeyLine(this.telemetry.get(), lang),
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or
@@ -763,6 +768,7 @@ export class CosimoAgent {
       this.personas.get("default"),
       this.operatorConfig.get().agent.systemPrompt,
       this.operatorConfig.get().tts.voices,
+      journeyLine(this.telemetry.get(), "de"),
     );
   }
 

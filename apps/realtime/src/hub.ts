@@ -40,6 +40,7 @@ import {
   type DeviceHealth,
   type HostConfigBroadcast,
   type LlmTestResult,
+  type SpeechTestResult,
   type ServiceInfo,
 } from "@cosimo/shared";
 
@@ -124,6 +125,7 @@ export type SessionEndHandler = (payload: { sessionId: string; deviceId: string;
 /** A card-bound rider decided on consent: persist it on the profile. */
 export type ConsentPersister = (persona: PersonaKey, consent: boolean) => void;
 export type LlmTester = () => Promise<LlmTestResult>;
+export type SpeechTester = (kind: "tts" | "stt") => Promise<SpeechTestResult>;
 export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -243,6 +245,7 @@ export class Hub {
   private cardAnswerHandler: CardAnswerHandler | undefined;
   private repeatHandler: RepeatHandler | undefined;
   private llmTester: LlmTester | undefined;
+  private speechTester: SpeechTester | undefined;
   private sessionEndHandler: SessionEndHandler | undefined;
   private consentPersister: ConsentPersister | undefined;
   /** Whether a profile is card-bound (consent + settings persist). */
@@ -442,6 +445,10 @@ export class Hub {
     entry.socket.emit("persona:active", entry.persona);
     this.pushSeats();
     return sessionId;
+  }
+
+  onSpeechTest(tester: SpeechTester): void {
+    this.speechTester = tester;
   }
 
   onLlmTest(tester: LlmTester): void {
@@ -661,6 +668,14 @@ export class Hub {
         socket.on("host:llm-test", () => {
           logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
           void this.llmTester?.().then((r) => socket.emit("host:llm-test-result", r));
+        });
+        socket.on("host:tts-test", () => {
+          logger.log("host.action", { action: "tts-test", args: {} }, { deviceId });
+          void this.speechTester?.("tts").then((r) => socket.emit("host:tts-test-result", r));
+        });
+        socket.on("host:stt-test", () => {
+          logger.log("host.action", { action: "stt-test", args: {} }, { deviceId });
+          void this.speechTester?.("stt").then((r) => socket.emit("host:stt-test-result", r));
         });
         socket.on("host:restart-service", ({ id }) => {
           logger.log("host.action", { action: "restart-service", args: { id } }, { deviceId, level: "warn" });

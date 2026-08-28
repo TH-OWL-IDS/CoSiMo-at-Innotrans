@@ -10,7 +10,7 @@
  *     low-trust context that can never override the instructions above.
  */
 
-import type { Accommodations, InteractionTraits, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
+import type { Accommodations, InteractionTraits, Locale, MonoCabTelemetry, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
 
 /**
  * Deterministic phrasing (not a rules table) describing how the rider receives
@@ -36,6 +36,43 @@ function accommodationPrelude(a: Accommodations): string {
   if (a.input === "voice") lines.push("Expect spoken input.");
   else if (a.input === "text") lines.push("Expect typed input.");
   return lines.join(" ");
+}
+
+/**
+ * The live journey in one line — injected into every turn so the common
+ * questions (next/after-next/last stop, speed, delay, faults) are answered
+ * in ONE generation. Covers the whole remaining trip; what it does not
+ * contain is exactly what get_telemetry is for.
+ */
+export function journeyLine(t: MonoCabTelemetry, lang: Locale): string {
+  const de = lang === "de";
+  const stops = t.nextStops
+    .map((s, i, all) => {
+      const eta = s.etaMinutes === 0 ? (de ? "jetzt" : "now") : `${s.etaMinutes} min`;
+      const last = i === all.length - 1 ? (de ? ", Endhalt" : ", terminal") : "";
+      return `${s.name[lang]} (${eta}${last})`;
+    })
+    .join(", ");
+  const fault = t.faults[0];
+  const parts = [
+    `${t.location[lang]}${t.doorsOpen ? (de ? ", Türen offen" : ", doors open") : ""}`,
+    `${Math.round(t.speedKmh)} km/h${t.simPaused ? (de ? " (pausiert)" : " (paused)") : ""}`,
+    (de ? "dann " : "then ") + (stops || (de ? "keine weiteren Halte" : "no further stops")),
+    de ? `Richtung ${t.destination.de}` : `towards ${t.destination.en}`,
+    t.delayMinutes > 0 ? (de ? `+${t.delayMinutes} min Verspätung` : `+${t.delayMinutes} min late`) : de ? "pünktlich" : "on time",
+    fault ? (de ? `STÖRUNG: ${fault.cause.de} (noch ~${fault.remainingSec} s)` : `FAULT: ${fault.cause.en} (~${fault.remainingSec} s left)`) : de ? "keine Störung" : "no fault",
+  ];
+  return parts.join(" · ");
+}
+
+/** The journey block: the line plus the boundary rule (what needs the tool). */
+export function journeyBlock(line: string): string[] {
+  return [
+    "",
+    "## Fahrt jetzt (live, this turn)",
+    line,
+    "This line is the truth for what it contains — answer from it directly, no tool call: current position, speed, every upcoming stop with its arrival time (next, the one after, the terminal), direction, delay, fault. Anything it does NOT contain — passenger count, door/dwell details, exact seconds, accessibility notes, the way back — you MUST fetch with get_telemetry in this same turn. Never guess, never answer such details from memory.",
+  ];
 }
 
 /**
@@ -147,7 +184,7 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = []): string {
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
@@ -168,6 +205,7 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
   const traitLines = traitsPrelude(profile.traits);
   return [
     core.trim() || DEFAULT_CORE_PROMPT,
+    ...(journey ? journeyBlock(journey) : []),
     ...voicesBlock,
     "",
     "## This rider",

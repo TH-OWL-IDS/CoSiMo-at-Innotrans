@@ -8,7 +8,7 @@
 
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
-import type { Lpu2Mapping } from "../cabin/lpu2.js";
+import { buildActuation, type Lpu2Mapping } from "../cabin/lpu2.js";
 import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry } from "@cosimo/shared";
 
 /** Today's effective values (Qwen generation_config + our max_tokens). */
@@ -165,6 +165,12 @@ export class OperatorConfigProvider {
         mapped: Object.keys(c.cabin.lpu2Mapping).length,
         controls: CABIN_CONTROLS.length,
         timeoutMs: c.cabin.lpu2TimeoutMs,
+        routes: CABIN_CONTROLS.map((def) => {
+          const lpu2 = { baseUrl: c.cabin.lpu2BaseUrl, mapping: c.cabin.lpu2Mapping, timeoutMs: c.cabin.lpu2TimeoutMs };
+          const on = buildActuation(def.id, { on: true }, lpu2)?.urls[0] ?? null;
+          const off = buildActuation(def.id, { on: false }, lpu2)?.urls[0] ?? null;
+          return { control: def.id, label: def.label.de, real: def.real, playback: c.cabin.lpu2Mapping[def.id] ?? null, on, off };
+        }),
       },
       systemPrompt: c.agent.systemPrompt,
       tools: [],

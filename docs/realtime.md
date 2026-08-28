@@ -111,6 +111,18 @@ aborted (the cabin must not end up half-applied) — the loop stops before the
 next generation step instead. Interrupted turns record `outcome:
 "interrupted"` with the partial transcript.
 
+## The journey in the prompt (`journeyLine` / `journeyBlock`)
+
+Every turn injects one live line — position, speed, EVERY upcoming stop with
+its ETA (next, the one after, the terminal), direction, delay, fault — as
+`## Fahrt jetzt`, with an explicit boundary rule: answer those facts
+directly (one generation); anything the line does not carry (passenger
+count, doors/dwell, exact seconds, notes, the way back) MUST be fetched with
+`get_telemetry`, whose result is now compact and single-language. Gated on
+the GX10 (2026-08-28, 16 scenarios × 4): 62/64, one-step where expected
+44/44, tool called in every detail case. The gate script is
+`/tmp/gate-journey.py` on the GX10 (copy in the session scratchpad).
+
 ## Slit cards (`src/agent/cards.ts`, hub `showCard`)
 
 The slit is CoSiMo's control strip: one fixed grid (context left, actions
