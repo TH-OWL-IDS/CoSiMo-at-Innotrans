@@ -217,8 +217,9 @@ export default function App() {
   // The view is a host-role client: it only listens, and it never counts as a seat.
   const c = useCosimoSocket(serverUrl, "host", "journey");
   const t = c.telemetry;
-  const lang: Locale = useMemo(() => (navigator.language.startsWith("en") ? "en" : "de"), []);
-  const L = (de: string, en: string) => (lang === "de" ? de : en);
+  // The journey view is German-only (a display piece at a German fair).
+  const lang: Locale = "de";
+  const L = (de: string, _en: string) => de;
   const { w: vw, h: vh } = useViewport();
   // Small screens see the world zoomed out — more line per glance. The
   // viewport is then `vw / zoom` world px wide.
@@ -244,6 +245,8 @@ export default function App() {
   const fling = useRef(0);
   /** A "go there" animation target (the off-screen stop arrows). */
   const goal = useRef<number | null>(null);
+  /** Gliding back to the cab ("Zum MonoCab"): follow mode takes over on arrival. */
+  const returning = useRef(false);
   /** Low-rate copy of the offset for React (the off-screen arrows). */
   const [viewX, setViewX] = useState(0);
   const lastViewPush = useRef(0);
@@ -317,6 +320,15 @@ export default function App() {
         fling.current *= Math.exp(-dt3 / 350);
         if (Math.abs(fling.current) < 0.005) fling.current = 0;
       }
+      // "back to the cab": glide towards the (moving) cab, then follow it
+      if (returning.current && cabSmooth.current !== null && !followRef.current) {
+        const target = cabSmooth.current - vwRef.current / 2;
+        offset.current += (target - offset.current) * 0.08;
+        if (Math.abs(target - offset.current) < 0.5) {
+          returning.current = false;
+          setFollowing(true);
+        }
+      }
       // "go there": glide the view towards a stop (arrow click)
       if (goal.current !== null && !followRef.current) {
         offset.current += (goal.current - offset.current) * 0.08;
@@ -352,6 +364,7 @@ export default function App() {
   const lookAround = (dx: number) => {
     if (!dx) return;
     goal.current = null;
+    returning.current = false;
     fling.current = 0;
     offset.current += dx;
     if (followRef.current) setFollowing(false);
@@ -368,6 +381,7 @@ export default function App() {
     const dx = (d.x - e.clientX) / zoomRef.current;
     if (Math.abs(dx) < 3 && followRef.current) return; // a tap, not a drag
     goal.current = null;
+    returning.current = false;
     offset.current = d.start + dx;
     // instantaneous velocity for the fling (world px per ms), lightly smoothed
     const now = performance.now();
@@ -384,9 +398,10 @@ export default function App() {
     // let go with speed → keep gliding, dying down
     if (d && performance.now() - d.lastAt < 80 && Math.abs(d.v) > 0.05) fling.current = d.v;
   };
-  const recenter = () => { goal.current = null; fling.current = 0; setFollowing(true); };
+  /** Glide back to the cab (like the stop arrows); follow mode resumes on arrival. */
+  const recenter = () => { goal.current = null; fling.current = 0; returning.current = true; };
   /** Glide the view to a stop's world x (centred). */
-  const goTo = (x: number) => { fling.current = 0; setFollowing(false); goal.current = x - vwRef.current / 2; };
+  const goTo = (x: number) => { fling.current = 0; returning.current = false; setFollowing(false); goal.current = x - vwRef.current / 2; };
 
   // A console reset everything → this view should reload for a fresh state.
   const reloadPanel = c.reloadRequired && (
@@ -743,7 +758,6 @@ export default function App() {
                 [L("Status", "Status"), holding ? L("Halt am Signal", "held at signal") : t.doorsOpen ? L("Türen offen", "doors open") : L("fährt", "moving")],
                 [L("Verspätung", "Delay"), t.delayMinutes > 0 ? `+${t.delayMinutes} min` : L("pünktlich", "on time")],
                 [L("Fahrgäste", "Passengers"), `${t.occupancy} / ${t.capacity}`],
-                [L("Akku", "Battery"), `${Math.round(t.batteryPct)} %`],
               ] as [string, string][]).map(([k, v]) => (
                 <div key={k} className="flex gap-3">
                   <dt className="w-[104px] shrink-0 text-mute">{k}</dt>
