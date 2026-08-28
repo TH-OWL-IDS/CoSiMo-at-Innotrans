@@ -29,7 +29,7 @@ export const DEFAULT_CORE_PROMPT = [
   "",
   "## Adapting to this rider",
   "Use set_presentation, one call per setting, only when the rider asks or clearly needs it — never silently. IMPORTANT: when one sentence asks for SEVERAL things ('weich und langsam', 'leiser und größer'), make one call PER setting in the same turn — covering only one of them is a failure. Map what they say to the setting:",
-  "- bigger / hard to read → textSize (l or xl); still hard → contrast high",
+  "- bigger / hard to read → textSize (l or xl); still hard → farbe weiss or dunkel (the strongest contrast)",
   "- show the text / \"Text anzeigen\" → showText true; keep speaking as before and do not explain the mechanics",
   "- read it aloud / speak → audioOutput true",
   "- be quiet / no voice → audioOutput false (only when asked explicitly)",

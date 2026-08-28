@@ -14,7 +14,6 @@ export interface Seat {
   /** The active profile's accommodations, resolved to render-ready values. */
   scheme: ColorScheme;
   textScale: number;
-  highContrast: boolean;
   showText: boolean;
   reduceMotion: boolean;
   /** Push-to-talk lifecycle — driven by a physical button or an on-screen one. */
@@ -45,7 +44,6 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
   const acc = cosimo.persona?.accommodations;
   const scheme = schemeById(acc?.theme ?? "weiss");
   const textScale = { s: 0.85, m: 1, l: 1.25, xl: 1.55 }[acc?.textSize ?? "m"];
-  const highContrast = acc?.contrast === "high";
   const showText = acc?.showText ?? false;
   const speakAloud = acc?.audioOutput ?? true;
   const speechRate = acc?.speechRate ?? 1;
@@ -103,7 +101,6 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
     toggleLang: () => setLang((l) => (l === "de" ? "en" : "de")),
     scheme,
     textScale,
-    highContrast,
     showText,
     reduceMotion,
     ptt,

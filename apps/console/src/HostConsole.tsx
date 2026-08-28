@@ -1012,7 +1012,7 @@ function SeatCard({ seat, turns, onReset }: { seat: SeatSummary; turns: ConvoTur
             rows={[
               ["Persona", `${seat.personaLabel} (${seat.persona})`],
               ["Sprache", a.language],
-              ["Farben", `${a.theme}${a.contrast === "high" ? " · hoher Kontrast" : ""}`],
+              ["Farbe", a.theme],
               ["Schrift", a.textSize.toUpperCase()],
               ["Eingabe", a.input],
               ["Text", a.showText ? "sichtbar" : "aus"],

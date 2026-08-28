@@ -20,7 +20,7 @@ The seat's presentation lives in **`packages/seat-ui`**, shared by the native
 app and the emulator:
 
 - `useSeat(serverUrl)` — the behaviour: language resolution (profile → UI),
-  accommodation mapping (theme, text size, contrast, showText,
+  accommodation mapping (theme, text size, showText,
   reduce-motion), push-to-talk and the browser-TTS fallback.
 - `SeatView` — the markup: the black stage with the circle and slit cutouts,
   the face, phase hint / running transcript, telemetry strip.

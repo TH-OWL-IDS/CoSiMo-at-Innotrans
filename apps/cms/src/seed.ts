@@ -23,7 +23,6 @@ type ProfileSeed = {
     language: "de" | "en";
     theme: string;
     textSize: "s" | "m" | "l" | "xl";
-    contrast: "normal" | "high";
     input: "voice" | "text" | "both";
     volume?: number;
     voiceGender?: "female" | "male";
@@ -56,7 +55,7 @@ const personas: ProfileSeed[] = [
     summary: "Allgemeine Begleitung.",
     brief: "Speak naturally and warmly. Keep answers short and clear.",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "m", contrast: "normal", input: "both",
+      language: "de", theme: "weiss", textSize: "m", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
@@ -68,7 +67,7 @@ const personas: ProfileSeed[] = [
  * and pre-seeded memories so "CoSiMo remembers you" demos on the first scan. The chip ids are short and typeable so a scan
  * can be simulated from a keyboard (type `[`, the id, then Enter). Together they
  * exercise every lever: audio-first, step-free proactivity, the text-first
- * layout flip, large/high-contrast, and calm/slow reduce-motion.
+ * layout flip, large text, and calm/slow reduce-motion.
  */
 const users: ProfileSeed[] = [
   // ── the four fair mock riders (Nutzungsprofile 01–04) ─────────────────
@@ -79,7 +78,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 01 – kommuniziert über Hören und Tasten.",
     brief: "",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "l", contrast: "normal", input: "voice",
+      language: "de", theme: "weiss", textSize: "l", input: "voice",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
@@ -97,7 +96,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 02 – kommuniziert überwiegend visuell.",
     brief: "",
     accommodations: {
-      language: "de", theme: "grau", textSize: "l", contrast: "high", input: "both",
+      language: "de", theme: "grau", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1, showText: true, reduceMotion: true,
       volume: 0.6, voiceGender: "female", voiceTone: "ruhig",
     },
@@ -115,7 +114,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 03 – benötigt einfache und verständliche Abläufe.",
     brief: "",
     accommodations: {
-      language: "de", theme: "gelb", textSize: "l", contrast: "normal", input: "both",
+      language: "de", theme: "gelb", textSize: "l", input: "both",
       audioOutput: true, speechRate: 0.9, showText: true, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "warm",
     },
@@ -133,7 +132,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
     brief: "",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "m", contrast: "normal", input: "both",
+      language: "de", theme: "weiss", textSize: "m", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "lebhaft",
     },

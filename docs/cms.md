@@ -14,7 +14,7 @@ Payload login). There is no other page — the operator console is
 
 - **personas** — rider profiles: identity (`key`, `label`, `name`, **NFC chip
   ids**), an operator **brief** (verbatim prompt), structured
-  **accommodations** (preferred language, theme, text size, contrast, audio,
+  **accommodations** (preferred language, theme, text size, audio,
   speech rate, show-text, reduce-motion, input), and CoSiMo-written
   **memories**. No presets — `default` is the clean plate new riders are
   copied from (a `copyFrom` hook snapshots accommodations + brief on create).

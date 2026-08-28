@@ -150,7 +150,7 @@ via `card:answer` — no LLM round: it patches the seat's accommodations,
 persists for card-bound riders, logs `card.answer`, records the exchange in
 the session history, and CoSiMo still answers audio-visually with a short
 templated line spoken in the NEW setting. `start_customizer` runs the wizard
-(colour → text size → contrast → voice → tempo) step by step the same way;
+(colour → text size → voice → tempo) step by step the same way;
 the closing line says whether it persists (card-bound) or lasts the ride.
 Cards auto-dismiss (20 s, wizard 45 s), any turn clears them (a spoken answer
 during the wizard ends it — the model handles that setting instead).

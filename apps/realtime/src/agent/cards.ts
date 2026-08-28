@@ -100,7 +100,7 @@ export function scaleCard(
 
 /* ── the customizer wizard ─────────────────────────────────────────────── */
 
-export const CUSTOMIZE_STEPS = ["theme", "textSize", "contrast", "voice", "speechRate"] as const;
+export const CUSTOMIZE_STEPS = ["theme", "textSize", "voice", "speechRate"] as const;
 export type CustomizeStep = (typeof CUSTOMIZE_STEPS)[number];
 
 /** The spoken question for a step (also the card's context line). */
@@ -108,7 +108,6 @@ export function customizeQuestion(step: CustomizeStep, lang: Locale): string {
   const q: Record<CustomizeStep, [string, string]> = {
     theme: ["Welche Farbe magst du?", "Which colour do you like?"],
     textSize: ["Wie groß soll die Schrift sein?", "How big should the text be?"],
-    contrast: ["Normaler oder hoher Kontrast?", "Normal or high contrast?"],
     voice: ["Welche Stimme gefällt dir?", "Which voice do you like?"],
     speechRate: ["Und wie schnell soll ich sprechen?", "And how fast should I speak?"],
   };
@@ -128,15 +127,6 @@ export function customizeCard(index: number, lang: Locale, voices: VoiceCatalogE
         id: newId(), kind: "list", question: q, local: true, ttlMs: WIZARD_TTL, step: pos,
         options: [
           { value: "s", label: "S" }, { value: "m", label: "M" }, { value: "l", label: "L" }, { value: "xl", label: "XL" },
-          ...stepExtras(lang, pos),
-        ],
-      };
-    case "contrast":
-      return {
-        id: newId(), kind: "list", question: q, local: true, ttlMs: WIZARD_TTL, step: pos,
-        options: [
-          { value: "normal", label: de(lang) ? "Normal" : "Normal" },
-          { value: "high", label: de(lang) ? "Hoch" : "High" },
           ...stepExtras(lang, pos),
         ],
       };
@@ -178,12 +168,9 @@ export function localAnswer(card: SeatCard, value: string, lang: Locale, voices:
       return { patch: { voice: v.key, voiceGender: v.gender }, spoken: g ? `So klinge ich jetzt — ${v.label}.` : `This is how I sound now — ${v.label}.` };
     }
     case "list": {
-      // wizard list steps carry setting values (textSize / contrast)
+      // wizard list steps carry setting values (textSize)
       if (card.step?.index === CUSTOMIZE_STEPS.indexOf("textSize") && (TEXT_SIZES as readonly string[]).includes(value)) {
         return { patch: { textSize: value as Accommodations["textSize"] }, spoken: g ? "So groß?" : "This big?" };
-      }
-      if (card.step?.index === CUSTOMIZE_STEPS.indexOf("contrast") && (value === "normal" || value === "high")) {
-        return { patch: { contrast: value }, spoken: g ? "Okay." : "Okay." };
       }
       return null;
     }

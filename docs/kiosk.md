@@ -23,7 +23,7 @@ outside them renders pitch black (invisible, no light bleed):
   Also hosts a "connecting…" note (there is no consent screen — the privacy notice is signage at the cab). The circle is
   **display-only** — talking runs exclusively over the physical talk button
   (hold to speak; pressing while CoSiMo talks silences it instantly —
-  barge-in); touch does nothing by design. Text scale, contrast, speech
+  barge-in); touch does nothing by design. Text scale, speech
   rate, reduce-motion and the UI language all follow the active profile's
   accommodations, live.
 - **The slit** — the telemetry strip: clock · passengers · next stop |

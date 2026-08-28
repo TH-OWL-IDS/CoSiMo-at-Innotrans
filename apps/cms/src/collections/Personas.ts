@@ -208,15 +208,6 @@ export const Personas: CollectionConfig = {
               ],
             },
             {
-              name: "contrast",
-              type: "select",
-              defaultValue: "normal",
-              options: [
-                { label: "Normal", value: "normal" },
-                { label: "Hoch", value: "high" },
-              ],
-            },
-            {
               name: "input",
               type: "select",
               defaultValue: "both",

@@ -59,7 +59,6 @@ const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
     language: "de",
     theme: "weiss",
     textSize: "m",
-    contrast: "normal",
     audioOutput: true,
     speechRate: 1,
     showText: false,

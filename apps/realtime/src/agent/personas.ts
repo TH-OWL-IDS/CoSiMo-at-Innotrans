@@ -5,7 +5,7 @@
  * keep the demo working when Payload is unreachable.
  *
  * A persona shapes two things: the agent's support style + emotional bias (used
- * server-side in the system prompt) and the client presentation (theme, contrast,
+ * server-side in the system prompt) and the client presentation (theme,
  * large text — broadcast to the iPads as a PersonaBroadcast).
  */
 
@@ -18,7 +18,6 @@ function accommodations(over: Partial<Accommodations> = {}): Accommodations {
     language: "de",
     theme: "weiss",
     textSize: "m",
-    contrast: "normal",
     audioOutput: true,
     speechRate: 1,
     showText: false,

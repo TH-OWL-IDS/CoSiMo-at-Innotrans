@@ -94,13 +94,13 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       properties: {
         setting: {
           type: "string",
-          enum: ["textSize", "contrast", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "farbe", "language", "volume", "voice", "tone"],
+          enum: ["textSize", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "farbe", "language", "volume", "voice", "tone"],
           description: "Which setting to change.",
         },
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. contrast: normal|high. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
+            "New value. textSize: s|m|l|xl. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
         },
       },
       required: ["setting", "value"],
@@ -132,7 +132,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "start_customizer",
     description:
-      "Start the step-by-step look-and-voice customizer when the rider wants to personalise you ('ich möchte dein Aussehen individualisieren', 'kann ich dich anpassen'). The system walks them through colour → text size → contrast → voice → tempo with tappable steps and confirms each aloud. You only say a short intro plus the first question, then END your turn.",
+      "Start the step-by-step look-and-voice customizer when the rider wants to personalise you ('ich möchte dein Aussehen individualisieren', 'kann ich dich anpassen'). The system walks them through colour → text size → voice → tempo with tappable steps and confirms each aloud. You only say a short intro plus the first question, then END your turn.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -189,10 +189,6 @@ function presentationPatch(setting: string, value: unknown, voices: VoiceCatalog
       return ["s", "m", "l", "xl"].includes(String(value))
         ? { patch: { textSize: value as Accommodations["textSize"] } }
         : { error: "textSize must be s|m|l|xl" };
-    case "contrast":
-      return ["normal", "high"].includes(String(value))
-        ? { patch: { contrast: value as Accommodations["contrast"] } }
-        : { error: "contrast must be normal|high" };
     case "input":
       return ["voice", "text", "both"].includes(String(value))
         ? { patch: { input: value as Accommodations["input"] } }

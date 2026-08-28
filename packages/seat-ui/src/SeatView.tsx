@@ -17,14 +17,12 @@ function Transcript({
   replying,
   ink,
   textScale,
-  bold,
 }: {
   items: { role: "user" | "cosimo"; text: string }[];
   reply: string;
   replying: boolean;
   ink: string;
   textScale: number;
-  bold: boolean;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -50,7 +48,6 @@ function Transcript({
         gap: `${6 * textScale}px`,
         fontSize: `${13 * textScale}px`,
         lineHeight: 1.35,
-        fontWeight: bold ? 700 : 400,
         color: ink,
         scrollbarWidth: "none",
       }}
@@ -142,7 +139,7 @@ export default function SeatView({
   /** Overlays drawn on top of the stage (e.g. the hidden test console). */
   children?: ReactNode;
 }) {
-  const { cosimo, lang, scheme, textScale, highContrast, showText, reduceMotion, ptt } = seat;
+  const { cosimo, lang, scheme, textScale, showText, reduceMotion, ptt } = seat;
 
   // CoSiMo follows a finger on its face: while the circle is pressed (not on
   // a button or card), the pointer's position relative to the face becomes
@@ -347,7 +344,6 @@ export default function SeatView({
               replying={cosimo.replying}
               ink={scheme.ink}
               textScale={textScale}
-              bold={highContrast}
             />
           ) : (
             <div
@@ -363,7 +359,6 @@ export default function SeatView({
                 textAlign: "center",
                 fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
                 lineHeight: 1.35,
-                fontWeight: highContrast ? 700 : 400,
                 opacity: 0.55,
               }}
             >

@@ -63,7 +63,7 @@ seeded as trait combinations.
 scheme — ids are German colour words `weiss|dunkel|blau|gruen|gelb|rosa|grau`;
 the tool exposes it as the setting `farbe`, so „stell auf grün" maps directly;
 the CMS labels it „Farbe"), `textSize`
-(s/m/l/xl), `contrast` (normal/high), `audioOutput`, `speechRate`, `showText`,
+(s/m/l/xl), `audioOutput`, `speechRate`, `showText`,
 `reduceMotion`, `input` (voice/text/both), plus the voice itself: `volume`
 (0–1, playback-side — „leiser bitte"), `voiceGender` (female/male — a second
 ElevenLabs voice id, `voiceIdMale` in operator-config), `voiceTone`
@@ -145,7 +145,8 @@ Accommodations reach the kiosk over `persona:active`
   small indicator on top of a **running transcript** (for deaf / text-first
   riders). No replay button; re-requests stay conversational ("say that
   again").
-- `textSize` scales the type, `contrast: high` bolds it, `speechRate` drives
+- `textSize` scales the type (contrast is not a separate lever — every
+  colour scheme is high-contrast by construction), `speechRate` drives
   both TTS paths (ElevenLabs `speed`, clamped 0.7–1.2, and browser `rate`),
   `volume` the clip playback, `reduceMotion` stills the face's idle life
   (`idle={false}`), `language` sets the seat's UI default. Voice settings ride

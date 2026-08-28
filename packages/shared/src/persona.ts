@@ -66,7 +66,6 @@ export interface Accommodations {
   theme: string;
   /** On-screen text scale. */
   textSize: "s" | "m" | "l" | "xl";
-  contrast: "normal" | "high";
   /** Speak replies aloud (server/browser TTS). */
   audioOutput: boolean;
   /** TTS rate multiplier (0.5–1.5). */
