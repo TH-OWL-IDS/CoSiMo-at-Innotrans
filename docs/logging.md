@@ -58,10 +58,12 @@ or actuation, an unknown card, empty STT), `error` (a turn that errored).
    per line, pruned after `LOG_KEEP_DAYS` (14). Greppable, `jq`-able,
    importable anywhere. The file keeps full text; the streamed copy
    truncates long fields (tool results, replies) at 2 000 chars.
-3. **The console's Log tab** — live tail with pause (freezes the view, keeps
-   buffering), filters by seat / session / kind / minimum level / free text,
-   "turns only" preset, rows grouped visually per turn, click a row for the
-   raw JSON, **export** the current filter as NDJSON.
+3. **The console's Log tab** — live list, **newest on top**, with pause
+   (freezes the view, keeps buffering), filters by seat / session / minimum
+   level / free text, the event kinds behind the sliders icon (with a
+   "nur Turns" preset), a hairline where one turn ends and the next begins,
+   the session in the seat cell's tooltip, click a row for the raw JSON,
+   **export** the current filter as NDJSON (chronological in the file).
 
 The per-seat **inspector** (🔍 on a seat card) shows the same turns from the
 recorder's side: every `actions[]` entry with result and duration, the error
