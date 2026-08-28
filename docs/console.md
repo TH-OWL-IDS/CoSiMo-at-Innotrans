@@ -89,4 +89,6 @@ the then-oldest. Forgotten tabs therefore can't pile up. Only real consoles coun
 rows and never evicted.
 
 
+> 2026-08-28: the Licht card carries a **Steuern** button instead of a health badge. It opens the light panel: one row per connected seat (iPad or emulator, with persona/free) plus an "alle Sitze" row, each with an Innenlicht and a Leselampe toggle (`host:overrideLight`); the LPU-2 path state is in the panel's title. The card's facts read the seats' controls, not the host's own dummy `cabin:state`.
+
 > 2026-08-27: the Fahrzeug and Diagramm views were removed; the console has Übersicht · Sessions · Logs. Sessions shows one full-width card per active seat — configuration left, the whole conversation (rebuilt from the log stream) right. The wordmark links to Übersicht.
