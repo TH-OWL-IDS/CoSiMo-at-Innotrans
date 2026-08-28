@@ -80,6 +80,8 @@ export const config = {
   /** Operator password for consoles (hello token = its SHA-256). Empty = no
    *  check (dev only — the hub warns at boot). */
   hostToken: process.env.HOST_TOKEN ?? "",
+  /** Recording consent for walk-up riders (no on-screen gate; "false" = never record unless a card rider's stored decision says so). */
+  consentDefault: process.env.CONSENT_DEFAULT !== "false",
   /** docker-socket-proxy (restart-only) for the console's restart buttons; empty = disabled. */
   dockerProxyUrl: process.env.DOCKER_PROXY_URL ?? "",
   corsOrigins: (

@@ -248,6 +248,9 @@ export class Hub {
   private speechTester: SpeechTester | undefined;
   private sessionEndHandler: SessionEndHandler | undefined;
   private consentPersister: ConsentPersister | undefined;
+  /** Recording consent for walk-up riders when no stored decision exists —
+   *  there is no on-screen gate any more (the notice is signage at the cab). */
+  private defaultConsent = true;
   /** Whether a profile is card-bound (consent + settings persist). */
   private persistableResolver: ((key: PersonaKey) => boolean) | undefined;
   private profileConsentResolver: ((key: PersonaKey) => boolean | undefined) | undefined;
@@ -379,6 +382,10 @@ export class Hub {
     this.sessionEndHandler = handler;
   }
 
+  setDefaultConsent(consent: boolean): void {
+    this.defaultConsent = consent;
+  }
+
   onConsentPersist(persister: ConsentPersister): void {
     this.consentPersister = persister;
   }
@@ -412,7 +419,8 @@ export class Hub {
   /**
    * A new session on a seat — the ONE place sessions start: persona switch
    * (NFC login, host), host reset. Closes the previous session for the agent,
-   * hands the client the new id, applies a card rider's stored consent.
+   * hands the client the new id, applies a card rider's stored consent (or
+   * the operator default — the seat never asks on screen).
    */
   beginSession(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot"): string | undefined {
     const entry = this.devices.get(deviceId);
@@ -428,8 +436,8 @@ export class Hub {
     this.sessionDevice.set(sessionId, deviceId);
     entry.persona = this.resolvePersona(persona);
     const stored = this.persistableResolver?.(persona) ? this.profileConsentResolver?.(persona) : undefined;
-    entry.consent = stored === true;
-    entry.active = stored === true;
+    entry.consent = stored ?? this.defaultConsent;
+    entry.active = false; // becomes active on the first input
     entry.turn = 0;
     entry.lastUser = "";
     entry.lastReply = "";
@@ -440,8 +448,8 @@ export class Hub {
     if (entry.cardTimer) clearTimeout(entry.cardTimer);
     entry.cardTimer = undefined;
     entry.card = undefined;
-    logger.log("session.start", { persona, by, consent: stored === true ? true : null, ...(previous ? { previousSessionId: previous } : {}) }, { deviceId, sessionId });
-    entry.socket.emit("session:reset", { deviceId, sessionId, consent: stored === true ? true : null });
+    logger.log("session.start", { persona, by, consent: entry.consent, stored: stored !== undefined, ...(previous ? { previousSessionId: previous } : {}) }, { deviceId, sessionId });
+    entry.socket.emit("session:reset", { deviceId, sessionId, consent: entry.consent });
     entry.socket.emit("persona:active", entry.persona);
     this.pushSeats();
     return sessionId;
@@ -581,7 +589,7 @@ export class Hub {
         phase: "idle",
         controls: freshControls(),
         active: false,
-        consent: false,
+        consent: this.defaultConsent,
         lastUser: "",
         lastReply: "",
         lastReplyFull: "",
@@ -725,7 +733,7 @@ export class Hub {
       );
     });
 
-    // Visitor consent for recording (GDPR) — starts the visible session.
+    // A tapped card answer — starts the visible session if it had not.
     socket.on("card:answer", ({ sessionId, cardId, value }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
@@ -748,6 +756,8 @@ export class Hub {
       this.repeatHandler?.({ sessionId, deviceId, lang: entry.persona.accommodations.language, persona: this.personaOf(deviceId), rider: this.riderOfEntry(entry, sessionId) });
     });
 
+    // Recording consent (GDPR) — there is no on-screen gate; this stays for
+    // an explicit decision (e.g. a card rider revoking at the kiosk).
     socket.on("consent:set", ({ sessionId, consent }) => {
       const deviceId = this.trackSession(socket, sessionId);
       this.countEvent("consent:set", deviceId);
@@ -776,6 +786,7 @@ export class Hub {
         entry.lastUser = text.slice(0, SNIPPET_MAX);
         entry.active = true;
         entry.lastActivity = Date.now();
+        if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
       }
       this.pushSeats();
       if (!entry) return;
@@ -797,6 +808,7 @@ export class Hub {
       if (entry) {
         entry.active = true;
         entry.lastActivity = Date.now();
+        if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
       }
       this.interruptHandler?.({ deviceId, sessionId });
       this.emitPhase("listening", sessionId);

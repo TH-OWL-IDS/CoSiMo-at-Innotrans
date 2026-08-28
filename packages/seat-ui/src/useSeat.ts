@@ -11,8 +11,6 @@ export interface Seat {
   lang: Locale;
   setLang: (lang: Locale) => void;
   toggleLang: () => void;
-  consentDecided: boolean;
-  decideConsent: (consent: boolean) => void;
   /** The active profile's accommodations, resolved to render-ready values. */
   scheme: ColorScheme;
   textScale: number;
@@ -28,64 +26,12 @@ export interface Seat {
 /**
  * A seat's behaviour, independent of what drives it. The native app feeds it
  * HID keystrokes; the browser emulator feeds it on-screen buttons. Both get
- * the same language resolution, consent flow, accommodation mapping,
+ * the same language resolution, accommodation mapping,
  * push-to-talk and TTS fallback — so "works in the emulator" means something.
  */
-const CONSENT_KEY = "cosimo.consent";
-function storedConsent(): boolean | null {
-  try {
-    const v = sessionStorage.getItem(CONSENT_KEY);
-    return v === "1" ? true : v === "0" ? false : null;
-  } catch {
-    return null;
-  }
-}
-function rememberConsent(v: boolean | null): void {
-  try {
-    if (v === null) sessionStorage.removeItem(CONSENT_KEY);
-    else sessionStorage.setItem(CONSENT_KEY, v ? "1" : "0");
-  } catch {
-    // private mode — the decision just won't survive a reload
-  }
-}
-
 export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk"): Seat {
   const cosimo = useCosimoSocket(serverUrl, "kiosk", kind);
   const [lang, setLang] = useState<Locale>("de");
-  // The decision survives a reload of this tab (sessionStorage, like the
-  // device + session ids): a reloaded emulator lands in the conversation,
-  // not on the consent screen. The hub keeps the seat's state meanwhile.
-  const [consentDecided, setConsentDecided] = useState(() => storedConsent() !== null);
-
-  const decideConsent = (consent: boolean) => {
-    cosimo.setConsent(consent);
-    rememberConsent(consent);
-    setConsentDecided(true);
-  };
-
-  // After a reload: tell the (possibly new) hub entry the remembered decision
-  // once the socket is up. Idempotent on the hub.
-  const resent = useRef(false);
-  useEffect(() => {
-    const kept = storedConsent();
-    if (!cosimo.connected || kept === null || resent.current) return;
-    resent.current = true;
-    cosimo.setConsent(kept);
-  }, [cosimo.connected]);
-
-  // A new session (persona switch, host reset): back to the consent screen —
-  // unless the hub handed us a card rider's STORED decision, which applies
-  // at every login without asking again.
-  useEffect(() => {
-    if (cosimo.resetNonce > 0) {
-      const stored = cosimo.lastReset?.consent ?? null;
-      rememberConsent(stored);
-      resent.current = false;
-      setConsentDecided(stored !== null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cosimo.resetNonce]);
-
   // The active profile's preferred language becomes the seat's UI language
   // (e.g. an NFC scan loads an English-speaking rider). The visitor can still
   // toggle manually afterwards.
@@ -122,13 +68,13 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
   // Say so loudly in dev instead of leaving the talk button silently dead.
   const pttSupported = ptt.supported;
   useEffect(() => {
-    if (consentDecided && !pttSupported) {
+    if (!pttSupported) {
       // eslint-disable-next-line no-console
       console.warn(
         "[cosimo-seat] push-to-talk unavailable: no server STT (DEEPGRAM_API_KEY) and this browser has no SpeechRecognition (use Chrome for the dev fallback).",
       );
     }
-  }, [consentDecided, pttSupported]);
+  }, [pttSupported]);
 
   useBrowserTts({
     enabled: !serverTts && speakAloud,
@@ -155,8 +101,6 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
     lang,
     setLang,
     toggleLang: () => setLang((l) => (l === "de" ? "en" : "de")),
-    consentDecided,
-    decideConsent,
     scheme,
     textScale,
     highContrast,

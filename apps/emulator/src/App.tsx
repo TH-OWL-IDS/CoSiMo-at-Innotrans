@@ -84,7 +84,7 @@ export default function App() {
   // Space bar = the talk button (hold), like holding "s" on the iPad.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || e.repeat || !seat.consentDecided) return;
+      if (e.code !== "Space" || e.repeat) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       e.preventDefault();
@@ -100,7 +100,7 @@ export default function App() {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [ptt, seat.consentDecided]);
+  }, [ptt]);
 
   const scanNfc = useCallback(() => {
     const id = nfc.trim();
@@ -256,7 +256,7 @@ export default function App() {
               size="lg"
               className="min-h-14 touch-none"
               aria-pressed={ptt.active}
-              disabled={!seat.consentDecided || !ptt.supported}
+              disabled={!ptt.supported}
               onPointerDown={(e) => {
                 e.currentTarget.setPointerCapture(e.pointerId);
                 ptt.start();
@@ -267,7 +267,7 @@ export default function App() {
             >
               {ptt.active ? "● listening — release to send" : "hold to talk  (or hold Space)"}
             </Button>
-            <Button size="lg" className="justify-start" disabled={!seat.consentDecided} onClick={seat.askInfo}>
+            <Button size="lg" className="justify-start" onClick={seat.askInfo}>
               ⓘ info — canned intro question
             </Button>
             {/* Say which speech path is live — "STT doesn't work" is usually
@@ -287,7 +287,7 @@ export default function App() {
                 ✖ {ptt.error}
               </div>
             )}
-            {!ptt.supported && seat.consentDecided && (
+            {!ptt.supported && (
               <div className="text-sm leading-snug text-warn">
                 Voice input is unavailable here — use the text field below, or fix the STT
                 path above. The mic also needs a secure origin (https / localhost).
@@ -349,9 +349,8 @@ export default function App() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={lang === "de" ? "Nachricht an CoSiMo…" : "Message to CoSiMo…"}
-              disabled={!seat.consentDecided}
             />
-            <Button type="submit" disabled={!seat.consentDecided || !text.trim()}>
+            <Button type="submit" disabled={!text.trim()}>
               →
             </Button>
           </form>

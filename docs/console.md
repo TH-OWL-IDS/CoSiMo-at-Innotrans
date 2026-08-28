@@ -15,11 +15,11 @@ via the URL hash):
   `hello`: `kind`): id, last ping RTT, link health ok/langsam/antwortet nicht/
   getrennt, a "polling" chip when the socket never upgraded, "· Session"
   on an active seat; each row has a log button (jumps to Logs filtered to that device)
-  and a ↺ that resets that device — a seat goes back to
-  its consent screen, a journey view gets the reload panel; nothing is
+  and a ↺ that resets that device — a seat starts a fresh
+  session, a journey view gets the reload panel; nothing is
   disconnected; a
-  "Jetzt prüfen" button triggers the hub's link check on demand; "Alles zurücksetzen" sends every seat back to the consent
-  screen and tells every other console to reload — those show a blocking
+  "Jetzt prüfen" button triggers the hub's link check on demand; "Alles zurücksetzen" gives every seat a fresh session
+  and tells every other console to reload — those show a blocking
   "Konsole neu laden" panel with a reload button), LLM (provider · model,
   fallback, mean thinking time, last turn), STT/TTS (path, mean duration,
   last result, time to first audio), CMS (reachable since when, profile count, and the hub's resolved

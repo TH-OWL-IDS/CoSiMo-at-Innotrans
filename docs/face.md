@@ -60,8 +60,8 @@ moves. Server and client stay decoupled, and the lips match the voice even
 with variable TTS latency. On top of the timing, `getMouthDrive()` exposes
 the playing clip's live loudness + brightness (Web Audio `AnalyserNode`,
 attack/release-smoothed) so the face can shape the mouth to the voice; the
-AudioContext is unlocked on the consent/talk gestures (WKWebView rule).
+AudioContext is unlocked on the talk gesture (WKWebView rule).
 
 Empty `serverUrl` means same-origin (the Vite dev proxy). The hook
 regenerates a session id when the host resets the seat (`session:reset` →
-`resetNonce` bump so the kiosk can re-show the consent screen).
+`resetNonce` bump so the kiosk starts a fresh conversation).

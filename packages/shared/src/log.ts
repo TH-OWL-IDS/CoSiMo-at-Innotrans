@@ -69,7 +69,7 @@ export type LogEvent = Base &
     | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; node: string } }
     | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }
     | { kind: "service.restart"; data: { id: string; ok: boolean; error?: string; durationMs: number } }
-    | { kind: "session.start"; data: { persona: string; by: string; consent: boolean | null; previousSessionId?: string } }
+    | { kind: "session.start"; data: { persona: string; by: string; consent: boolean; /** the decision came from the rider's profile (else the operator default) */ stored: boolean; previousSessionId?: string } }
     | { kind: "card.show"; data: { kind: string; question: string; options: string[]; local: boolean; step?: string } }
     | { kind: "card.answer"; data: { kind: string; value: string; applied?: Record<string, unknown> } }
     | {

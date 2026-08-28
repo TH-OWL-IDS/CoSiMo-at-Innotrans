@@ -44,6 +44,7 @@ const stt = createSttProvider(operatorConfig);
 const tts = createTtsProvider(operatorConfig);
 const llm = new LlmRouter(operatorConfig);
 const hub = new Hub(io);
+hub.setDefaultConsent(config.consentDefault);
 // Cabin lighting is actuated BY THE SEATS (air-gapped cabin LAN) — the hub
 // only builds the URLs, from the TTL-cached operator config.
 hub.setCabinActuator(() => {

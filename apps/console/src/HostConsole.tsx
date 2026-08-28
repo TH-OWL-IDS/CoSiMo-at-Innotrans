@@ -186,7 +186,7 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
           className="shrink-0 text-mute hover:text-accent"
           aria-label={`${d.deviceId} zurücksetzen`}
           onClick={() => {
-            const what = d.kind === "journey" ? "Die Ansicht bekommt die Aufforderung, neu zu laden." : "Der Sitz geht zurück zum Consent-Screen; gespeicherte Sessions bleiben.";
+            const what = d.kind === "journey" ? "Die Ansicht bekommt die Aufforderung, neu zu laden." : "Der Sitz startet eine neue Session (Standardprofil, schlafendes Gesicht); gespeicherte Sessions bleiben.";
             if (window.confirm(`${KIND_LABEL[d.kind]} ${d.deviceId} zurücksetzen? ${what}`)) onReset();
           }}
         >
@@ -538,7 +538,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
               variant="secondary"
               tone="accent"
               onClick={() => {
-                if (window.confirm("Alles zurücksetzen? Jeder Sitz geht zurück zum Consent-Screen, alle anderen Konsolen werden zum Neuladen aufgefordert. Gespeicherte Sessions bleiben.")) c.resetAll();
+                if (window.confirm("Alles zurücksetzen? Jeder Sitz startet eine neue Session, alle anderen Konsolen werden zum Neuladen aufgefordert. Gespeicherte Sessions bleiben.")) c.resetAll();
               }}
             >
               <RotateCw size={13} /> Alles zurücksetzen
@@ -1000,7 +1000,7 @@ function SeatCard({ seat, turns, onReset }: { seat: SeatSummary; turns: ConvoTur
         </span>
         <span className="text-sm opacity-70">
           {seat.phase !== "idle" ? `● ${seat.phase}` : "idle"}
-          {seat.consent ? " · ✓ consent" : " · no recording"}
+          {seat.consent ? " · Aufzeichnung" : " · keine Aufzeichnung"}
         </span>
       </div>
 
@@ -1025,7 +1025,7 @@ function SeatCard({ seat, turns, onReset }: { seat: SeatSummary; turns: ConvoTur
           <div className="mt-auto">
             <Button
               size="sm"
-              onClick={() => { if (window.confirm(`Session an ${seat.deviceId} beenden? Der Sitz geht zurück zum Consent-Screen; gespeicherte Sessions bleiben.`)) onReset(); }}
+              onClick={() => { if (window.confirm(`Session an ${seat.deviceId} beenden? Der Sitz startet eine neue Session; gespeicherte Sessions bleiben.`)) onReset(); }}
             >
               <RotateCcw size={14} /> Zurücksetzen
             </Button>
@@ -1058,9 +1058,9 @@ function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId:
             <LifeBuoy size={15} /> Hängende Unterhaltung lösen
           </Button>
           <Button
-            title="Alle Sitze zurück zum Consent-Screen (aufgezeichnete Sessions bleiben im CMS)"
+            title="Alle Sitze auf Anfang (aufgezeichnete Sessions bleiben im CMS)"
             onClick={() => {
-              // The morning reset: every seat back to the consent screen and
+              // The morning reset: every seat back to the start and
               // the default profile. Recorded sessions in the CMS stay.
               if (window.confirm("Alle Sitze zurücksetzen? Laufende Unterhaltungen enden; gespeicherte Sessions bleiben erhalten.")) {
                 c.resetSession("*");

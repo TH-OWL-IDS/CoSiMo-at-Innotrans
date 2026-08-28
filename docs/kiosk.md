@@ -20,7 +20,7 @@ outside them renders pitch black (invisible, no light bleed):
   plus a short phase hint; reply *text* is progressive disclosure — only
   when the profile's `showText` accommodation is on does the layout flip to
   a small face above a **running transcript** (deaf / text-first riders).
-  Also hosts the consent dialog and a "connecting…" note. The circle is
+  Also hosts a "connecting…" note (there is no consent screen — the privacy notice is signage at the cab). The circle is
   **display-only** — talking runs exclusively over the physical talk button
   (hold to speak; pressing while CoSiMo talks silences it instantly —
   barge-in); touch does nothing by design. Text scale, contrast, speech

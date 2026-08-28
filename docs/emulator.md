@@ -20,10 +20,10 @@ The seat's presentation lives in **`packages/seat-ui`**, shared by the native
 app and the emulator:
 
 - `useSeat(serverUrl)` — the behaviour: language resolution (profile → UI),
-  consent flow, accommodation mapping (theme, text size, contrast, showText,
+  accommodation mapping (theme, text size, contrast, showText,
   reduce-motion), push-to-talk and the browser-TTS fallback.
 - `SeatView` — the markup: the black stage with the circle and slit cutouts,
-  the face, phase hint / running transcript, consent overlay, telemetry strip.
+  the face, phase hint / running transcript, telemetry strip.
   `fullscreen` is true on the iPad (the stage *is* the screen) and false in a
   browser (a centred portrait frame in the iPad mini's aspect ratio).
 - `PanelLayout` + defaults — the cutout geometry type; the iPad persists its
@@ -87,10 +87,9 @@ colours from the persona schemes.
 
 ## Reload keeps the seat
 
-Device id, session id and the consent decision live in `sessionStorage`
-(per tab). A reload — or a short socket drop — comes back as the *same*
-seat: the hub parks a kiosk's state (profile, consent, session, last
-exchange, cabin controls) for 10 min and restores it when the same device
-id says hello again, so the conversation continues and the consent screen
-is not shown twice. A host reset ("Sitz zurücksetzen", "Alles
+Device id and session id live in `sessionStorage` (per tab). A reload — or
+a short socket drop — comes back as the *same* seat: the hub parks a
+kiosk's state (profile, consent, session, last exchange, cabin controls)
+for 10 min and restores it when the same device id says hello again, so
+the conversation continues. A host reset ("Sitz zurücksetzen", "Alles
 zurücksetzen") clears all of it. A new tab is a new seat.

@@ -36,8 +36,9 @@ persisted if consented), mints a new id, resets turn numbering/cards/wizard,
 tells the client (`session:reset {sessionId, consent}`) and greets. A stale
 client session id is bound to the seat's current session, never resurrected.
 **Consent is stored on the profile** for card-bound riders (CMS „Einwilligung
-gespeichert", set when they consent at the kiosk, revocable there) and applies
-at every login without asking again; walk-ups decide per session.
+gespeichert") and applies at every login; walk-ups get the operator default
+(`CONSENT_DEFAULT`, true). Nobody is asked on screen — the privacy notice is
+signage at the cab. Since 2026-08-28.
 
 ### Interaction traits (how the profile is *felt*)
 

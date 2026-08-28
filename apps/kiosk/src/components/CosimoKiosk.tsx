@@ -106,7 +106,7 @@ export default function CosimoKiosk({
 
   // Physical buttons + NFC reader (ESP32 as a BLE keyboard).
   useHidInput({
-    enabled: seat.consentDecided,
+    enabled: true,
     onTalkStart: ptt.start,
     onTalkEnd: ptt.stop,
     onInfo: seat.askInfo,

@@ -3,7 +3,6 @@ import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
 import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
-import ConsentOverlay from "./ConsentOverlay.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
 import type { Seat } from "./useSeat.js";
 
@@ -368,7 +367,7 @@ export default function SeatView({
                 opacity: 0.55,
               }}
             >
-              {seat.consentDecided ? PHASE_HINT[cosimo.phase][lang] : ""}
+              {PHASE_HINT[cosimo.phase][lang]}
             </div>
           )}
 
@@ -389,9 +388,6 @@ export default function SeatView({
             </div>
           )}
 
-          {!seat.consentDecided && (
-            <ConsentOverlay lang={lang} onDecide={seat.decideConsent} onToggleLang={seat.toggleLang} />
-          )}
         </div>
 
         {/* ── slit cutout: telemetry ──────────────────────────────── */}
@@ -427,7 +423,7 @@ export default function SeatView({
             />
           ) : (
             <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              {seat.consentDecided && !cosimo.replying && (
+              {!cosimo.replying && (
                 <IdleHint lastActivityAt={cosimo.lastActivityAt} ink={scheme.ink} textScale={textScale} lang={lang} />
               )}
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center" }}>

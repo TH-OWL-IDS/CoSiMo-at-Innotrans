@@ -108,7 +108,7 @@ export function summarize(e: LogEvent): string {
     case "service.restart":
       return `Container „${e.data.id}“ ${e.data.ok ? "neu gestartet" : "Neustart fehlgeschlagen"} (${e.data.durationMs} ms)${e.data.error ? ` · ${e.data.error}` : ""}`;
     case "session.start":
-      return `neue Session · ${e.data.persona} (${e.data.by})${e.data.consent === true ? " · Consent gespeichert" : ""}${e.data.previousSessionId ? ` · vorher ${e.data.previousSessionId}` : ""}`;
+      return `neue Session · ${e.data.persona} (${e.data.by})${e.data.consent ? " · Aufzeichnung" : " · keine Aufzeichnung"}${e.data.stored ? " (Profil)" : ""}${e.data.previousSessionId ? ` · vorher ${e.data.previousSessionId}` : ""}`;
     case "card.show":
       return `${e.data.kind}${e.data.step ? ` ${e.data.step}` : ""}${e.data.local ? " · lokal" : ""} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
     case "card.answer":

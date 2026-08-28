@@ -54,14 +54,17 @@ additionally receive `host:seats` — a live summary
 of every kiosk seat (persona, emotion, phase, consent, active flag, last
 utterance/reply, cabin state), pushed on every relevant change. Host
 actions: per-seat or all-seat persona, per-seat light override, per-seat
-session reset (clears the seat back to default persona + consent screen),
+session reset (clears the seat back to the default persona, sleeping face),
 journey pause/resume + battery override, offline-mode toggle,
 stuck-conversation recovery, and `host:inspect` — a deep view of one seat
 (`host:inspect:result`, sent only to the asking host socket) carrying the exact
 system prompt a turn on that seat would use right now plus its recorded turns.
 
-A seat is **active** from the visitor's consent decision (or first input)
-until reset/disconnect — the host UI only shows cards for active seats.
+A seat is **active** from the visitor's first input until reset/disconnect
+— the host UI only shows cards for active seats. There is **no consent
+screen**: recording consent is `CONSENT_DEFAULT` (env, true) for walk-ups,
+overridden by a card rider's stored decision; `consent:set` remains for an
+explicit decision.
 
 ## The agent loop (`src/agent/agent.ts`)
 
@@ -294,12 +297,12 @@ read it), only when a device's facts changed, and logs a `device.health`
 event on every transition.
 
 `host:reset-device { deviceId }` (from a console) resets one device
-without dropping it: a kiosk-role target gets `session:reset` (back to
-consent), a host-role target gets `host:reload`. Parked state is dropped;
+without dropping it: a kiosk-role target gets `session:reset` (a fresh
+session), a host-role target gets `host:reload`. Parked state is dropped;
 logged as `host.action reset-device`.
 
 `host:reset-all` (from a console) resets everything without dropping
-sockets: `session:reset "*"` sends every seat back to the consent screen
+sockets: `session:reset "*"` gives every seat a fresh session
 (as "Alle Sitze zurücksetzen" does), and every *other* console receives
 `host:reload` and shows a blocking reload panel. Logged as `host.action
 reset-all`.
