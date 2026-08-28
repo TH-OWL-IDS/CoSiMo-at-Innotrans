@@ -138,7 +138,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "remember",
     description:
-      "Remember a short fact or preference the rider EXPLICITLY asks you to remember about them (their name, that they prefer short answers, a need). Only works for a registered rider who agreed to being remembered — otherwise say you can't.",
+      "Store a fact or preference the rider asks you to keep in mind ('merk dir', 'denk dran', 'vergiss nicht, dass', 'remember'): their name, a habit, a need, where they get off. Call it EVERY time such a request comes, in the same turn as your confirmation — never confirm without the call. Only works for a registered rider who agreed to being remembered; otherwise the result tells you to say you can't.",
     input_schema: {
       type: "object",
       properties: {
@@ -150,7 +150,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
   {
     name: "forget",
-    description: "Forget something you remembered about the rider — a specific note, or everything — when they ask.",
+    description: "Delete a stored note (or everything) when the rider asks to un-remember: 'vergiss das wieder', 'lösch das', 'streich das'. NOT for 'vergiss nicht, dass …' — that is a remember request.",
     input_schema: {
       type: "object",
       properties: {
