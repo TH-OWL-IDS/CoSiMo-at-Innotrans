@@ -499,24 +499,9 @@ export class CosimoAgent {
       speaker.push(fallback);
       logger.log("llm.step", { step: -1, chars: fallback.length, toolCalls: [], durationMs: 0, finish: "template-fallback" }, { ...ctx, level: "warn" });
     }
-    // "Bestätigung nach jedem Schritt": if actions ran and the model's own
-    // words did not state them, append the templated confirmation — the
-    // rider hears exactly what changed, every time, not by the model's mood.
-    const acted = actions.filter((a) => ["set_cabin_control", "set_presentation"].includes(a.tool) && a.ok !== false);
-    if (!streamClosed && traits.confirmation === "every-step" && acted.length) {
-      const tpl = templatedConfirmation(acted, lang);
-      const said = assistantText.toLowerCase();
-      const mentioned = acted.every((a) => {
-        const label = a.tool === "set_cabin_control" && a.control ? (CABIN_CONTROLS.find((c) => c.id === a.control)?.label[lang] ?? "").toLowerCase() : String(a.args?.setting ?? "");
-        return label && said.includes(label);
-      });
-      if (!mentioned && !said.includes(tpl.toLowerCase())) {
-        const add = (assistantText.trim() ? " " : "") + tpl;
-        assistantText += add;
-        this.hub.emitChatDelta(sessionId, add, false, turnNo);
-        speaker.push(add);
-      }
-    }
+    // ("Bestätigung nach jedem Schritt" is now a prompt matter — the model
+    // always confirms in its own words; appending the template on top made
+    // replies like "Das Thema ist Wald. Erledigt, ich habe das angepasst.")
     // A local card put on screen this turn must be heard, whatever the model
     // said ("Erledigt." happens): append its question deterministically.
     const shownCard = this.hub.cardOf(sessionId);
