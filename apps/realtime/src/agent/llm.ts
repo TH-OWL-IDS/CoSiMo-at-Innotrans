@@ -19,10 +19,15 @@ export interface LlmToolCall {
   input: Record<string, unknown>;
 }
 
+export interface StepOptions {
+  /** Force this tool on the step (tool_choice) — see memoryTriggers.ts. */
+  forceTool?: string;
+}
+
 export interface LlmTurn {
   /** Run one assistant step, streaming text deltas. Empty toolCalls = done.
    *  `finish` is the provider's stop reason (logged; "length" = truncated). */
-  step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }>;
+  step(onText: (delta: string) => void, opts?: StepOptions): Promise<{ toolCalls: LlmToolCall[]; finish?: string }>;
   /** Feed the executed tool results back before the next step. */
   addToolResults(results: { id: string; text: string }[]): void;
   /** Drop the last assistant message (a degenerate sample being retried). */
@@ -124,15 +129,17 @@ class AnthropicTurn implements LlmTurn {
     ];
   }
 
-  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
+  async step(onText: (delta: string) => void, opts?: StepOptions): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
     const stream = this.client.messages.stream(
       {
         model: this.model,
         max_tokens: this.gen.maxTokens,
         temperature: this.gen.temperature,
-        thinking: { type: "adaptive" },
+        // A forced tool is incompatible with thinking on this API.
+        ...(opts?.forceTool ? {} : { thinking: { type: "adaptive" as const } }),
         system: this.system,
         tools: TOOL_DEFINITIONS,
+        ...(opts?.forceTool ? { tool_choice: { type: "tool" as const, name: opts.forceTool } } : {}),
         messages: this.messages,
       },
       // Barge-in: aborting kills the HTTP stream mid-generation.
@@ -258,7 +265,7 @@ class OpenAiCompatTurn implements LlmTurn {
     ];
   }
 
-  async step(onText: (delta: string) => void): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
+  async step(onText: (delta: string) => void, opts?: StepOptions): Promise<{ toolCalls: LlmToolCall[]; finish?: string }> {
     const res = await fetch(`${this.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
@@ -276,6 +283,7 @@ class OpenAiCompatTurn implements LlmTurn {
         stream: true,
         messages: this.messages,
         tools: OPENAI_TOOLS,
+        ...(opts?.forceTool ? { tool_choice: { type: "function", function: { name: opts.forceTool } } } : {}),
       }),
       // Timeout + barge-in: either aborts the fetch/stream.
       signal: this.signal

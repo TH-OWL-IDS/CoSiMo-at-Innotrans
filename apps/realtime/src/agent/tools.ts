@@ -142,7 +142,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        note: { type: "string", description: "A short note in the third person, e.g. 'Prefers short answers'." },
+        note: { type: "string", description: "A short note in the third person, written in the rider's language (German for a German rider), e.g. 'Steigt immer in Barntrup aus.'" },
       },
       required: ["note"],
       additionalProperties: false,
@@ -154,8 +154,9 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: {
       type: "object",
       properties: {
-        note: { type: "string", description: "Substring of the note to forget, or 'all' to clear everything." },
+        note: { type: "string", description: "A word from the note to forget (e.g. 'Kaffee'), or 'all' to clear everything — only when the rider asks for everything." },
       },
+      required: ["note"],
       additionalProperties: false,
     },
   },
@@ -402,8 +403,10 @@ export async function executeTool(
       if (!ctx.personas.isPersistable(ctx.persona)) {
         return { text: "note: nothing is stored for this rider (not a registered account).", action: { tool: name } };
       }
-      const match = typeof input.note === "string" ? input.note : undefined;
+      const match = typeof input.note === "string" ? input.note.trim() : "";
+      if (!match) return { text: "error: say which note to forget (a word from it) or 'all'", action: { tool: name } };
       const removed = ctx.personas.forgetLocal(ctx.persona, match);
+      if (removed === 0) return { text: `note: nothing stored matches "${match}" — the stored notes are listed in your instructions; nothing was deleted, say so.`, action: { tool: name, args: { note: match } } };
       if (removed > 0) {
         void ctx.profiles.saveMemories(ctx.persona, ctx.personas.memoriesOf(ctx.persona));
         ctx.hub.refreshSeats();
