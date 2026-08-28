@@ -138,7 +138,7 @@ hub.onLlmTest(() => agent.testLlm());
 // audio returned for playback. STT: that sentence synthesized, then
 // recognized — a real round-trip without a microphone in the loop.
 const TEST_SENTENCE = "Funktionstest: eins, zwei, drei.";
-hub.onSpeechTest(async (kind) => {
+hub.onSpeechTest(async (kind, opts) => {
   const cfg = operatorConfig.get();
   const route = kind === "tts" ? cfg.tts.baseUrl : cfg.stt.baseUrl;
   const model = kind === "tts" ? cfg.tts.model : cfg.stt.model;
@@ -146,11 +146,13 @@ hub.onSpeechTest(async (kind) => {
   if (!tts.available) return fail(kind === "tts" ? "kein Server-TTS (ELEVENLABS_API_KEY fehlt)" : "kein Server-TTS für das Testaudio");
   try {
     const t0 = Date.now();
-    const audio = await tts.synthesize(TEST_SENTENCE, "de", { rate: 1, gender: "female", tone: "neutral" });
+    const entry = opts?.voice ? cfg.tts.voices.find((v) => v.key === opts.voice) : undefined;
+    if (opts?.voice && !entry) return fail(`Stimme „${opts.voice}“ nicht im Katalog`);
+    const audio = await tts.synthesize(TEST_SENTENCE, "de", { rate: 1, gender: entry?.gender ?? "female", tone: "neutral", voiceKey: entry?.key });
     const ttsMs = Date.now() - t0;
     if (!audio) return fail("keine Audioantwort", ttsMs);
     const buf = Buffer.from(audio.audioBase64, "base64");
-    if (kind === "tts") return { ok: true, route, model, ms: ttsMs, text: TEST_SENTENCE, bytes: buf.byteLength, audioBase64: audio.audioBase64, mime: audio.mime };
+    if (kind === "tts") return { ok: true, voice: entry?.key ?? "default", route, model, ms: ttsMs, text: TEST_SENTENCE, bytes: buf.byteLength, audioBase64: audio.audioBase64, mime: audio.mime };
     if (!stt.available) return fail("kein Server-STT (DEEPGRAM_API_KEY fehlt) — die iPads diktieren lokal");
     const t1 = Date.now();
     const text = await stt.transcribe(buf, audio.mime, "de");

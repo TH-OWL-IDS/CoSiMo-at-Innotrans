@@ -125,7 +125,7 @@ export type SessionEndHandler = (payload: { sessionId: string; deviceId: string;
 /** A card-bound rider decided on consent: persist it on the profile. */
 export type ConsentPersister = (persona: PersonaKey, consent: boolean) => void;
 export type LlmTester = () => Promise<LlmTestResult>;
-export type SpeechTester = (kind: "tts" | "stt") => Promise<SpeechTestResult>;
+export type SpeechTester = (kind: "tts" | "stt", opts?: { voice?: string }) => Promise<SpeechTestResult>;
 export type RepeatHandler = (payload: { sessionId: string; deviceId: string; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
 
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -669,9 +669,10 @@ export class Hub {
           logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
           void this.llmTester?.().then((r) => socket.emit("host:llm-test-result", r));
         });
-        socket.on("host:tts-test", () => {
-          logger.log("host.action", { action: "tts-test", args: {} }, { deviceId });
-          void this.speechTester?.("tts").then((r) => socket.emit("host:tts-test-result", r));
+        socket.on("host:tts-test", (p) => {
+          const voice = typeof p?.voice === "string" && p.voice ? p.voice : undefined;
+          logger.log("host.action", { action: "tts-test", args: voice ? { voice } : {} }, { deviceId });
+          void this.speechTester?.("tts", { voice }).then((r) => socket.emit("host:tts-test-result", r));
         });
         socket.on("host:stt-test", () => {
           logger.log("host.action", { action: "stt-test", args: {} }, { deviceId });

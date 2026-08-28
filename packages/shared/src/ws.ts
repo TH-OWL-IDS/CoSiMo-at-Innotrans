@@ -138,7 +138,7 @@ export interface HostConfigBroadcast {
   loadedAt: string | null;
   llm: { provider: string; baseUrl: string; model: string; fallback: { provider: string; baseUrl: string; model: string } | null; generation: LlmGeneration };
   stt: { baseUrl: string; model: string };
-  tts: { baseUrl: string; model: string; voices: number };
+  tts: { baseUrl: string; model: string; voices: number; /** The catalog, for the console's per-voice test buttons. */ voiceList: { key: string; label: string; gender: "female" | "male" }[] };
   cabin: {
     lpu2BaseUrl: string;
     mapped: number;
@@ -176,6 +176,8 @@ export interface LlmTestResult {
  */
 export interface SpeechTestResult {
   ok: boolean;
+  /** TTS: which catalog voice was used (key), or "default". */
+  voice?: string;
   route: string;
   model: string;
   ms: number;
@@ -346,7 +348,7 @@ export interface ClientToServerEvents {
   /** Console "Testen": one short generation on the current LLM route. */
   "host:llm-test": (payload: Record<string, never>) => void;
   /** Console "Testen" on the TTS / STT cards: one round-trip on the live route, no seat. */
-  "host:tts-test": (payload: Record<string, never>) => void;
+  "host:tts-test": (payload: { /** Catalog voice key; omitted = the default voice. */ voice?: string }) => void;
   "host:stt-test": (payload: Record<string, never>) => void;
   /** Reset everything: every seat back to the consent screen (session:reset
    *  "*"), every *other* console told to reload (host:reload). */

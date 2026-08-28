@@ -123,6 +123,19 @@ the GX10 (2026-08-28, 16 scenarios × 4): 62/64, one-step where expected
 44/44, tool called in every detail case. The gate script is
 `/tmp/gate-journey.py` on the GX10 (copy in the session scratchpad).
 
+## Reply language (`detectLang` / `replyLanguageBlock`)
+
+Instructions stay English (measured 2026-08-28 on the 35B: a German
+translation of the core prompt scored 57/64 vs 61/64 — worse tool
+discipline, consistent with Qwen's own guidance). The rider's language is
+handled at the OUTPUT: the hub detects the utterance language (de/en word
+lists, profile language as fallback), the turn's `lang` follows it —
+journey line, templated confirmations, cards, TTS — and the prompt ends
+with an explicit `## Reply language` block ("…in ENGLISH, not their
+preferred language — reply in English anyway"). Gate: 31/32 (the rule
+alone scored 20/32 — the German journey line pulled replies back to
+German).
+
 ## Slit cards (`src/agent/cards.ts`, hub `showCard`)
 
 The slit is CoSiMo's control strip: one fixed grid (context left, actions

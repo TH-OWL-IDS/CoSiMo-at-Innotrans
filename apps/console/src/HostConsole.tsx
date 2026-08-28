@@ -324,13 +324,18 @@ function SystemCard({ logs, now, onOpenLogs }: { logs: LogEvent[]; now: number; 
 }
 
 /** The "Testen" row of a speech card: button, then outcome, duration, route — and for TTS a play button. */
-function SpeechTest({ kind, result, onTest, disabled, hint }: {
+function SpeechTest({ kind, result, onTest, disabled, hint, voices = [], onTestVoice }: {
   kind: "tts" | "stt";
   result: SpeechTestResult | "pending" | null;
   onTest: () => void;
   disabled: boolean;
   hint: string;
+  /** TTS only: the catalog — one small button per voice, each speaks the test sentence. */
+  voices?: { key: string; label: string; gender: "female" | "male" }[];
+  onTestVoice?: (key: string) => void;
 }) {
+  const [pendingVoice, setPendingVoice] = useState<string | null>(null);
+  useEffect(() => { if (result !== "pending") setPendingVoice(null); }, [result]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const r = result && result !== "pending" ? result : null;
   const play = () => {
@@ -345,9 +350,11 @@ function SpeechTest({ kind, result, onTest, disabled, hint }: {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="xs" variant="secondary" onClick={onTest} disabled={disabled || result === "pending"} title={disabled ? hint : undefined}>
-          <FlaskConical size={13} /> {result === "pending" ? "testet …" : "Testen"}
-        </Button>
+        {kind === "stt" && (
+          <Button size="xs" variant="secondary" onClick={() => { setPendingVoice(null); onTest(); }} disabled={disabled || result === "pending"} title={disabled ? hint : undefined}>
+            <FlaskConical size={13} /> {result === "pending" ? "testet …" : "Testen"}
+          </Button>
+        )}
         {r?.audioBase64 && (
           <Button size="xs" variant="secondary" onClick={play}>
             <Play size={13} /> Anhören
@@ -355,10 +362,27 @@ function SpeechTest({ kind, result, onTest, disabled, hint }: {
         )}
         {disabled && <span className="text-xs text-mute">{hint}</span>}
       </div>
+      {voices.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {voices.map((v) => (
+            <Button
+              key={v.key}
+              size="xs"
+              variant="secondary"
+              disabled={disabled || result === "pending"}
+              title={`${v.label} (${v.gender === "female" ? "weiblich" : "männlich"}) — Testsatz anhören`}
+              className={cn(r?.voice === v.key && r.ok && "border-ink")}
+              onClick={() => { setPendingVoice(v.key); onTestVoice?.(v.key); }}
+            >
+              <Volume2 size={12} /> {pendingVoice === v.key && result === "pending" ? "…" : v.label}
+            </Button>
+          ))}
+        </div>
+      )}
       {r && (
         <div className={cn("text-sm", r.ok ? "text-ink" : "text-accent")}>
           <span className={r.ok ? "text-ok" : "text-accent"}>{r.ok ? "ok" : "Fehler"}</span>
-          <span className="text-mute"> · {(r.ms / 1000).toFixed(1)} s · {hostOf(r.route) || r.route} · {r.model}{r.bytes ? ` · ${Math.round(r.bytes / 1024)} kB` : ""}</span>
+          <span className="text-mute"> · {r.voice ? `${voices.find((v) => v.key === r.voice)?.label ?? (r.voice === "default" ? "Standardstimme" : r.voice)} · ` : ""}{(r.ms / 1000).toFixed(1)} s · {hostOf(r.route) || r.route} · {r.model}{r.bytes ? ` · ${Math.round(r.bytes / 1024)} kB` : ""}</span>
           <div className="mt-1 whitespace-pre-wrap break-words">{r.ok ? `„${r.text}“` : r.error}</div>
         </div>
       )}
@@ -394,9 +418,14 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   const lastTurn = turns[turns.length - 1];
   const llmMs = mean(turns.map((t) => t.data.timings.llmMs).filter((x): x is number => x != null));
   const sttMs = mean(turns.map((t) => t.data.timings.sttMs).filter((x): x is number => x != null));
-  const ttsMs = mean(turns.map((t) => t.data.timings.ttsMs).filter((x): x is number => x != null));
   const lastStt = last("stt.result");
-  const lastTts = last("tts.done");
+  // The voice a fresh session starts with: the default persona's choice
+  // (CMS → Personas → Standard), resolved against the catalog.
+  const defaultAcc = c.personas.find((p) => p.persona === "default")?.accommodations;
+  const defaultVoice = !defaultAcc ? "—"
+    : defaultAcc.voice
+      ? `${cfg?.tts.voiceList.find((v) => v.key === defaultAcc.voice)?.label ?? defaultAcc.voice} (${defaultAcc.voiceGender === "male" ? "männlich" : "weiblich"})`
+      : `${defaultAcc.voiceGender === "male" ? "männliche" : "weibliche"} Standardstimme`;
   // The light: what the kiosks reported back after firing the LPU-2 URLs.
   const cabinResults = recent("cabin.result", 50);
   const cabinOk = cabinResults.filter((e) => e.data.ok).length;
@@ -676,13 +705,12 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
           detail="Sprachausgabe: ob die Stimme auf dem Server (ElevenLabs) erzeugt und als Audio an den Sitz gestreamt wird oder das iPad mit der Systemstimme spricht. „Erstes Audio“ ist die Zeit bis zum ersten hörbaren Satz."
           facts={[
             ["Pfad", st.serverTts ? "ElevenLabs (Server)" : <span className="text-warn">Systemstimme auf dem iPad</span>],
-            ["TTS-Route", cfg ? `${hostOf(cfg.tts.baseUrl)} · ${cfg.tts.model}${cfg.tts.voices ? ` · ${cfg.tts.voices} Stimmen` : ""}` : "—"],
-            ["Ø Dauer", ms(ttsMs)],
-            ["Erstes Audio", lastTts?.data.firstChunkMs != null ? `nach ${ms(lastTts.data.firstChunkMs)}${lastTts.data.chunks ? ` · ${lastTts.data.chunks} Clips` : ""}` : "—"],
-            ["Zuletzt", lastTts ? `${ago(lastTts.ts, now)} · ${lastTts.data.chars} Zeichen` : "—"],
+            ["TTS-Route", cfg ? `${hostOf(cfg.tts.baseUrl)} · ${cfg.tts.model}` : "—"],
+            ["Standardstimme", defaultVoice],
+            ["Stimmen", cfg ? `${cfg.tts.voices} im Katalog (CMS)` : "—"],
           ]}
         >
-          <SpeechTest kind="tts" result={c.ttsTest} onTest={c.testTts} disabled={!st.serverTts} hint="kein Server-TTS — nichts zu testen" />
+          <SpeechTest kind="tts" result={c.ttsTest} onTest={() => c.testTts()} disabled={!st.serverTts} hint="kein Server-TTS — nichts zu testen" voices={cfg?.tts.voiceList ?? []} onTestVoice={(k) => c.testTts(k)} />
         </ServiceCard>
         <ServiceCard
           state="ok"

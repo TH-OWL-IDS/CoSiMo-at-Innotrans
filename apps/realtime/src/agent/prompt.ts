@@ -65,6 +65,33 @@ export function journeyLine(t: MonoCabTelemetry, lang: Locale): string {
   return parts.join(" · ");
 }
 
+/**
+ * Which language the rider just used — a cheap word-list heuristic for the
+ * two languages the fair speaks. The answer language must follow the
+ * rider's utterance, and an explicit signal beats hoping the model infers it
+ * from a German-flavoured prompt. Unknown/short → the profile's language.
+ */
+const DE_WORDS = /\b(ich|du|wir|und|nicht|ist|sind|bitte|wann|wie|wo|was|mach|das|die|der|licht|halt|haltestelle|schnell|jetzt|noch|mal|kannst|danke)\b/gi;
+const EN_WORDS = /\b(i|you|we|and|not|is|are|please|when|how|where|what|turn|the|light|stop|next|fast|now|can|thanks|hello|going)\b/gi;
+export function detectLang(text: string, fallback: Locale): Locale {
+  const de = (text.match(DE_WORDS) ?? []).length;
+  const en = (text.match(EN_WORDS) ?? []).length;
+  if (de === en) return fallback;
+  return de > en ? "de" : "en";
+}
+
+/** The explicit reply-language instruction, placed last (recency wins). */
+export function replyLanguageBlock(lang: Locale, preferred: Locale): string[] {
+  const name = lang === "de" ? "GERMAN" : "ENGLISH";
+  return [
+    "",
+    "## Reply language",
+    lang === preferred
+      ? `The rider's last message is in ${name} — reply in ${name}.`
+      : `The rider's last message is in ${name}, not in their preferred language — reply in ${name} anyway. Do not switch back.`,
+  ];
+}
+
 /** The journey block: the line plus the boundary rule (what needs the tool). */
 export function journeyBlock(line: string): string[] {
   return [
@@ -184,7 +211,7 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string): string {
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
@@ -214,5 +241,6 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
     ...(profile.brief.trim() ? [profile.brief.trim()] : []),
     ...(prelude ? [prelude] : []),
     ...(profile.memories.length ? ["", memoriesBlock(profile.memories)] : []),
+    ...(replyLang ? replyLanguageBlock(replyLang, profile.accommodations.language) : []),
   ].join("\n");
 }

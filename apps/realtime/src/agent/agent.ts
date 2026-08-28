@@ -22,7 +22,7 @@ import {
   type TurnOutcome,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
-import { buildSystemPrompt, journeyLine } from "./prompt.js";
+import { buildSystemPrompt, detectLang, journeyLine } from "./prompt.js";
 import type { LlmHistoryAction, LlmHistoryMessage, LlmRouter } from "./llm.js";
 import type { OperatorConfigProvider } from "./operatorConfig.js";
 import { PersonaProvider } from "./personas.js";
@@ -226,7 +226,10 @@ export class CosimoAgent {
    * same seat aborts this turn mid-stream (see interrupt()).
    */
   async handleUserTurn(input: AgentTurnInput): Promise<void> {
-    const { sessionId, deviceId, text, lang, persona, modality, consent, sttMs, rider } = input;
+    const { sessionId, deviceId, text, persona, modality, consent, sttMs, rider } = input;
+    // The turn speaks the rider's language of THIS utterance: journey line,
+    // templated confirmations, cards and TTS all follow it (profile = fallback).
+    const lang = detectLang(text, input.lang);
     const startedAt = Date.now();
     const ctx = { deviceId, sessionId, turn: -1 };
     // A new turn invalidates any option card still on screen — the rider
@@ -295,6 +298,7 @@ export class CosimoAgent {
       this.operatorConfig.get().agent.systemPrompt,
       this.operatorConfig.get().tts.voices,
       journeyLine(this.telemetry.get(), lang),
+      lang,
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or

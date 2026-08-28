@@ -159,7 +159,7 @@ export class OperatorConfigProvider {
       loadedAt: this.loadedAt,
       llm: { provider: c.llm.provider, baseUrl: c.llm.baseUrl, model: c.llm.model, fallback: c.llm.fallback ? { ...c.llm.fallback } : null, generation: { ...c.llm.generation } },
       stt: { baseUrl: c.stt.baseUrl, model: c.stt.model },
-      tts: { baseUrl: c.tts.baseUrl, model: c.tts.model, voices: c.tts.voices.length },
+      tts: { baseUrl: c.tts.baseUrl, model: c.tts.model, voices: c.tts.voices.length, voiceList: c.tts.voices.map((v) => ({ key: v.key, label: v.label, gender: v.gender })) },
       cabin: {
         lpu2BaseUrl: c.cabin.lpu2BaseUrl,
         mapped: Object.keys(c.cabin.lpu2Mapping).length,

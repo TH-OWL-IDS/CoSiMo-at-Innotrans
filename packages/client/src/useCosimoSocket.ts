@@ -161,7 +161,8 @@ export interface CosimoState {
   llmTest: LlmTestResult | "pending" | null;
   testLlm: () => void;
   ttsTest: SpeechTestResult | "pending" | null;
-  testTts: () => void;
+  /** Optional catalog voice key; omitted = default voice. */
+  testTts: (voice?: string) => void;
   sttTest: SpeechTestResult | "pending" | null;
   testStt: () => void;
   /** The deployables and their reachability (operator console). */
@@ -629,9 +630,9 @@ export function useCosimoSocket(
     setLlmTest("pending");
     sockRef.current?.emit("host:llm-test", {});
   };
-  const testTts = () => {
+  const testTts = (voice?: string) => {
     setTtsTest("pending");
-    sockRef.current?.emit("host:tts-test", {});
+    sockRef.current?.emit("host:tts-test", voice ? { voice } : {});
   };
   const testStt = () => {
     setSttTest("pending");
