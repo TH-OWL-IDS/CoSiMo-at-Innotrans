@@ -22,7 +22,7 @@ apps/journey      Vite + React (static)  — the line as a live diagram: cab, st
 apps/cms          Payload CMS + Next.js  — a UI for the database: admin (profiles, route,
                   operator config, recorded sessions) + REST API; nothing live
 apps/realtime     Node + Socket.IO       — agent loop (Claude or an OpenAI-compatible
-                  endpoint), STT/TTS, Shelly light driver, WebSocket hub syncing the
+                  endpoint), STT/TTS, cabin light routing (LPU-2 via the seats), WebSocket hub syncing the
                   4 iPads, offline canned mode
 ```
 

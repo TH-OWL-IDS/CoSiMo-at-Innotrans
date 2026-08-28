@@ -2,7 +2,7 @@
  * CoSiMo realtime/agent service — Phase 0 skeleton.
  *
  * Express HTTP (health) + Socket.IO hub that will, in later phases, run the
- * Claude agent loop, STT/TTS, the Shelly light driver, telemetry, the persona
+ * Claude agent loop, STT/TTS, the cabin light routing, telemetry, the persona
  * engine and the offline canned mode. For now it stands up the server and the
  * WebSocket plumbing so the PWA can connect and stay in sync.
  */
@@ -22,7 +22,6 @@ import { LlmRouter } from "./agent/llm.js";
 import { OperatorConfigProvider } from "./agent/operatorConfig.js";
 import { PersonaProvider } from "./agent/personas.js";
 import { TelemetrySimulation } from "./agent/telemetry.js";
-import { createLightDriver } from "./cabin/driver.js";
 import { createSttProvider } from "./speech/stt.js";
 import { createTtsProvider } from "./speech/tts.js";
 import { startHealthMonitor } from "./health.js";
@@ -45,7 +44,6 @@ const stt = createSttProvider(operatorConfig);
 const tts = createTtsProvider(operatorConfig);
 const llm = new LlmRouter(operatorConfig);
 const hub = new Hub(io);
-hub.attachLightDriver(createLightDriver(config.light.driver, config.light.shellyBaseUrl));
 // Cabin lighting is actuated BY THE SEATS (air-gapped cabin LAN) — the hub
 // only builds the URLs, from the TTL-cached operator config.
 hub.setCabinActuator(() => {
@@ -256,7 +254,6 @@ app.get("/health", (_req, res) => {
     devices: hub.connectedDevices,
     model: operatorConfig.get().llm.model,
     llmProvider: operatorConfig.get().llm.provider,
-    lightDriver: config.light.driver,
   });
 });
 
@@ -269,7 +266,6 @@ httpServer.listen(config.port, () => {
     port: config.port,
     docker: existsSync("/.dockerenv"),
     llm: { provider: operatorConfig.get().llm.provider, model: operatorConfig.get().llm.model },
-    light: config.light.driver,
     node: process.version,
   });
 });

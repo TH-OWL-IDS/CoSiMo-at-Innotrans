@@ -1,6 +1,6 @@
 /**
  * Cabin controls CoSiMo can operate as agentic tools. Exactly one is backed by
- * real hardware (the Shelly relay light); the rest are simulated on-screen and
+ * real hardware (the interior light via the LPU-2); the rest are simulated on-screen and
  * synced to all iPads. The `real` flag marks which is physical.
  */
 

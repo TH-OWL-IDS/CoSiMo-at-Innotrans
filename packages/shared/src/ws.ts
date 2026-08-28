@@ -92,6 +92,7 @@ export interface ConnectionStatus {
    *  and route keep the demo alive — but edits and session writes stall. */
   cms: boolean;
   speech: boolean;
+  /** The cabin lamp path: LPU-2 address known and the last real switch confirmed by the seat. */
   light: boolean;
   network: boolean;
   /** True when serving the scripted offline demo. */

@@ -100,7 +100,7 @@ export function summarize(e: LogEvent): string {
     case "turn.start":
       return `${e.data.modality} · ${e.data.lang} · ${e.data.llm ? `${e.data.llm.provider}/${e.data.llm.model}` : "canned"} · “${e.data.text}”`;
     case "service.boot":
-      return `Hub gestartet · :${e.data.port}${e.data.docker ? " · Docker" : ""} · ${e.data.llm.provider}/${e.data.llm.model} · Licht ${e.data.light} · node ${e.data.node}`;
+      return `Hub gestartet · :${e.data.port}${e.data.docker ? " · Docker" : ""} · ${e.data.llm.provider}/${e.data.llm.model} · node ${e.data.node}`;
     case "config.loaded":
       return `Konfig ${e.data.source === "cms" ? "aus dem CMS" : "env-Defaults"} · ${e.data.llm} · Fallback ${e.data.fallback ?? "keiner"} · ${e.data.voices} Stimmen · LPU-2 ${e.data.lpu2Mapped} gemappt${e.data.changed.length ? ` · geändert: ${e.data.changed.join(", ")}` : ""}`;
     case "service.restart":

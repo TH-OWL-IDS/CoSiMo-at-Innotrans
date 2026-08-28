@@ -9,7 +9,6 @@
 
 import { createHash } from "node:crypto";
 import type { Server, Socket } from "socket.io";
-import type { LightDriver } from "./cabin/driver.js";
 import { buildActuation, type Lpu2Config } from "./cabin/lpu2.js";
 import { logger } from "./log/logger.js";
 import { config } from "./config.js";
@@ -225,10 +224,11 @@ export class Hub {
   private nfcHandler: NfcHandler | undefined;
   private interruptHandler: InterruptHandler | undefined;
   private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
-  private lightDriver: LightDriver | undefined;
   /** How to reach the cabin's DMX controller — resolved per change so an
    *  operator edit (new IP on mounting day) applies without a restart. */
   private lpu2Config: (() => Lpu2Config) | undefined;
+  /** The last real (physical) switch attempt reported by a seat failed. */
+  private lightFailed = false;
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
@@ -476,12 +476,6 @@ export class Hub {
     this.lpu2Config = resolve;
   }
 
-  /** Attach the hardware light driver and reflect its kind in the status. */
-  attachLightDriver(driver: LightDriver): void {
-    this.lightDriver = driver;
-    this.setStatus({ light: true });
-  }
-
   /** Register how persona keys resolve to client-facing broadcasts. */
   setPersonaResolver(resolver: PersonaResolver): void {
     this.personaResolver = resolver;
@@ -515,7 +509,16 @@ export class Hub {
 
   /** Push the operator routing to every host console — only when it changed,
    *  so the 15 s refresh doesn't spam. `force` re-sends regardless. */
+  /** status.light: the lamp is reachable in principle (LPU-2 address known)
+   *  and the last physical switch, if any, was confirmed by the seat. */
+  private syncLightStatus(): void {
+    const configured = Boolean(this.lpu2Config?.().baseUrl);
+    const light = configured && !this.lightFailed;
+    if (light !== this.status.light) this.setStatus({ light });
+  }
+
   broadcastConfig(force = false): void {
+    this.syncLightStatus();
     if (!this.configLister) return;
     const cfg = this.configLister();
     const json = JSON.stringify(cfg);
@@ -834,6 +837,11 @@ export class Hub {
         { deviceId, sessionId: entry.sessionId, turn: entry.turn, level: ok ? "info" : "warn" },
       );
       state.degraded = !ok;
+      // the status light reflects the real lamp: the last physical attempt
+      if (CABIN_CONTROLS.find((c) => c.id === control)?.real) {
+        this.lightFailed = !ok;
+        this.syncLightStatus();
+      }
       if (!ok) {
         // eslint-disable-next-line no-console
         console.warn(`[hub] ${deviceId} could not actuate ${control}: ${error ?? "unknown"}`);
@@ -1364,10 +1372,10 @@ export class Hub {
   /**
    * Apply a cabin-control change for ONE SEAT and notify that seat + hosts.
    * Cabin controls are per seat (reading lamp etc.). The `real` control is
-   * driven through the hardware LightDriver — currently a single relay, so
-   * physically it's one light regardless of seat; the per-seat state still
-   * tracks who asked for it. If the device is unreachable we mark the control
-   * `degraded` and keep showing last-known intent — the demo never breaks.
+   * the one physical lamp — the seat fires the LPU-2 URLs and reports back
+   * (cabin:actuate:result); the per-seat state still tracks who asked for
+   * it. If the controller is unreachable the control is marked `degraded`
+   * and keeps showing last-known intent — the demo never breaks.
    */
   async applyCabinControl(
     deviceId: string | undefined,
@@ -1379,19 +1387,6 @@ export class Hub {
     const entry = device.controls.find((c) => c.id === control);
     if (!entry) throw new Error(`unknown cabin control: ${control}`);
     const def = CABIN_CONTROLS.find((c) => c.id === control);
-
-    if (def?.real && change.on !== undefined && this.lightDriver) {
-      try {
-        await this.lightDriver.setOn(change.on);
-        entry.degraded = false;
-        if (!this.status.light) this.setStatus({ light: true });
-      } catch (err) {
-        entry.degraded = true;
-        this.setStatus({ light: false });
-        // eslint-disable-next-line no-console
-        console.error(`[hub] light driver failed for ${control}:`, err);
-      }
-    }
 
     if (change.on !== undefined) entry.on = change.on;
     if (change.level !== undefined) entry.level = change.level;

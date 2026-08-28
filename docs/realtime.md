@@ -17,9 +17,8 @@ The hub is the state router. Its central idea is the
   `DeviceEntry` per connected device: persona, emotion, phase, per-seat
   cabin controls, consent, live conversation snippets.
 - Cabin controls are per seat (reading lamp etc.). State lives here; the
-  *physical* change is performed by the seat (below). The legacy server-side
-  `LightDriver` (Shelly relay / fake) still runs for the one `real` control and
-  is only usable when this service sits on the cabin network itself.
+  *physical* change is performed by the seat (below). `status.light` on the
+  hosts means: LPU-2 address known and the last real switch was confirmed.
 
 ### Cabin lighting: the seat is the actuator
 

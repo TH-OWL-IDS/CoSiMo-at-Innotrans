@@ -52,7 +52,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # Keys (ANTHROPIC, ELEVENLABS, DEEPGRAM, LIGHT/SHELLY, HEALTH…) come from
+    # Keys (ANTHROPIC, ELEVENLABS, DEEPGRAM, HEALTH…) come from
     # .env.local; the `environment:` overrides win for the container URLs.
     env_file:
       - path: .env.local

@@ -66,7 +66,7 @@ export type LogEvent = Base &
     | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
     | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
     /* ── system events: no seat, no session ─────────────────────────── */
-    | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; light: string; node: string } }
+    | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; node: string } }
     | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }
     | { kind: "service.restart"; data: { id: string; ok: boolean; error?: string; durationMs: number } }
     | { kind: "session.start"; data: { persona: string; by: string; consent: boolean | null; previousSessionId?: string } }

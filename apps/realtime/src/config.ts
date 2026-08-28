@@ -51,10 +51,6 @@ export const config = {
     // quality, eleven_multilingual_v2 is highest quality but slow.
     elevenLabsModel: process.env.ELEVENLABS_MODEL ?? "eleven_flash_v2_5",
   },
-  light: {
-    driver: (process.env.LIGHT_DRIVER ?? "fake") as "fake" | "shelly",
-    shellyBaseUrl: process.env.SHELLY_BASE_URL ?? "",
-  },
   /** Cabin DMX controller (Cuety LPU-2). Reached by the KIOSKS on the cabin
    *  LAN, never by this service — the cabin network has no uplink and the
    *  hub may well run on the VPS. Base URL + playback mapping are also
