@@ -64,9 +64,8 @@ const personas: ProfileSeed[] = [
 ];
 
 /**
- * Mockup **riders** — real people with NFC cards, each given a name, a nuanced
- * brief and a pre-seeded memory so "CoSiMo remembers
- * you" demos on the first scan. The chip ids are short and typeable so a scan
+ * The four fair riders (Nutzungsprofile 01–04) — each with NFC card, traits
+ * and pre-seeded memories so "CoSiMo remembers you" demos on the first scan. The chip ids are short and typeable so a scan
  * can be simulated from a keyboard (type `[`, the id, then Enter). Together they
  * exercise every lever: audio-first, step-free proactivity, the text-first
  * layout flip, large/high-contrast, and calm/slow reduce-motion.
@@ -86,6 +85,10 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "audio-first", pace: "normal", verbosity: "normal", confirmation: "every-step", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "ALEX1" }],
+    memories: [
+      { note: "Orientiert sich über Sprache und Tasten; möchte jede Aktion laut bestätigt bekommen.", at: "2026-08-28T08:00:00.000Z" },
+      { note: "Fährt regelmäßig mit öffentlichen Verkehrsmitteln.", at: "2026-08-28T08:00:00.000Z" },
+    ],
   },
   {
     key: "noa",
@@ -100,6 +103,10 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "visual-first", pace: "normal", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "NOA1" }],
+    memories: [
+      { note: "Liest lieber mit, als zuzuhören — in lauter Umgebung Text statt Sprache.", at: "2026-08-28T08:00:00.000Z" },
+      { note: "Mag hohe Kontraste und klare Symbole.", at: "2026-08-28T08:00:00.000Z" },
+    ],
   },
   {
     key: "luca",
@@ -114,6 +121,10 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "balanced", pace: "step-by-step", verbosity: "explanatory", confirmation: "every-step", initiative: "leads", scope: "basics" },
     nfcIds: [{ tag: "LUCA1" }],
+    memories: [
+      { note: "Fühlt sich sicher, wenn Abläufe Schritt für Schritt erklärt werden.", at: "2026-08-28T08:00:00.000Z" },
+      { note: "Nutzt hauptsächlich die Basisfunktionen.", at: "2026-08-28T08:00:00.000Z" },
+    ],
   },
   {
     key: "sam",
@@ -128,91 +139,8 @@ const users: ProfileSeed[] = [
     },
     traits: { modality: "balanced", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "SAM1" }],
-  },
-  {
-    key: "anna",
-    name: "Anna Berg",
-    label: "Anna Berg",
-    summary: "Blind, Alltagsfahrerin.",
-    brief:
-      "Anna is blind and a confident daily rider on this line — skip basic orientation and lead straight with the answer.",
-    accommodations: {
-      language: "de", theme: "night", textSize: "xl", contrast: "high", input: "voice",
-      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
-    },
-    traits: { modality: "audio-first", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
-    nfcIds: [{ tag: "ANNA1" }],
     memories: [
-      { note: "Prefers very short answers.", at: "2026-07-01T09:00:00.000Z" },
-      { note: "Rides this line daily to work.", at: "2026-07-01T09:00:00.000Z" },
-    ],
-  },
-  {
-    key: "bruno",
-    name: "Bruno Klein",
-    label: "Bruno Klein",
-    summary: "Rollstuhlnutzer.",
-    brief:
-      "Bruno uses a wheelchair; be proactive about step-free access, the wheelchair space and boarding help.",
-    accommodations: {
-      language: "de", theme: "ocean", textSize: "l", contrast: "normal", input: "both",
-      audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
-    },
-    traits: { modality: "balanced", pace: "normal", verbosity: "normal", confirmation: "result-only", initiative: "leads", scope: "full" },
-    nfcIds: [{ tag: "BRUNO1" }],
-    memories: [
-      { note: "Boards at the front where the ramp is.", at: "2026-07-01T09:00:00.000Z" },
-    ],
-  },
-  {
-    key: "clara",
-    name: "Clara Voss",
-    label: "Clara Voss",
-    summary: "Gehörlos, liest mit.",
-    brief:
-      "Clara is deaf and reads your replies; write clearly and confirm actions in writing. Do not rely on tone of voice.",
-    accommodations: {
-      language: "de", theme: "slate", textSize: "l", contrast: "normal", input: "text",
-      audioOutput: false, speechRate: 1, showText: true, reduceMotion: false,
-    },
-    traits: { modality: "visual-first", pace: "normal", verbosity: "normal", confirmation: "every-step", initiative: "responds", scope: "full" },
-    nfcIds: [{ tag: "CLARA1" }],
-    memories: [
-      { note: "Reads a little lip movement but prefers text.", at: "2026-07-01T09:00:00.000Z" },
-    ],
-  },
-  {
-    key: "david",
-    name: "David Ono",
-    label: "David Ono",
-    summary: "Sehbeeinträchtigt, sieht noch.",
-    brief:
-      "David has low vision — larger, high-contrast text helps a lot, and he can also hear you.",
-    accommodations: {
-      language: "en", theme: "classic", textSize: "xl", contrast: "high", input: "both",
-      audioOutput: true, speechRate: 1, showText: true, reduceMotion: false,
-    },
-    traits: { modality: "balanced", pace: "normal", verbosity: "normal", confirmation: "result-only", initiative: "responds", scope: "full" },
-    nfcIds: [{ tag: "DAVID1" }],
-    memories: [
-      { note: "Likes the larger text; no need to ask.", at: "2026-07-01T09:00:00.000Z" },
-    ],
-  },
-  {
-    key: "emil",
-    name: "Emil Roth",
-    label: "Emil Roth",
-    summary: "Älterer Fahrgast, ruhiges Tempo.",
-    brief:
-      "Emil is an older rider who appreciates a calm, unhurried pace and plain, simple language.",
-    accommodations: {
-      language: "de", theme: "sun", textSize: "l", contrast: "normal", input: "both",
-      audioOutput: true, speechRate: 0.85, showText: false, reduceMotion: true,
-    },
-    traits: { modality: "balanced", pace: "step-by-step", verbosity: "explanatory", confirmation: "every-step", initiative: "leads", scope: "basics" },
-    nfcIds: [{ tag: "EMIL1" }],
-    memories: [
-      { note: "Appreciates an unhurried pace.", at: "2026-07-01T09:00:00.000Z" },
+      { note: "Pendelt täglich; will nur den nächsten Halt und die Zeit — kurz und ohne Rückfragen.", at: "2026-08-28T08:00:00.000Z" },
     ],
   },
 ];
@@ -234,8 +162,16 @@ const route = {
   ],
 };
 
+/** Demo riders that were replaced by the four fair profiles — removed on every seed run. */
+const RETIRED_KEYS = ["anna", "bruno", "clara", "david", "emil"];
+
 async function seed(): Promise<void> {
   const payload = await getPayload({ config });
+
+  for (const key of RETIRED_KEYS) {
+    const gone = await payload.delete({ collection: "personas", where: { key: { equals: key } } });
+    if (gone.docs.length) console.log(`[seed] retired profile removed: ${key}`);
+  }
 
   for (const p of [...personas, ...users]) {
     const existing = await payload.count({
@@ -243,7 +179,16 @@ async function seed(): Promise<void> {
       where: { key: { equals: p.key } },
     });
     if (existing.totalDocs > 0) {
-      console.log(`[seed] profile exists: ${p.key}`);
+      // Existing profiles are the operator's — except an EMPTY memory list on a
+      // seeded rider, which gets the seed memories once (the demo needs them).
+      const doc = (await payload.find({ collection: "personas", where: { key: { equals: p.key } }, limit: 1 })).docs[0];
+      const hasMemories = Array.isArray(doc?.memories) && doc.memories.length > 0;
+      if (doc && !hasMemories && p.memories?.length) {
+        await payload.update({ collection: "personas", id: doc.id, data: { memories: p.memories } });
+        console.log(`[seed] profile exists: ${p.key} — memories seeded`);
+      } else {
+        console.log(`[seed] profile exists: ${p.key}`);
+      }
       continue;
     }
     await payload.create({ collection: "personas", data: p });
