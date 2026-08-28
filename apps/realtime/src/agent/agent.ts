@@ -422,23 +422,12 @@ export class CosimoAgent {
           results.push({ id: call.id, text: res.text });
         }
         if (ctrl.signal.aborted) break;
-        // Result-independent actions that succeeded need no second
-        // generation: use the model's same-message text if it gave any,
-        // else the server's templated confirmation — either way the turn
-        // ends here, saving the 1–2 s the confirmation round used to cost.
-        if (!stepToolFailed && toolCalls.every((c) => SPEAK_WHILE_ACTING.has(c.name))) {
-          if (stepText.trim().length < DEGENERATE_CHARS) {
-            const confirmation = templatedConfirmation(actions, lang, traits.verbosity === "terse");
-            if (!startedSpeaking) {
-              startedSpeaking = true;
-              this.hub.emitPhase("speaking", sessionId, turnNo);
-            }
-            assistantText = confirmation;
-            this.hub.emitChatDelta(sessionId, confirmation, false, turnNo);
-            speaker.push(confirmation);
-          }
-          break;
-        }
+        // The model always speaks the confirmation itself: feed the results
+        // back and let the next step put it in its own words. (The former
+        // server-templated shortcut saved ~1 s on the dense 27B; on the A3B a
+        // step is ~0.75 s and the rider hears a real sentence instead of
+        // "Erledigt, ich habe das angepasst." every time.) The template only
+        // remains as the fallback below, if that step comes back empty.
         turn.addToolResults(results);
       }
     } catch (err) {
@@ -495,6 +484,20 @@ export class CosimoAgent {
       });
       this.persist(sessionId);
       return;
+    }
+    // Nothing said although actions ran (an empty or degenerate step after
+    // the tool results) → the template steps in, so the rider is never left
+    // in silence after an action.
+    if (!streamClosed && !assistantText.trim() && actions.some((a) => SPEAK_WHILE_ACTING.has(a.tool) && a.ok !== false)) {
+      const fallback = templatedConfirmation(actions, lang, traits.verbosity === "terse");
+      assistantText = fallback;
+      if (!startedSpeaking) {
+        startedSpeaking = true;
+        this.hub.emitPhase("speaking", sessionId, turnNo);
+      }
+      this.hub.emitChatDelta(sessionId, fallback, false, turnNo);
+      speaker.push(fallback);
+      logger.log("llm.step", { step: -1, chars: fallback.length, toolCalls: [], durationMs: 0, finish: "template-fallback" }, { ...ctx, level: "warn" });
     }
     // "Bestätigung nach jedem Schritt": if actions ran and the model's own
     // words did not state them, append the templated confirmation — the
