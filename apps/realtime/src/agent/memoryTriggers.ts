@@ -16,6 +16,25 @@ const FORGET =
 
 export type MemoryTool = "remember" | "forget";
 
+/**
+ * Voice/speech-change requests get the same treatment: prod 2026-08-31 showed
+ * the model claiming "Ich habe die Stimme auf Lea gestellt" with ZERO tool
+ * calls once the history held a confirmed voice change. Only unambiguous
+ * change imperatives force set_presentation — questions about voices don't.
+ */
+const PRESENTATION = [
+  /\b(sprich|sprech\w*|rede|speak|talk)\b.{0,40}\b(lauter|leiser|langsamer|schneller|tiefer|höher|freundlicher|wärmer|ruhiger|weicher|sanfter|englisch|deutsch|english|german|louder|quieter|slower|faster|as a (man|woman)|als (mann|frau)|mit \w+ stimme|with a (male|female|deeper|softer) voice)/i,
+  /\b(männlich\w*|weiblich\w*|tiefer\w*|heller\w*|ruhig\w*|beruhigend\w*|sanft\w*|warm\w*|ander\w*|neue)\b.{0,24}\b(stimme|voice)/i,
+  /\b(stimme|voice)\b.{0,40}\b(wechseln?|ändern?|umstellen|change|switch)/i,
+  /\b(lauter|leiser|louder|quieter)\b/i,
+];
+
+export function presentationTrigger(text: string): "set_presentation" | null {
+  const t = text.trim();
+  if (!t) return null;
+  return PRESENTATION.some((r) => r.test(t)) ? "set_presentation" : null;
+}
+
 export function memoryTrigger(text: string): MemoryTool | null {
   const t = text.trim();
   if (!t) return null;
