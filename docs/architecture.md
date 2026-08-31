@@ -59,7 +59,8 @@ demo/offline mode. Broadcast to every client.
 
 **Per seat (one iPad = one kiosk = one session):** the conversation —
 session, persona ("account"), face emotion, pipeline phase, streamed reply,
-TTS audio, and the cabin controls (reading lamp etc. are seat-local). The hub
+TTS audio, and the cabin controls (cabin-scoped ones — the shared interior
+light — live once on the hub; the reading lamp is seat-local). The hub
 routes these events only to the socket that owns the session. Seats never see
 or hear each other's conversations.
 

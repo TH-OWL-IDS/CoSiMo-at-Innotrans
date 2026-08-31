@@ -132,6 +132,13 @@ function templatedConfirmation(actions: TurnAction[], lang: Locale, terse = fals
       if (typeof args.level === "number") {
         return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} auf ${args.level} Prozent` : `the ${label.toLowerCase()} at ${args.level} percent`;
       }
+      if (typeof args.scene === "string") {
+        const sc = def?.scenes?.find((x) => x.key === args.scene);
+        return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} auf „${sc?.label.de ?? args.scene}"` : `the ${label.toLowerCase()} to "${sc?.label.en ?? args.scene}"`;
+      }
+      if (args.flash === true) {
+        return de ? `einmal ${DE_ARTICLE[a.control!] ?? "das"} ${label} geblitzt` : `flashed the ${label.toLowerCase()}`;
+      }
       const on = args.on !== false;
       return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} ${on ? "an" : "aus"}` : `the ${label.toLowerCase()} ${on ? "on" : "off"}`;
     });

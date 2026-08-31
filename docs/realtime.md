@@ -16,32 +16,45 @@ The hub is the state router. Its central idea is the
   from the first event a socket sends for a session and keeps a
   `DeviceEntry` per connected device: persona, emotion, phase, per-seat
   cabin controls, consent, live conversation snippets.
-- Cabin controls are per seat (reading lamp etc.). State lives here; the
-  *physical* change is performed by the seat (below). `status.light` on the
-  hosts means: LPU-2 address known and the last real switch was confirmed.
+- Cabin controls have a **scope** (`CABIN_CONTROLS` in @cosimo/shared):
+  `cabin` = ONE shared state on the hub (`cabinControls` — the interior
+  light: all four seats share the lamp, a change from any seat reaches every
+  seat and the hosts), `seat` = this entry's own (reading lamp). What a seat
+  receives on `cabin:state` is always the merge of both, so the payload
+  shape never changed. `status.light` on the hosts means: LPU-2 address
+  known and the last real switch was confirmed.
 
-### Cabin lighting: the seat is the actuator
+### Cabin lighting: the cabin decides, a seat actuates
 
 The cabin LAN is air-gapped and will never get an uplink, so a hub on the VPS
 cannot reach the light controller. The iPads are the only dual-homed devices
 (Wi-Fi → hub, USB-C Ethernet → cabin LAN), which makes them the actuators:
 
 1. `set_cabin_control` (or a host override) lands in `applyCabinControl` —
-   the hub owns the decision and the state, as before.
+   the hub owns the decision and the state. Cabin-scoped state is mutated
+   once and broadcast everywhere; seat-scoped state stays on that seat.
 2. `cabin/lpu2.ts` turns the change into ready-made URLs for the Cuety LPU-2
    (`pbXX/in=100` on, `pbXX/re` off so the standalone scene resumes,
-   `pbXX/in=<level>` for a level). This is the only file that knows the
-   controller's dialect.
-3. The hub emits `cabin:actuate` to the owning seat, which fires the GETs on
-   its LAN and answers `cabin:actuate:result`. A failure marks the control
-   `degraded` and rebroadcasts — last-known intent stays on screen, the demo
-   continues.
+   `pbXX/in=<level>` dim, `pbXX/ju=<cue>` scene, `pbXX/fl=1` flash). This is
+   the only file that knows the controller's dialect.
+3. The hub **elects an actuator**: the requesting real iPad, else any healthy
+   real iPad (ok before slow, then longest-connected), else the requester
+   even as an emulator (the desk dev loop keeps its actuation log). It emits
+   `cabin:actuate` there; the actuator fires the GETs on its LAN and answers
+   `cabin:actuate:result`. The log carries `actuator` when it differs from
+   the requester, and the result `requestedBy`.
+4. Nobody can fire, or a failure comes back → the state's owner (cabin or
+   seat) is marked `degraded` and rebroadcast — last-known intent stays on
+   screen, the demo continues.
 
-The URLs are idempotent, so a repeat is harmless — which is what makes a
-future cabin-wide split (all seats firing the same change) safe. Controls with
-no playback mapped stay purely simulated. Address + playback mapping come from
-the CMS (`operator-config` → Kabine) with `LPU2_BASE_URL` as the env fallback,
-so mounting-day IP changes need no redeploy.
+The URLs are idempotent, so a repeat or a stand-in actuator is harmless. A
+session reset (`beginSession`, "Alles zurücksetzen") deliberately does NOT
+touch cabin state — a morning reset must not switch the physical lamp.
+Controls with no playback mapped stay purely simulated. Address, playback
+and scene-cue mapping come from the CMS (`operator-config` → Kabine; scene
+KEYS are code-defined, the CMS only assigns cue numbers) with
+`LPU2_BASE_URL` as the env fallback, so mounting-day IP changes need no
+redeploy.
 
 **Hardening rule:** every socket handler must tolerate malformed or stale
 clients — log and continue, never throw through. An unhandled rejection in

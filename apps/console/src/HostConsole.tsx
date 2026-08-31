@@ -95,7 +95,6 @@ function hostOf(url: string): string {
   }
 }
 
-const TOGGLE_CONTROLS = CABIN_CONTROLS.filter((c) => c.kind === "toggle");
 
 /**
  * Persona options for a picker, built from the live (CMS-authored) set the
@@ -284,31 +283,80 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children, action 
   );
 }
 
-/** One row of the light panel: a seat (or all seats) with a toggle per cabin control. */
+type CabinChange = { on?: boolean; level?: number; scene?: string; flash?: true };
+
+/** The controls of one light, rendered per kind: toggle button, level
+ *  slider, scene chips, or a momentary flash button. */
+function ControlWidget({ def, state, onChange }: {
+  def: (typeof CABIN_CONTROLS)[number];
+  state: CabinControlState | undefined;
+  onChange: (change: CabinChange) => void;
+}) {
+  const warn = state?.degraded ? `${def.label.de}: letzter Schaltversuch nicht bestätigt` : null;
+  if (def.kind === "level") {
+    return (
+      <Tip tip={warn} className="flex items-center gap-2">
+        <span className={cn("text-xs tabular-nums", state?.degraded ? "text-warn" : "text-mute")}>{state?.level ?? 0} %</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={state?.level ?? 0}
+          aria-label={def.label.de}
+          className="w-28 accent-ink"
+          onChange={(e) => onChange({ level: Number(e.target.value) })}
+        />
+      </Tip>
+    );
+  }
+  if (def.kind === "scene") {
+    return (
+      <Tip tip={warn} className="flex items-center gap-1">
+        {(def.scenes ?? []).map((sc) => (
+          <Button key={sc.key} size="xs" variant={state?.scene === sc.key ? "on" : "secondary"} aria-pressed={state?.scene === sc.key} onClick={() => onChange({ scene: sc.key })}>
+            {sc.label.de}
+          </Button>
+        ))}
+      </Tip>
+    );
+  }
+  if (def.kind === "flash") {
+    return (
+      <Button size="sm" variant="secondary" onClick={() => onChange({ flash: true })}>
+        {def.label.de}
+      </Button>
+    );
+  }
+  return (
+    <Tip tip={warn}>
+      <Button
+        size="sm"
+        variant={state?.on ? "on" : "secondary"}
+        aria-pressed={Boolean(state?.on)}
+        tone={state?.degraded ? "warn" : undefined}
+        onClick={() => onChange({ on: !state?.on })}
+      >
+        {def.label.de} {state?.on ? "an" : "aus"}
+      </Button>
+    </Tip>
+  );
+}
+
+/** One row of the light panel: the cabin, a seat, or all seats. */
 function LightRow({ label, hint, controls, onSet }: {
   label: string;
   hint: string;
-  controls: { def: (typeof CABIN_CONTROLS)[number]; state: { on?: boolean; degraded?: boolean } | undefined }[];
-  onSet: (id: CabinControlId, on: boolean) => void;
+  controls: { def: (typeof CABIN_CONTROLS)[number]; state: CabinControlState | undefined }[];
+  onSet: (id: CabinControlId, change: CabinChange) => void;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 border-t border-line-soft pt-2 first:border-t-0 first:pt-0">
+    <div className="flex min-w-0 flex-wrap items-center gap-3 border-t border-line-soft pt-2 first:border-t-0 first:pt-0">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-semibold">{label}</span>
         <span className="truncate text-xs text-mute">{hint}</span>
       </div>
       {controls.map(({ def, state }) => (
-        <Tip key={def.id} tip={state?.degraded ? `${def.label.de}: letzter Schaltversuch nicht bestätigt` : null}>
-          <Button
-            size="sm"
-            variant={state?.on ? "on" : "secondary"}
-            aria-pressed={Boolean(state?.on)}
-            tone={state?.degraded ? "warn" : undefined}
-            onClick={() => onSet(def.id, !state?.on)}
-          >
-            {def.label.de} {state?.on ? "an" : "aus"}
-          </Button>
-        </Tip>
+        <ControlWidget key={def.id} def={def} state={state} onChange={(change) => onSet(def.id, change)} />
       ))}
     </div>
   );
@@ -466,14 +514,17 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   const cabinOk = cabinResults.filter((e) => e.data.ok).length;
   const cabinFailed = cabinResults.length - cabinOk;
   const lastCabin = cabinResults[cabinResults.length - 1];
-  // The seats' controls (the host's own cabin:state is a dummy entry). The
-  // interior light is physically one lamp: "an" when any seat has it on.
+  // Cabin-scoped state comes from the hub (host:seats carries it); a
+  // seat-scoped control is aggregated: "an" when any seat has it on.
   const seatControl = (s: SeatSummary, id: CabinControlId) => s.controls.find((x) => x.id === id);
-  const control = (id: CabinControlId) => {
+  const control = (id: CabinControlId): CabinControlState | undefined => {
+    if (CABIN_CONTROLS.find((d) => d.id === id)?.scope === "cabin") return c.hostCabin.find((x) => x.id === id);
     const xs = c.seats.map((s) => seatControl(s, id)).filter(Boolean) as CabinControlState[];
     if (!xs.length) return undefined;
-    return { on: xs.some((x) => x.on), degraded: xs.some((x) => x.degraded) };
+    return { id, on: xs.some((x) => x.on), degraded: xs.some((x) => x.degraded) };
   };
+  const CABIN_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "cabin");
+  const SEAT_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "seat");
   const onOff = (id: CabinControlId) => {
     const x = control(id);
     if (!x) return "—";
@@ -729,13 +780,14 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
               <div key={r.control} className="flex min-w-0 flex-col gap-0.5 text-sm">
                 <span className="flex items-center gap-2">
                   <span className="font-semibold">{r.label}</span>
-                  <span className="text-mute">{r.real ? "echt" : "nur Bildschirm"}</span>
+                  <span className="text-mute">{r.scope === "cabin" ? "Kabine" : "Sitz"} · {r.real ? "echt" : "nur Bildschirm"}</span>
                   <span className="ml-auto shrink-0 tabular-nums">{r.playback != null ? `Playback ${String(r.playback).padStart(2, "0")}` : <span className="text-mute">nicht zugeordnet</span>}</span>
                 </span>
-                {r.on && r.off ? (
+                {r.urls.length > 0 ? (
                   <span className="flex flex-col gap-0.5 text-xs text-mute">
-                    <span className="truncate" title={r.on}>an → <code>{r.on.replace(/^https?:\/\//, "")}</code></span>
-                    <span className="truncate" title={r.off}>aus → <code>{r.off.replace(/^https?:\/\//, "")}</code></span>
+                    {r.urls.map((u) => (
+                      <span key={u.label} className="truncate" title={u.url}>{u.label} → <code>{u.url.replace(/^https?:\/\//, "")}</code></span>
+                    ))}
                   </span>
                 ) : (
                   <span className="text-xs text-mute">{cfg?.cabin.lpu2BaseUrl ? "kein Playback im CMS — wird nur simuliert" : "keine LPU-2-Adresse im CMS — wird nur simuliert"}</span>
@@ -764,13 +816,19 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
                 </Dialog.Close>
               </div>
               <div className="flex flex-col gap-2 overflow-y-auto pr-1">
-                {c.seats.length === 0 && <span className="text-sm text-mute">keine Sitze verbunden — es gibt nichts zu schalten</span>}
-                {c.seats.length > 1 && (
+                {/* the cabin itself — shared state, there even with no seats */}
+                <LightRow
+                  label="Kabine"
+                  hint={`gilt für alle Sitze${c.seats.length === 0 ? " · kein Sitz verbunden, der schalten könnte" : ""}`}
+                  controls={CABIN_DEFS.map((d) => ({ def: d, state: c.hostCabin.find((x) => x.id === d.id) }))}
+                  onSet={(id, change) => c.setCabinControl(c.seats[0]?.deviceId ?? c.deviceId, id, change)}
+                />
+                {SEAT_DEFS.length > 0 && c.seats.length > 1 && (
                   <LightRow
                     label="alle Sitze"
                     hint={`${c.seats.length} Sitze`}
-                    controls={CABIN_CONTROLS.map((d) => ({ def: d, state: control(d.id) }))}
-                    onSet={(id, on) => c.seats.forEach((s) => c.overrideLight(s.deviceId, id, on))}
+                    controls={SEAT_DEFS.map((d) => ({ def: d, state: control(d.id) }))}
+                    onSet={(id, change) => c.seats.forEach((s) => c.setCabinControl(s.deviceId, id, change))}
                   />
                 )}
                 {c.seats.map((s) => {
@@ -780,13 +838,13 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
                       key={s.deviceId}
                       label={s.deviceId}
                       hint={[kind === "emulator" ? "Emulator" : "iPad", s.active ? `${s.personaLabel} · aktiv` : "frei"].join(" · ")}
-                      controls={CABIN_CONTROLS.map((d) => ({ def: d, state: seatControl(s, d.id) }))}
-                      onSet={(id, on) => c.overrideLight(s.deviceId, id, on)}
+                      controls={SEAT_DEFS.map((d) => ({ def: d, state: seatControl(s, d.id) }))}
+                      onSet={(id, change) => c.setCabinControl(s.deviceId, id, change)}
                     />
                   );
                 })}
                 <span className="text-xs text-mute">
-                  Innenlicht ist die echte Lampe (das iPad feuert die LPU-2-URLs, „nicht bestätigt“ = keine Antwort vom Controller). Leselampe gibt es nur auf dem Bildschirm des Sitzes.
+                  Die Kabinen-Lichter sind für alle Sitze dieselben — ein iPad feuert die LPU-2-URLs („nicht bestätigt“ = keine Antwort vom Controller). Die Leselampe gehört dem einzelnen Sitz und existiert nur auf dessen Bildschirm.
                 </span>
               </div>
             </Dialog.Content>

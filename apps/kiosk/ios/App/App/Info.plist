@@ -30,6 +30,14 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- The LPU-2 light controller speaks plain HTTP on the air-gapped
+		     cabin LAN; ATS blocks cleartext by default, local networking is
+		     the narrow opt-out (no arbitrary loads). -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>CoSiMo steuert das Licht in der Kabine über das lokale Kabinennetz.</string>
 	<key>NSMicrophoneUsageDescription</key>

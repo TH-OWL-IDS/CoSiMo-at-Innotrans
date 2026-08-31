@@ -38,6 +38,19 @@ export interface ToolResult {
 }
 
 const CONTROL_IDS = CABIN_CONTROLS.map((c) => c.id);
+const SCENE_KEYS = [...new Set(CABIN_CONTROLS.flatMap((c) => c.scenes?.map((s) => s.key) ?? []))];
+
+/** The catalogue as the model reads it — generated so a new light in
+ *  CABIN_CONTROLS needs no prompt edit. */
+const CONTROL_CATALOG = CABIN_CONTROLS.map((c) => {
+  const scope = c.scope === "cabin" ? "shared by ALL seats — changing it changes it for everyone" : "this seat only";
+  const kind =
+    c.kind === "toggle" ? "on/off" :
+    c.kind === "level" ? "dimmable, level 0-100" :
+    c.kind === "scene" ? `scene: ${(c.scenes ?? []).map((s) => `'${s.key}'`).join(", ")}` :
+    "momentary flash";
+  return `'${c.id}' (${c.label.de} / ${c.label.en}; ${kind}; ${scope})`;
+}).join("; ");
 
 export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
@@ -49,12 +62,15 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "set_cabin_control",
     description:
-      "Turn a cabin light on/off. Use this when the rider asks to change the lighting: 'interior-light' (the main cabin light, real hardware) or 'reading-lamp'.",
+      `Change a cabin light. Use this when the rider asks to change the lighting. Controls: ${CONTROL_CATALOG}. Pass exactly the field matching the control's kind: on for on/off, level for dimming, scene for a scene, flash:true for a flash.`,
     input_schema: {
       type: "object",
       properties: {
         control: { type: "string", enum: CONTROL_IDS, description: "Which cabin control to change." },
-        on: { type: "boolean", description: "On/off." },
+        on: { type: "boolean", description: "On/off (toggle controls)." },
+        level: { type: "number", minimum: 0, maximum: 100, description: "Brightness 0-100 (level controls)." },
+        ...(SCENE_KEYS.length ? { scene: { type: "string", enum: SCENE_KEYS, description: "Scene key (scene controls)." } } : {}),
+        flash: { type: "boolean", description: "true for a momentary flash (flash controls)." },
       },
       required: ["control"],
       additionalProperties: false,
@@ -287,14 +303,34 @@ export async function executeTool(
 
     case "set_cabin_control": {
       const control = input.control as CabinControlId;
-      if (!CONTROL_IDS.includes(control)) {
+      const def = CABIN_CONTROLS.find((c) => c.id === control);
+      if (!def) {
         return { text: `error: unknown control "${String(input.control)}"`, action: { tool: name } };
       }
-      const change: { on?: boolean; level?: number } = {};
-      if (typeof input.on === "boolean") change.on = input.on;
+      // Accept only what the control's kind understands — a level on a
+      // toggle is a model mistake the result should teach, not a throw.
+      const change: { on?: boolean; level?: number; scene?: string; flash?: true } = {};
+      if (def.kind === "toggle" && typeof input.on === "boolean") change.on = input.on;
+      if (def.kind === "level") {
+        if (typeof input.level === "number") change.level = Math.max(0, Math.min(100, Math.round(input.level)));
+        else if (typeof input.on === "boolean") change.on = input.on; // "aus"/"an" on a dimmer is fine
+      }
+      if (def.kind === "scene" && typeof input.scene === "string") {
+        if (!def.scenes?.some((sc) => sc.key === input.scene)) {
+          return { text: `error: unknown scene "${String(input.scene)}" for ${control} — valid: ${(def.scenes ?? []).map((sc) => sc.key).join(", ")}`, action: { tool: name } };
+        }
+        change.scene = input.scene;
+      }
+      if (def.kind === "flash" && input.flash === true) change.flash = true;
+      if (Object.keys(change).length === 0) {
+        return { text: `error: ${control} is a ${def.kind} control — pass ${def.kind === "toggle" ? "on" : def.kind === "flash" ? "flash:true" : def.kind}`, action: { tool: name } };
+      }
       const state = await ctx.hub.applyCabinControl(ctx.deviceId, control, change);
+      const shared = def.scope === "cabin" ? " (shared cabin light — changed for all seats)" : "";
+      const now = def.kind === "flash" ? "flashed" : `now ${JSON.stringify({ on: state.on, level: state.level, scene: state.scene })}`;
+      const caveat = state.degraded ? " — but the controller did not confirm; the screens show the intent" : "";
       return {
-        text: `ok: ${control} is now ${JSON.stringify({ on: state.on, level: state.level })}`,
+        text: `ok: ${control}${shared} ${now}${caveat}`,
         action: { tool: name, control, args: change },
       };
     }

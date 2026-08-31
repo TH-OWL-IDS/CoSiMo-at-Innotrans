@@ -37,8 +37,9 @@ Payload login). There is no other page — the operator console is
   section is always appended in code) and endpoint routing: LLM provider
   (`anthropic` | `openai-compatible`) + base URL + model, STT/TTS base URLs
   and voice, plus **Kabine**: the LPU-2's address on the cabin LAN (as the
-  *iPads* see it — they place the calls) and which playback drives which cabin
-  control. URLs and model names only — **API keys never live in the CMS**
+  *iPads* see it — they place the calls), which playback drives which cabin
+  control, and for scene controls which cue number belongs to which
+  code-defined scene key. URLs and model names only — **API keys never live in the CMS**
   (they'd be readable in the admin and land in every DB backup).
 
 ## Seeding

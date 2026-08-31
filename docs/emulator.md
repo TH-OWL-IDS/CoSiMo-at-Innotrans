@@ -45,7 +45,9 @@ re-implementing it.
 | — | a text field (the same `chat:send` path as the kiosk's hidden test console) |
 | Cabin LAN → LPU-2 | **actuation log**: every `cabin:actuate` the hub sends this seat, with its URLs |
 
-The actuation log is the useful trick: ask CoSiMo to change the light and the
+The actuation log is the useful trick (the hub prefers a real iPad as the
+actuator but falls back to the emulator when none is connected, exactly so
+this keeps working): ask CoSiMo to change the light and the
 exact `GET /ajax/pbXX/…` calls appear — so the playback mapping in the CMS can
 be verified from a desk, with no cabin. By default they are **logged, not
 fired** (and reported `ok`, so the seat reads as healthy); tick *fire for real*

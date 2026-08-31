@@ -120,9 +120,9 @@ export function summarize(e: LogEvent): string {
     case "tool.call":
       return `${e.data.tool}(${JSON.stringify(e.data.input)}) → ${e.data.result} · ${e.data.durationMs} ms`;
     case "cabin.actuate":
-      return `${e.data.control} ${JSON.stringify(e.data.change)} → ${e.data.urls.join(" , ")}`;
+      return `${e.data.scope === "cabin" ? "Kabine · " : ""}${e.data.control} ${JSON.stringify(e.data.change)} → ${e.data.urls.join(" , ")}${e.data.actuator ? ` · via ${e.data.actuator}` : ""}`;
     case "cabin.result":
-      return `${e.data.control} ${e.data.ok ? "ok" : `FAILED${e.data.error ? ` — ${e.data.error}` : ""}`}`;
+      return `${e.data.scope === "cabin" ? "Kabine · " : ""}${e.data.control} ${e.data.ok ? "ok" : `FAILED${e.data.error ? ` — ${e.data.error}` : ""}`}${e.data.requestedBy ? ` · für ${e.data.requestedBy}` : ""}`;
     case "tts.done":
       return `${e.data.chars} chars → ${Math.round(e.data.bytes / 1024)} kB${e.data.chunks ? ` · ${e.data.chunks} Clip${e.data.chunks > 1 ? "s" : ""}` : ""}${e.data.firstChunkMs != null ? ` · erstes Audio nach ${e.data.firstChunkMs} ms` : ""} (${e.data.durationMs} ms)`;
     case "turn.end": {

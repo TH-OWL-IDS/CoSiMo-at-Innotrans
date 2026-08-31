@@ -37,8 +37,8 @@ turn.end        ok · 2470 ms (stt 610, llm 1460, tts 380) · 1 tool · happy ·
 | `stt.result` | Deepgram answered | chars, duration, audio size/mime (0 chars → warn) |
 | `llm.step` | one generation step finished | step no., streamed chars, tool names, duration |
 | `tool.call` | a tool ran | name, **input**, **result text**, ok, duration (error → warn) |
-| `cabin.actuate` | the hub handed URLs to a seat | control, change, the exact URLs |
-| `cabin.result` | the seat reported back | control, ok, error (failure → warn) |
+| `cabin.actuate` | the hub handed URLs to a seat | control, scope, change, the exact URLs, `actuator` when a stand-in fires |
+| `cabin.result` | the seat reported back | control, scope, ok, error (failure → warn), `requestedBy` when it differs |
 | `tts.done` | ElevenLabs answered | chars, bytes, duration |
 | `turn.end` | the turn settled | outcome, reply, emotion, total latency, **timings** (stt/llm/tts), tool count, error message |
 | `host.action` | an operator did something | action + args |
