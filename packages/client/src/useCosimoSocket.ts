@@ -300,6 +300,9 @@ export function useCosimoSocket(
   // instead of a synthetic cadence. Browser-TTS has no stream → no analyser.
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  /** Playback gain — the volume authority for routed clips. iOS ignores
+   *  HTMLMediaElement.volume (hardware-buttons only), a GainNode it honours. */
+  const gainRef = useRef<GainNode | null>(null);
   const timeBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const freqBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   /** True while the current clip is wired into the analyser. */
@@ -320,7 +323,11 @@ export function useCosimoSocket(
       const an = ctx.createAnalyser();
       an.fftSize = 1024;
       an.smoothingTimeConstant = 0.4;
-      an.connect(ctx.destination);
+      const gain = ctx.createGain();
+      gain.gain.value = volumeRef.current;
+      an.connect(gain);
+      gain.connect(ctx.destination);
+      gainRef.current = gain;
       audioCtxRef.current = ctx;
       analyserRef.current = an;
       timeBufRef.current = new Uint8Array(an.fftSize);
@@ -384,6 +391,12 @@ export function useCosimoSocket(
           src.connect(an);
           analysingRef.current = true;
           envelopeRef.current = 0;
+          // Routed: the gain node is the volume, the element must stay at 1
+          // (desktop would otherwise apply both — volume squared).
+          if (gainRef.current) {
+            gainRef.current.gain.value = volumeRef.current;
+            audio.volume = 1;
+          }
         }
       } catch {
         // analyser unavailable — plain playback, synthetic mouth cadence
@@ -494,6 +507,8 @@ export function useCosimoSocket(
     socket.on("persona:active", (p) => {
       setPersonaState(p);
       volumeRef.current = Math.max(0, Math.min(1, p.accommodations.volume ?? 1));
+      // Mid-clip too — "leiser bitte" lands while the confirmation plays.
+      if (gainRef.current) gainRef.current.gain.value = volumeRef.current;
     });
     socket.on("voice:transcript", ({ text }) => {
       setHeard(text);
