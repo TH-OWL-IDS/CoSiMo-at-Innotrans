@@ -239,15 +239,15 @@ async function seed(): Promise<void> {
   // list stays.
   const VOICES = [
     // — Deutsch, weiblich —
-    { key: "nadine", label: "Nadine", gender: "female" as const, language: "de" as const, voiceId: "XFigb6fqZPxl2Q2dFOXN", description: "warm, weiblich, natürlich im Gespräch (Standard Deutsch)" },
+    { key: "doreen", label: "Doreen", gender: "female" as const, language: "de" as const, voiceId: "mDRP1h6KfUD1XAUJxqr0", description: "klar, weiblich, dynamisch-professionell (Standard Deutsch)" },
+    { key: "nadine", label: "Nadine", gender: "female" as const, language: "de" as const, voiceId: "XFigb6fqZPxl2Q2dFOXN", description: "warm, weiblich, natürlich im Gespräch" },
     { key: "ela", label: "Ela", gender: "female" as const, language: "de" as const, voiceId: "SJJe86Va82zRzg6zi2dX", description: "jung, weiblich, einfühlsam und weich" },
-    { key: "doreen", label: "Doreen", gender: "female" as const, language: "de" as const, voiceId: "mDRP1h6KfUD1XAUJxqr0", description: "klar, weiblich, dynamisch-professionell" },
     { key: "lea", label: "Lea", gender: "female" as const, language: "de" as const, voiceId: "M39iqBUcu1jyiwM5PfSy", description: "ruhig, weiblich, beruhigend-zugewandt" },
     { key: "dana", label: "Dana", gender: "female" as const, language: "de" as const, voiceId: "nF7t9cuYo0u3kuVI9q4B", description: "tiefer, weiblich, warm und fröhlich" },
     // — Deutsch, männlich —
-    { key: "finn", label: "Finn", gender: "male" as const, language: "de" as const, voiceId: "1J0wWp4zPQIvsK7Xwh34", description: "freundlich, männlich, natürlich im Gespräch (Standard Deutsch)" },
+    { key: "leo", label: "Leo", gender: "male" as const, language: "de" as const, voiceId: "f64OyGck4gc2zk7QOs55", description: "ausgeglichen, männlich, natürlich und klar (Standard Deutsch)" },
+    { key: "finn", label: "Finn", gender: "male" as const, language: "de" as const, voiceId: "1J0wWp4zPQIvsK7Xwh34", description: "freundlich, männlich, natürlich im Gespräch" },
     { key: "ben", label: "Ben", gender: "male" as const, language: "de" as const, voiceId: "MMwckqU477oQxnAk1SgA", description: "ruhig, männlich, gelassen und natürlich" },
-    { key: "leo", label: "Leo", gender: "male" as const, language: "de" as const, voiceId: "f64OyGck4gc2zk7QOs55", description: "ausgeglichen, männlich, natürlich und klar" },
     { key: "simon", label: "Simon", gender: "male" as const, language: "de" as const, voiceId: "K5ZVtkkBnuPY6YqXs70E", description: "jung, männlich, nahbar und unaufgeregt" },
     { key: "christian", label: "Christian", gender: "male" as const, language: "de" as const, voiceId: "CvLyegHbActy7exgIBri", description: "ruhig, männlich, sanft und vertrauensvoll" },
     // — Englisch, weiblich —
