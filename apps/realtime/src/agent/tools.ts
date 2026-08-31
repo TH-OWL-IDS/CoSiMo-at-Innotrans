@@ -239,6 +239,26 @@ function presentationPatch(setting: string, value: unknown, voices: VoiceCatalog
         ? { patch: { theme: id } }
         : { error: `farbe must be one of: ${SCHEME_IDS.join("|")}` };
     }
+    case "volume": {
+      let n = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(n)) return { error: "volume must be a number 0–1" };
+      if (n > 1 && n <= 100) n = n / 100; // the model sometimes says 50 for 50%
+      return n >= 0 && n <= 1 ? { patch: { volume: n } } : { error: "volume must be 0–1" };
+    }
+    case "voice": {
+      const g = String(value).trim().toLowerCase();
+      if (g === "female" || g === "male") return { patch: { voiceGender: g, voice: "" } };
+      const entry = voices.find((v) => v.key === g);
+      if (entry) return { patch: { voice: entry.key, voiceGender: entry.gender } };
+      const keys = voices.map((v) => v.key).join("|");
+      return { error: `voice must be female|male${keys ? `|${keys}` : ""}` };
+    }
+    case "tone": {
+      const t = String(value).trim().toLowerCase();
+      return (VOICE_TONES as readonly string[]).includes(t)
+        ? { patch: { voiceTone: t as VoiceTone } }
+        : { error: `tone must be one of: ${VOICE_TONES.join("|")}` };
+    }
     case "language":
       return value === "de" || value === "en"
         ? { patch: { language: value } }
