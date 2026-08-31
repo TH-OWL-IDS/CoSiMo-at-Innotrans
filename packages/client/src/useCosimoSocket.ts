@@ -107,8 +107,11 @@ export interface CosimoState {
   transcript: { role: "user" | "cosimo"; text: string }[];
   telemetry: MonoCabTelemetry | null;
   status: ConnectionStatus | null;
-  /** Live cabin-control state, kept in sync across all iPads. */
+  /** Live cabin-control state for THIS seat (cabin-scoped controls merged
+   *  in by the hub), kept in sync across all iPads. */
   cabin: CabinControlState[];
+  /** The shared cabin-scoped control state (host consoles, via host:seats). */
+  hostCabin: CabinControlState[];
   /** The structured debug log (host consoles): replayed buffer + live tail,
    *  oldest first, capped client-side. See @cosimo/shared log.ts. */
   logs: LogEvent[];
@@ -195,6 +198,8 @@ export interface CosimoState {
   resetNonce: number;
   /** Host actions. */
   overrideLight: (deviceId: string, control: CabinControlId, on: boolean) => void;
+  /** The generic flavour: level / scene / flash for the new control kinds. */
+  setCabinControl: (deviceId: string, control: CabinControlId, change: { on?: boolean; level?: number; scene?: string; flash?: true }) => void;
   patchTelemetry: (patch: HostTelemetryPatch) => void;
   toggleOffline: (offline: boolean) => void;
   recover: () => void;
@@ -271,6 +276,7 @@ export function useCosimoSocket(
   const [heard, setHeard] = useState("");
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
+  const [hostCabin, setHostCabin] = useState<CabinControlState[]>([]);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
   const [llmTest, setLlmTest] = useState<LlmTestResult | "pending" | null>(null);
@@ -422,7 +428,7 @@ export function useCosimoSocket(
     // The hub's link check: answer the ack at once. Every client does —
     // kiosks, the emulator, consoles — that is what makes the RTT honest.
     socket.on("sys:ping", (ack) => ack());
-    socket.on("host:seats", ({ seats }) => setSeats(seats));
+    socket.on("host:seats", ({ seats, cabin: shared }) => { setSeats(seats); setHostCabin(shared ?? []); });
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
     socket.on("host:llm-test-result", (r) => setLlmTest(r));
@@ -615,6 +621,8 @@ export function useCosimoSocket(
 
   const overrideLight = (deviceId: string, control: CabinControlId, on: boolean) =>
     sockRef.current?.emit("host:overrideLight", { deviceId, control, on });
+  const setCabinControl = (deviceId: string, control: CabinControlId, change: { on?: boolean; level?: number; scene?: string; flash?: true }) =>
+    sockRef.current?.emit("host:overrideLight", { deviceId, control, ...change });
   const patchTelemetry = (patch: HostTelemetryPatch) =>
     sockRef.current?.emit("host:patchTelemetry", patch);
   const toggleOffline = (offline: boolean) =>
@@ -685,7 +693,7 @@ export function useCosimoSocket(
 
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt, lastReset,
-    telemetry, status, cabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
+    telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
@@ -693,7 +701,7 @@ export function useCosimoSocket(
     logs, clearLogs, replayLogs,
     faceEmotion, speaking, setSpeaking, getMouthDrive,
     send, setPersona, setConsent, pttStart, pttStop, sendUtterance, registerNfc,
-    overrideLight, patchTelemetry, toggleOffline, recover, resetSession,
+    overrideLight, setCabinControl, patchTelemetry, toggleOffline, recover, resetSession,
     sessionId: sessionRef.current,
   };
 }

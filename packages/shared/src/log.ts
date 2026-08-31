@@ -63,8 +63,8 @@ export type LogEvent = Base &
           durationMs: number;
         };
       }
-    | { kind: "cabin.actuate"; data: { control: CabinControlId; urls: string[]; change: Record<string, unknown> } }
-    | { kind: "cabin.result"; data: { control: CabinControlId; ok: boolean; error?: string } }
+    | { kind: "cabin.actuate"; data: { control: CabinControlId; scope: "cabin" | "seat"; urls: string[]; change: Record<string, unknown>; /** set only when another device fires than the one that asked */ actuator?: string } }
+    | { kind: "cabin.result"; data: { control: CabinControlId; scope?: "cabin" | "seat"; ok: boolean; error?: string; /** who asked, when the actuator was a stand-in */ requestedBy?: string } }
     /* ── system events: no seat, no session ─────────────────────────── */
     | { kind: "service.boot"; data: { port: number; docker: boolean; llm: { provider: string; model: string }; node: string } }
     | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }

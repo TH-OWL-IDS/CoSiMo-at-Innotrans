@@ -205,12 +205,22 @@ interface DeviceEntry {
   unsubscribeLog?: () => void;
 }
 
+/** Initial state for a set of control defs. `flash` controls are momentary
+ *  and carry no state at all. */
+function freshState(defs: typeof CABIN_CONTROLS): CabinControlState[] {
+  return defs
+    .filter((c) => c.kind !== "flash")
+    .map((c) => ({
+      id: c.id,
+      on: c.kind === "toggle" ? false : undefined,
+      level: c.kind === "level" ? 0 : undefined,
+      scene: c.kind === "scene" ? c.scenes?.[0]?.key : undefined,
+    }));
+}
+
+/** A seat's own controls: seat-scoped only. */
 function freshControls(): CabinControlState[] {
-  return CABIN_CONTROLS.map((c) => ({
-    id: c.id,
-    on: c.kind === "toggle" ? false : undefined,
-    level: c.kind === "level" ? 0 : undefined,
-  }));
+  return freshState(CABIN_CONTROLS.filter((c) => c.scope === "seat"));
 }
 
 export class Hub {
@@ -226,6 +236,12 @@ export class Hub {
   /** How to reach the cabin's DMX controller — resolved per change so an
    *  operator edit (new IP on mounting day) applies without a restart. */
   private lpu2Config: (() => Lpu2Config) | undefined;
+  /** The ONE cabin: state of the cabin-scoped controls (the shared interior
+   *  light etc.) lives here, not on any seat. */
+  private readonly cabinControls: CabinControlState[] = freshState(CABIN_CONTROLS.filter((c) => c.scope === "cabin"));
+  /** Who asked for the last actuation of a control — log attribution only
+   *  (the result may come from a stand-in actuator). */
+  private readonly pendingActuation = new Map<CabinControlId, { requestedBy: string; at: number }>();
   /** The last real (physical) switch attempt reported by a seat failed. */
   private lightFailed = false;
   private personaResolver: PersonaResolver | undefined;
@@ -516,6 +532,32 @@ export class Hub {
 
   /** Push the operator routing to every host console — only when it changed,
    *  so the 15 s refresh doesn't spam. `force` re-sends regardless. */
+  /** What a seat sees: the shared cabin state plus its own seat-scoped
+   *  controls, in CABIN_CONTROLS order (stable for every consumer). */
+  private cabinStateFor(entry: DeviceEntry): CabinControlState[] {
+    const merged: CabinControlState[] = [];
+    for (const def of CABIN_CONTROLS) {
+      const state = def.scope === "cabin"
+        ? this.cabinControls.find((c) => c.id === def.id)
+        : entry.controls.find((c) => c.id === def.id);
+      if (state) merged.push(state);
+    }
+    return merged;
+  }
+
+  private emitCabinState(entry: DeviceEntry): void {
+    entry.socket.emit("cabin:state", { controls: this.cabinStateFor(entry) });
+  }
+
+  /** A cabin-scoped change: every seat gets the new merged state, hosts get
+   *  the seats push (which carries the shared cabin state). */
+  private broadcastCabinState(): void {
+    for (const e of this.devices.values()) {
+      if (e.role === "kiosk") this.emitCabinState(e);
+    }
+    this.pushSeats();
+  }
+
   /** status.light: the lamp is reachable in principle (LPU-2 address known)
    *  and the last physical switch, if any, was confirmed by the seat. */
   private syncLightStatus(): void {
@@ -609,6 +651,11 @@ export class Hub {
       if (parked && role === "kiosk" && Date.now() - parked.parkedAt < PARK_MS) {
         const { parkedAt: _, ...state } = parked;
         Object.assign(entry, state);
+        // Parked state from an older build may still carry cabin-scoped or
+        // renamed entries — a seat only ever owns seat-scoped controls.
+        entry.controls = entry.controls.filter((c) =>
+          CABIN_CONTROLS.some((d) => d.id === c.id && d.scope === "seat" && d.kind !== "flash"),
+        );
         if (state.sessionId) this.sessionDevice.set(state.sessionId, deviceId);
         logger.log("seat.connect", { role, restored: true }, { deviceId, sessionId: state.sessionId || undefined });
       }
@@ -645,7 +692,7 @@ export class Hub {
       // not keep showing a stale "thinking" forever.
       socket.emit("pipeline:phase", { phase: entry.phase, sessionId: "" });
       socket.emit("persona:active", entry.persona);
-      socket.emit("cabin:state", { controls: entry.controls });
+      socket.emit("cabin:state", { controls: this.cabinStateFor(entry) });
       socket.emit("status:update", this.status);
       if (this.lastTelemetry) socket.emit("telemetry:update", this.lastTelemetry);
       // Host consoles need the authored persona set to populate their pickers.
@@ -840,16 +887,26 @@ export class Hub {
       const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
       this.countEvent("cabin:actuate:result", deviceId);
       const entry = this.devices.get(deviceId);
-      const state = entry?.controls.find((c) => c.id === control);
-      if (!entry || !state) return;
+      const def = CABIN_CONTROLS.find((c) => c.id === control);
+      if (!entry || !def) return;
+      // degraded lives with the state's owner: the cabin for shared controls,
+      // this seat for its own. flash carries no state — log only.
+      const state = def.kind === "flash"
+        ? undefined
+        : def.scope === "cabin"
+          ? this.cabinControls.find((c) => c.id === control)
+          : entry.controls.find((c) => c.id === control);
+      const pending = this.pendingActuation.get(control);
+      this.pendingActuation.delete(control);
+      const requestedBy = pending && pending.requestedBy !== deviceId ? pending.requestedBy : undefined;
       logger.log(
         "cabin.result",
-        { control, ok, ...(error ? { error } : {}) },
+        { control, scope: def.scope, ok, ...(error ? { error } : {}), ...(requestedBy ? { requestedBy } : {}) },
         { deviceId, sessionId: entry.sessionId, turn: entry.turn, level: ok ? "info" : "warn" },
       );
-      state.degraded = !ok;
+      if (state) state.degraded = !ok;
       // the status light reflects the real lamp: the last physical attempt
-      if (CABIN_CONTROLS.find((c) => c.id === control)?.real) {
+      if (def.real) {
         this.lightFailed = !ok;
         this.syncLightStatus();
       }
@@ -857,8 +914,11 @@ export class Hub {
         // eslint-disable-next-line no-console
         console.warn(`[hub] ${deviceId} could not actuate ${control}: ${error ?? "unknown"}`);
       }
-      entry.socket.emit("cabin:state", { controls: entry.controls });
-      this.pushSeats();
+      if (def.scope === "cabin") this.broadcastCabinState();
+      else {
+        this.emitCabinState(entry);
+        this.pushSeats();
+      }
     });
 
     // NFC scan at this kiosk → persona/"account" resolution.
@@ -876,10 +936,16 @@ export class Hub {
       if (deviceId) this.setPersonaForDevice(deviceId, persona, "host");
       else this.setPersona(persona, "host");
     });
-    socket.on("host:overrideLight", ({ deviceId, control, on }) => {
-      hostAction("overrideLight", { deviceId, control, on });
+    socket.on("host:overrideLight", ({ deviceId, control, on, level, scene, flash }) => {
+      const change: { on?: boolean; level?: number; scene?: string; flash?: true } = {};
+      if (typeof on === "boolean") change.on = on;
+      if (typeof level === "number" && Number.isFinite(level)) change.level = Math.max(0, Math.min(100, Math.round(level)));
+      if (typeof scene === "string" && scene) change.scene = scene;
+      if (flash === true) change.flash = true;
+      hostAction("overrideLight", { deviceId, control, ...change });
+      if (Object.keys(change).length === 0) return; // nothing valid to apply
       // Stale/foreign clients must never crash the hub — log and carry on.
-      this.applyCabinControl(deviceId, control, { on }).catch((err) => {
+      this.applyCabinControl(deviceId, control, change).catch((err) => {
         // eslint-disable-next-line no-console
         console.error("[hub] host:overrideLight failed:", err);
       });
@@ -1095,7 +1161,7 @@ export class Hub {
       });
     }
     for (const e of this.devices.values()) {
-      if (e.role === "host") e.socket.emit("host:seats", { seats });
+      if (e.role === "host") e.socket.emit("host:seats", { seats, cabin: this.cabinControls });
     }
   }
 
@@ -1382,43 +1448,98 @@ export class Hub {
 
   /**
    * Apply a cabin-control change for ONE SEAT and notify that seat + hosts.
-   * Cabin controls are per seat (reading lamp etc.). The `real` control is
-   * the one physical lamp — the seat fires the LPU-2 URLs and reports back
-   * (cabin:actuate:result); the per-seat state still tracks who asked for
-   * it. If the controller is unreachable the control is marked `degraded`
-   * and keeps showing last-known intent — the demo never breaks.
+   * The cabin decides, a seat actuates. A cabin-scoped control (the shared
+   * interior light) has ONE state on the hub — a change from any seat is
+   * broadcast to every seat and the hosts. A seat-scoped control (reading
+   * lamp) stays that seat's own. The physical change is fired by an elected
+   * actuator: the requesting real iPad, else any healthy real iPad, else the
+   * requester itself (the emulator dev loop) — and if nobody can fire, the
+   * control is marked `degraded` and keeps showing last-known intent; the
+   * demo never breaks. `flash` controls are momentary: actuate, no state.
    */
   async applyCabinControl(
     deviceId: string | undefined,
     control: CabinControlId,
-    change: { on?: boolean; level?: number },
+    change: { on?: boolean; level?: number; scene?: string; flash?: true },
   ): Promise<CabinControlState> {
-    const device = deviceId ? this.devices.get(deviceId) : undefined;
-    if (!device) throw new Error(`unknown device: ${String(deviceId)}`);
-    const entry = device.controls.find((c) => c.id === control);
-    if (!entry) throw new Error(`unknown cabin control: ${control}`);
     const def = CABIN_CONTROLS.find((c) => c.id === control);
+    if (!def) throw new Error(`unknown cabin control: ${control}`);
+    const requester = deviceId ? this.devices.get(deviceId) : undefined;
+    if (def.scope === "seat" && !requester) throw new Error(`unknown device: ${String(deviceId)}`);
+    if (change.scene !== undefined && !def.scenes?.some((sc) => sc.key === change.scene)) {
+      throw new Error(`unknown scene for ${control}: ${change.scene}`);
+    }
 
-    if (change.on !== undefined) entry.on = change.on;
-    if (change.level !== undefined) entry.level = change.level;
-    device.socket.emit("cabin:state", { controls: device.controls });
-    // Hand the physical change to the seat: the cabin LAN is air-gapped, so
-    // the dual-homed iPad is the only thing that can reach the controller.
-    // Fire-and-forget — the seat answers with cabin:actuate:result, and the
-    // demo carries on regardless (state is already broadcast above).
+    let state: CabinControlState | undefined;
+    if (def.kind !== "flash") {
+      state = def.scope === "cabin"
+        ? this.cabinControls.find((c) => c.id === control)
+        : requester!.controls.find((c) => c.id === control);
+      if (!state) throw new Error(`unknown cabin control: ${control}`);
+      if (change.on !== undefined) state.on = change.on;
+      if (change.level !== undefined) state.level = change.level;
+      if (change.scene !== undefined) state.scene = change.scene;
+    }
+    if (def.scope === "cabin") this.broadcastCabinState();
+    else if (requester) {
+      this.emitCabinState(requester);
+      this.pushSeats();
+    }
+
+    // Hand the physical change to a seat: the cabin LAN is air-gapped, so a
+    // dual-homed iPad is the only thing that can reach the controller.
+    // Fire-and-forget — the actuator answers with cabin:actuate:result, and
+    // the demo carries on regardless (state is already broadcast above).
     const actuation = this.lpu2Config
       ? buildActuation(control, change, this.lpu2Config())
       : null;
-    if (actuation && device.role === "kiosk") {
-      logger.log(
-        "cabin.actuate",
-        { control, urls: actuation.urls, change: { ...change } },
-        { deviceId, sessionId: device.sessionId, turn: device.turn },
-      );
-      device.socket.emit("cabin:actuate", actuation);
+    if (actuation) {
+      const actor = this.pickActuator(deviceId);
+      if (actor) {
+        if (deviceId) this.pendingActuation.set(control, { requestedBy: deviceId, at: Date.now() });
+        logger.log(
+          "cabin.actuate",
+          { control, scope: def.scope, urls: actuation.urls, change: { ...change }, ...(actor.id !== deviceId ? { actuator: actor.id } : {}) },
+          { deviceId, sessionId: requester?.sessionId, turn: requester?.turn },
+        );
+        actor.entry.socket.emit("cabin:actuate", actuation);
+      } else if (state) {
+        // Mapped but nobody can fire: show it, don't pretend.
+        state.degraded = true;
+        if (def.real) {
+          this.lightFailed = true;
+          this.syncLightStatus();
+        }
+        logger.log(
+          "cabin.result",
+          { control, scope: def.scope, ok: false, error: "no actuator" },
+          { deviceId, sessionId: requester?.sessionId, turn: requester?.turn, level: "warn" },
+        );
+        if (def.scope === "cabin") this.broadcastCabinState();
+        else if (requester) {
+          this.emitCabinState(requester);
+          this.pushSeats();
+        }
+      }
     }
-    this.pushSeats();
-    return entry;
+    return state ?? { id: control };
+  }
+
+  /**
+   * Who fires the LPU-2 URLs: (1) the requester when it is a real iPad,
+   * (2) any healthy real iPad (ok before slow, then longest-connected),
+   * (3) the requester even as an emulator — the desk dev loop must keep
+   * seeing its actuation log. Null = nobody can reach the cabin LAN.
+   */
+  private pickActuator(requesterId: string | undefined): { id: string; entry: DeviceEntry } | null {
+    const requester = requesterId ? this.devices.get(requesterId) : undefined;
+    if (requester && requester.role === "kiosk" && requester.kind === "kiosk") return { id: requesterId!, entry: requester };
+    const kiosks = Array.from(this.devices)
+      .filter(([, e]) => e.kind === "kiosk" && e.health !== "lost")
+      .sort((a, b) => (a[1].health === b[1].health ? a[1].connectedAt - b[1].connectedAt : a[1].health === "ok" ? -1 : 1));
+    if (kiosks.length) return { id: kiosks[0]![0], entry: kiosks[0]![1] };
+    if (requester && requester.role === "kiosk") return { id: requesterId!, entry: requester };
+    return null;
   }
 
   get connectedDevices(): number {

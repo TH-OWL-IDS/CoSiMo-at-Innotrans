@@ -7,6 +7,7 @@ import * as migration_20260827_104113_persona_traits from './20260827_104113_per
 import * as migration_20260827_112844_persona_consent from './20260827_112844_persona_consent';
 import * as migration_20260828_080614_route_no_scenario from './20260828_080614_route_no_scenario';
 import * as migration_20260828_103959_persona_no_contrast from './20260828_103959_persona_no_contrast';
+import * as migration_20260831_064525_cabin_control_cues from './20260831_064525_cabin_control_cues';
 
 export const migrations = [
   {
@@ -52,6 +53,11 @@ export const migrations = [
   {
     up: migration_20260828_103959_persona_no_contrast.up,
     down: migration_20260828_103959_persona_no_contrast.down,
-    name: '20260828_103959_persona_no_contrast'
+    name: '20260828_103959_persona_no_contrast',
+  },
+  {
+    up: migration_20260831_064525_cabin_control_cues.up,
+    down: migration_20260831_064525_cabin_control_cues.down,
+    name: '20260831_064525_cabin_control_cues'
   },
 ];

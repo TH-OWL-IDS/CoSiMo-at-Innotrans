@@ -72,14 +72,25 @@ function envDefaults(): ResolvedOperatorConfig {
 const CONTROL_IDS = new Set<string>(CABIN_CONTROLS.map((c) => c.id));
 
 /** Read the CMS playback rows into a mapping, ignoring junk rows. */
-function toMapping(rows: { control?: string | null; playback?: number | null }[]): Lpu2Mapping {
+function toMapping(rows: { control?: string | null; playback?: number | null; cues?: { scene?: string | null; cue?: number | null }[] | null }[]): Lpu2Mapping {
   const mapping: Lpu2Mapping = {};
   for (const row of rows) {
     const control = row.control ?? "";
     const pb = row.playback ?? 0;
     // Out-of-range playbacks would address a fixture that isn't there.
     if (!CONTROL_IDS.has(control) || !Number.isInteger(pb) || pb < 1 || pb > 64) continue;
-    mapping[control as CabinControlId] = pb;
+    const def = CABIN_CONTROLS.find((c) => c.id === control);
+    // Cue rows only count when the def declares the scene key (keys are
+    // code-defined; the CMS supplies numbers) and the cue is in range 1–48.
+    const cues: Record<string, number> = {};
+    for (const c of row.cues ?? []) {
+      const key = c.scene ?? "";
+      const cue = c.cue ?? 0;
+      if (!def?.scenes?.some((sc) => sc.key === key)) continue;
+      if (!Number.isInteger(cue) || cue < 1 || cue > 48) continue;
+      cues[key] = cue;
+    }
+    mapping[control as CabinControlId] = { playback: pb, ...(Object.keys(cues).length ? { cues } : {}) };
   }
   return mapping;
 }
@@ -106,7 +117,7 @@ interface PayloadOperatorConfigDoc {
   };
   cabin?: {
     lpu2BaseUrl?: string | null;
-    lpu2Playbacks?: { control?: string | null; playback?: number | null }[] | null;
+    lpu2Playbacks?: { control?: string | null; playback?: number | null; cues?: { scene?: string | null; cue?: number | null }[] | null }[] | null;
   };
 }
 
@@ -167,9 +178,24 @@ export class OperatorConfigProvider {
         timeoutMs: c.cabin.lpu2TimeoutMs,
         routes: CABIN_CONTROLS.map((def) => {
           const lpu2 = { baseUrl: c.cabin.lpu2BaseUrl, mapping: c.cabin.lpu2Mapping, timeoutMs: c.cabin.lpu2TimeoutMs };
-          const on = buildActuation(def.id, { on: true }, lpu2)?.urls[0] ?? null;
-          const off = buildActuation(def.id, { on: false }, lpu2)?.urls[0] ?? null;
-          return { control: def.id, label: def.label.de, real: def.real, playback: c.cabin.lpu2Mapping[def.id] ?? null, on, off };
+          // One preview row per action the kiosk could fire, per kind.
+          const urls: { label: string; url: string }[] = [];
+          const push = (label: string, change: Parameters<typeof buildActuation>[1]) => {
+            const url = buildActuation(def.id, change, lpu2)?.urls[0];
+            if (url) urls.push({ label, url });
+          };
+          if (def.kind === "toggle") {
+            push("an", { on: true });
+            push("aus", { on: false });
+          } else if (def.kind === "level") {
+            push("50 %", { level: 50 });
+            push("aus", { on: false });
+          } else if (def.kind === "scene") {
+            for (const sc of def.scenes ?? []) push(sc.label.de, { scene: sc.key });
+          } else if (def.kind === "flash") {
+            push("Blitz", { flash: true });
+          }
+          return { control: def.id, label: def.label.de, real: def.real, scope: def.scope, kind: def.kind, playback: c.cabin.lpu2Mapping[def.id]?.playback ?? null, urls };
         }),
       },
       systemPrompt: c.agent.systemPrompt,

@@ -70,7 +70,8 @@ export interface SeatSummary {
   /** Last visitor utterance / last CoSiMo reply (live view, truncated). */
   lastUser: string;
   lastReply: string;
-  /** This seat's cabin controls (reading lamp etc. are per seat). */
+  /** This seat's own controls — seat-scoped only (reading lamp). The
+   *  cabin-scoped state travels beside the seats on `host:seats`. */
   controls: CabinControlState[];
 }
 
@@ -149,7 +150,16 @@ export interface HostConfigBroadcast {
      *  assigned in the CMS, simulated only) and the exact URLs the kiosk
      *  fires for on / off — the console shows them so the mapping can be
      *  checked against the LPU-2 without a cabin. */
-    routes: { control: CabinControlId; label: string; real: boolean; playback: number | null; on: string | null; off: string | null }[];
+    routes: {
+      control: CabinControlId; label: string; real: boolean;
+      scope: "cabin" | "seat";
+      kind: "toggle" | "level" | "scene" | "flash";
+      playback: number | null;
+      /** The exact URLs the kiosk would fire, one row per action ("an",
+       *  "aus", "50 %", a scene, "Blitz") — so the mapping can be checked
+       *  against the LPU-2 without a cabin. Empty = simulated only. */
+      urls: { label: string; url: string }[];
+    }[];
   };
   /** The system prompt as the agent builds it right now (core + voice
    *  catalog, default rider) — for the console's prompt popup. */
@@ -259,8 +269,9 @@ export interface ServerToClientEvents {
   "session:reset": (payload: { deviceId: string; sessionId?: string; consent?: boolean | null }) => void;
   /** Currently connected devices (for the operator console). */
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
-  /** Per-seat live summaries (host consoles only). */
-  "host:seats": (payload: { seats: SeatSummary[] }) => void;
+  /** Per-seat live summaries (host consoles only). `cabin` is the shared
+   *  cabin-scoped control state (one interior light for all seats). */
+  "host:seats": (payload: { seats: SeatSummary[]; cabin: CabinControlState[] }) => void;
   /** The set of authored personas (host consoles only) — drives the pickers.
    *  Sent on host connect and whenever the persona set is refreshed from CMS. */
   "host:personas": (payload: { personas: PersonaBroadcast[] }) => void;
@@ -329,7 +340,10 @@ export interface ClientToServerEvents {
   // ── Host console actions ──
   /** Without deviceId: all seats. With deviceId: that seat only. */
   "host:setPersona": (payload: { persona: PersonaKey; deviceId?: string }) => void;
-  "host:overrideLight": (payload: { deviceId: string; control: CabinControlId; on: boolean }) => void;
+  /** Change a cabin control. For a cabin-scoped control the deviceId only
+   *  says who asked (any connected seat id works); exactly one of on /
+   *  level / scene / flash applies, matching the control's kind. */
+  "host:overrideLight": (payload: { deviceId: string; control: CabinControlId; on?: boolean; level?: number; scene?: string; flash?: true }) => void;
   "host:resetSession": (payload: { deviceId: string }) => void;
   "host:toggleOffline": (payload: { offline: boolean }) => void;
   /** Force a live telemetry change (open doors, halt, …) for the demo. */
