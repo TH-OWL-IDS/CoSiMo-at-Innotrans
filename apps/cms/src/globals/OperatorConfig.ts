@@ -205,6 +205,16 @@ export const OperatorConfig: GlobalConfig = {
                     { label: "Männlich", value: "male" },
                   ],
                 },
+                {
+                  name: "language",
+                  type: "select",
+                  defaultValue: "de",
+                  label: "Sprache",
+                  options: [
+                    { label: "Deutsch", value: "de" },
+                    { label: "Englisch", value: "en" },
+                  ],
+                },
               ],
             },
             { name: "voiceId", type: "text", required: true, label: "Voice ID", admin: { description: "ElevenLabs Voice-ID." } },

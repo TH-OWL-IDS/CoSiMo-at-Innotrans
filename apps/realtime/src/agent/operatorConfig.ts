@@ -113,7 +113,7 @@ interface PayloadOperatorConfigDoc {
     voiceId?: string | null;
     voiceIdMale?: string | null;
     model?: string | null;
-    voices?: { key?: string | null; label?: string | null; voiceId?: string | null; gender?: string | null; description?: string | null }[] | null;
+    voices?: { key?: string | null; label?: string | null; voiceId?: string | null; gender?: string | null; language?: string | null; description?: string | null }[] | null;
   };
   cabin?: {
     lpu2BaseUrl?: string | null;
@@ -256,6 +256,7 @@ export class OperatorConfigProvider {
               label: str(v.label, str(v.key, "")),
               voiceId: str(v.voiceId, ""),
               gender: v.gender === "male" ? ("male" as const) : ("female" as const),
+              language: v.language === "en" ? ("en" as const) : ("de" as const),
               description: str(v.description, ""),
             }))
             .filter((v) => v.key && v.voiceId),

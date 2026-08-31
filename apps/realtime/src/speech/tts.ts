@@ -52,17 +52,21 @@ export class ElevenLabsTts implements TtsProvider {
     this.endpoint = endpoint;
   }
 
-  async synthesize(text: string, _lang: Locale, voice?: VoiceOptions): Promise<SynthResult | null> {
+  async synthesize(text: string, lang: Locale, voice?: VoiceOptions): Promise<SynthResult | null> {
     if (!text.trim()) return null;
     const { baseUrl, voiceId, voiceIdMale, model, voices } = this.endpoint();
     // Voice = a different voice id on the same endpoint — zero latency cost.
-    // Precedence: catalog key → gender (catalog first, then the env pair) →
-    // default. Anything unresolvable stays on the default voice, never fails.
+    // Precedence: explicit catalog key → gender in the sentence's language →
+    // gender in any language (male keeps the env fallback) → env default.
+    // A German rider asking for "eine Frau" gets a German female voice, an
+    // English rider an English one. Anything unresolvable stays on the
+    // default voice, never fails.
+    const gender = voice?.gender ?? "female";
+    const pool = voices.filter((v) => v.language === lang);
     const byKey = voice?.voiceKey ? voices.find((v) => v.key === voice.voiceKey)?.voiceId : undefined;
     const byGender =
-      voice?.gender === "male"
-        ? voices.find((v) => v.gender === "male")?.voiceId || voiceIdMale
-        : undefined;
+      (pool.find((v) => v.gender === gender) ?? voices.find((v) => v.gender === gender))?.voiceId ||
+      (gender === "male" ? voiceIdMale : undefined);
     const id = byKey || byGender || voiceId;
     const url = `${baseUrl.replace(/\/+$/, "")}/v1/text-to-speech/${id}?output_format=mp3_44100_128`;
     // speed + stability are free; `style` > 0 and speaker boost would add

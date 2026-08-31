@@ -231,19 +231,37 @@ async function seed(): Promise<void> {
     console.log("[seed] core prompt seeded into operator-config");
   }
 
-  // Voice catalog: 10 ElevenLabs premade voices (multilingual, fast, natural
-  // — nothing cartoonish). Only when empty — an operator-edited list stays.
+  // Voice catalog: 5 female + 5 male per language. The German ten are
+  // native community-library voices (must be added to the ElevenLabs account
+  // once — Voice Library → "Add"), the English ten are premades. Order
+  // matters: the FIRST entry per language+gender is that combination's
+  // default ("sprich als frau"). Only seeded when empty — an operator-edited
+  // list stays.
   const VOICES = [
-    { key: "charlotte", label: "Charlotte", gender: "female" as const, voiceId: "XB0fDUnXU5powFXDhCwa", description: "warm, weiblich, angenehm ruhig (Standard)" },
-    { key: "rachel", label: "Rachel", gender: "female" as const, voiceId: "21m00Tcm4TlvDq8ikWAM", description: "klar, weiblich, sachlich-freundlich" },
-    { key: "lily", label: "Lily", gender: "female" as const, voiceId: "pFZP5JQG7iQjIQuC4Bku", description: "weich, weiblich, warm, leicht britisch" },
-    { key: "matilda", label: "Matilda", gender: "female" as const, voiceId: "XrExE9yKIg1WjnnlVkGX", description: "hell, weiblich, freundlich, jung" },
-    { key: "sarah", label: "Sarah", gender: "female" as const, voiceId: "EXAVITQu4vr4xnSDxMaL", description: "sanft, weiblich, professionell" },
-    { key: "daniel", label: "Daniel", gender: "male" as const, voiceId: "onwK4e9ZLuTAKqWW03F9", description: "tief, männlich, ruhig, seriös" },
-    { key: "george", label: "George", gender: "male" as const, voiceId: "JBFqnCBsd6RMkjVDRZzb", description: "warm, männlich, erzählend" },
-    { key: "brian", label: "Brian", gender: "male" as const, voiceId: "nPczCjzI2devNBz1zQrb", description: "tief, männlich, gelassen" },
-    { key: "eric", label: "Eric", gender: "male" as const, voiceId: "cjVigY5qzO86Huf0OWal", description: "freundlich, männlich, mittleres Alter" },
-    { key: "will", label: "Will", gender: "male" as const, voiceId: "bIHbv24MWmeRgasZH58o", description: "jung, männlich, entspannt-freundlich" },
+    // — Deutsch, weiblich —
+    { key: "susi", label: "Susi", gender: "female" as const, language: "de" as const, voiceId: "v3V1d2rk6528UrLKRuy8", description: "warm, weiblich, melodisch-souverän (Standard Deutsch)" },
+    { key: "ela", label: "Ela", gender: "female" as const, language: "de" as const, voiceId: "SJJe86Va82zRzg6zi2dX", description: "jung, weiblich, einfühlsam und weich" },
+    { key: "doreen", label: "Doreen", gender: "female" as const, language: "de" as const, voiceId: "mDRP1h6KfUD1XAUJxqr0", description: "klar, weiblich, dynamisch-professionell" },
+    { key: "lea", label: "Lea", gender: "female" as const, language: "de" as const, voiceId: "M39iqBUcu1jyiwM5PfSy", description: "ruhig, weiblich, beruhigend-zugewandt" },
+    { key: "dana", label: "Dana", gender: "female" as const, language: "de" as const, voiceId: "nF7t9cuYo0u3kuVI9q4B", description: "tiefer, weiblich, warm und fröhlich" },
+    // — Deutsch, männlich —
+    { key: "finn", label: "Finn", gender: "male" as const, language: "de" as const, voiceId: "1J0wWp4zPQIvsK7Xwh34", description: "freundlich, männlich, natürlich im Gespräch (Standard Deutsch)" },
+    { key: "ben", label: "Ben", gender: "male" as const, language: "de" as const, voiceId: "MMwckqU477oQxnAk1SgA", description: "ruhig, männlich, gelassen und natürlich" },
+    { key: "david", label: "David", gender: "male" as const, language: "de" as const, voiceId: "kaGxVtjLwllv1bi2GFag", description: "tief, männlich, charmant-weich" },
+    { key: "simon", label: "Simon", gender: "male" as const, language: "de" as const, voiceId: "K5ZVtkkBnuPY6YqXs70E", description: "jung, männlich, nahbar und unaufgeregt" },
+    { key: "dan", label: "Dan", gender: "male" as const, language: "de" as const, voiceId: "utkd5fchbspYG3Ld0zt0", description: "lebhaft, männlich, energiegeladener Moderator" },
+    // — Englisch, weiblich —
+    { key: "sarah", label: "Sarah", gender: "female" as const, language: "en" as const, voiceId: "EXAVITQu4vr4xnSDxMaL", description: "sanft, weiblich, professionell (Standard Englisch)" },
+    { key: "matilda", label: "Matilda", gender: "female" as const, language: "en" as const, voiceId: "XrExE9yKIg1WjnnlVkGX", description: "hell, weiblich, freundlich, jung" },
+    { key: "alice", label: "Alice", gender: "female" as const, language: "en" as const, voiceId: "Xb7hH8MSUJpSbSDYk0k2", description: "klar, weiblich, britisch, erklärend" },
+    { key: "lily", label: "Lily", gender: "female" as const, language: "en" as const, voiceId: "pFZP5JQG7iQjIQuC4Bku", description: "weich, weiblich, warm, leicht britisch" },
+    { key: "jessica", label: "Jessica", gender: "female" as const, language: "en" as const, voiceId: "cgSgspJ2msm6clMCkdW9", description: "verspielt, weiblich, hell und warm" },
+    // — Englisch, männlich —
+    { key: "daniel", label: "Daniel", gender: "male" as const, language: "en" as const, voiceId: "onwK4e9ZLuTAKqWW03F9", description: "tief, männlich, ruhig, seriös (Standard Englisch)" },
+    { key: "george", label: "George", gender: "male" as const, language: "en" as const, voiceId: "JBFqnCBsd6RMkjVDRZzb", description: "warm, männlich, erzählend, britisch" },
+    { key: "brian", label: "Brian", gender: "male" as const, language: "en" as const, voiceId: "nPczCjzI2devNBz1zQrb", description: "tief, männlich, gelassen" },
+    { key: "eric", label: "Eric", gender: "male" as const, language: "en" as const, voiceId: "cjVigY5qzO86Huf0OWal", description: "freundlich, männlich, mittleres Alter" },
+    { key: "chris", label: "Chris", gender: "male" as const, language: "en" as const, voiceId: "iP95p4xoKVk53GoZ742B", description: "locker, männlich, bodenständig" },
   ];
   const opConfig2 = await payload.findGlobal({ slug: "operator-config" });
   if (opConfig2?.tts?.voices?.length) {

@@ -220,12 +220,18 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
   // The voice catalog is runtime knowledge (CMS-editable), so it rides the
   // prompt, not the tool schema: CoSiMo matches "eine tiefere Stimme" to a
   // key by the German descriptions.
-  const voicesBlock = voices.length
+  // Only the voices of the language being spoken — offering English voices
+  // to a German rider (or 20 lines of catalog) just burns tokens and invites
+  // accent mismatches. Falls back to the full list if none match.
+  const voiceLang = replyLang ?? profile.accommodations.language;
+  const voicePool = voices.filter((v) => v.language === voiceLang);
+  const shown = voicePool.length ? voicePool : voices;
+  const voicesBlock = shown.length
     ? [
         "",
         "## Stimmen",
         "Für set_presentation voice=<key> stehen bereit:",
-        ...voices.map((v) => `- ${v.key}: ${v.description}`),
+        ...shown.map((v) => `- ${v.key}: ${v.description}`),
       ]
     : [];
 

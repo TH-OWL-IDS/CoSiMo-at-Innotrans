@@ -8,6 +8,7 @@ import * as migration_20260827_112844_persona_consent from './20260827_112844_pe
 import * as migration_20260828_080614_route_no_scenario from './20260828_080614_route_no_scenario';
 import * as migration_20260828_103959_persona_no_contrast from './20260828_103959_persona_no_contrast';
 import * as migration_20260831_064525_cabin_control_cues from './20260831_064525_cabin_control_cues';
+import * as migration_20260831_100805_voice_language from './20260831_100805_voice_language';
 
 export const migrations = [
   {
@@ -58,6 +59,11 @@ export const migrations = [
   {
     up: migration_20260831_064525_cabin_control_cues.up,
     down: migration_20260831_064525_cabin_control_cues.down,
-    name: '20260831_064525_cabin_control_cues'
+    name: '20260831_064525_cabin_control_cues',
+  },
+  {
+    up: migration_20260831_100805_voice_language.up,
+    down: migration_20260831_100805_voice_language.down,
+    name: '20260831_100805_voice_language'
   },
 ];

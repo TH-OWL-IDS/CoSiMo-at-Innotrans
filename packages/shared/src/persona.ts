@@ -101,6 +101,10 @@ export interface VoiceCatalogEntry {
   /** Vendor voice id (ElevenLabs). */
   voiceId: string;
   gender: "female" | "male";
+  /** The reply language this voice natively speaks — selection, prompt list
+   *  and cards all filter on it, so "sprich als frau" lands on a voice with
+   *  the rider's accent. */
+  language: Locale;
   /** One short German line on how it sounds — this is what the LLM matches. */
   description: string;
 }

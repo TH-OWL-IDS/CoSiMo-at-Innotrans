@@ -71,8 +71,11 @@ export function themesCard(question: string, lang: Locale, step?: SeatCard["step
 }
 
 export function voicesCard(question: string, lang: Locale, voices: VoiceCatalogEntry[], step?: SeatCard["step"]): SeatCard {
-  const opts: SeatCardOption[] = voices.length
-    ? voices.slice(0, 6).map((v) => ({ value: v.key, label: v.label }))
+  // The rider taps a voice they will actually hear in their language.
+  const pool = voices.filter((v) => v.language === lang);
+  const shown = pool.length ? pool : voices;
+  const opts: SeatCardOption[] = shown.length
+    ? shown.slice(0, 6).map((v) => ({ value: v.key, label: v.label }))
     : [
         { value: "female", label: de(lang) ? "Weiblich" : "Female" },
         { value: "male", label: de(lang) ? "Männlich" : "Male" },
