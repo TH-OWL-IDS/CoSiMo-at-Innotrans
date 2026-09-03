@@ -236,7 +236,9 @@ export default function SeatView({
   // motion never visibly repeats and no edge ever shows. Idle: plain ground.
   // Reduced motion: a still, faint tint.
   const wabering = (!listening && cosimo.phase === "thinking") || Boolean(cosimo.speaking && !listening);
-  const waberColor = cosimo.speaking && !listening ? scheme.states.speaking : scheme.states.thinking;
+  // the THEME's colour (its ink — what the colour swatches show), not the
+  // semantic state colours: the ground says which CoSiMo this is, the rim says what it does
+  const waberColor = scheme.ink;
   const sheet = (gradient: string, drift: string, breathe: string, delay: string) => (
     <div
       aria-hidden
