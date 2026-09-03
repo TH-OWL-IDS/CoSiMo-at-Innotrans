@@ -35,6 +35,8 @@ export interface ConnectedDevice {
   deviceId: string;
   role: "kiosk" | "host";
   kind: ClientKind;
+  /** Kiosk: physical seat position 1-4 (operator setting), if configured. */
+  seat?: number;
   /** ISO time the socket said hello. */
   connectedAt: string;
   /** The engine.io transport in use — polling on the cabin WLAN is a smell. */

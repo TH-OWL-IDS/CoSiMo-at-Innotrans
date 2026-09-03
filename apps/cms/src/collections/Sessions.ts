@@ -60,7 +60,7 @@ export const Sessions: CollectionConfig = {
       admin: { readOnly: true },
       fields: [
         { name: "role", type: "select", options: ["user", "cosimo"] },
-        { name: "modality", type: "select", options: ["voice", "text"] },
+        { name: "modality", type: "select", options: ["voice", "text", "tap"] },
         { name: "lang", type: "select", options: ["de", "en"] },
         { name: "transcript", type: "textarea" },
         { name: "detectedIntent", type: "text" },

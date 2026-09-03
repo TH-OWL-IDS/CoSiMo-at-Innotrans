@@ -36,7 +36,7 @@ import type { TtsProvider } from "../speech/tts.js";
 import { logger } from "../log/logger.js";
 import { TurnSpeaker } from "../speech/speaker.js";
 import { CUSTOMIZE_STEPS, customizeCard, customizeDone, localAnswer } from "./cards.js";
-import { memoryTrigger, presentationTrigger } from "./memoryTriggers.js";
+import { cabinTrigger, memoryTrigger, presentationTrigger } from "./memoryTriggers.js";
 
 export interface AgentTurnInput {
   sessionId: string;
@@ -342,7 +342,7 @@ export class CosimoAgent {
         const stepStarted = Date.now();
         let stepChars = 0;
         let stepText = "";
-        const forceTool = guard === 0 ? (memoryTrigger(text) ?? presentationTrigger(text)) : null;
+        const forceTool = guard === 0 ? (memoryTrigger(text) ?? presentationTrigger(text) ?? cabinTrigger(text)) : null;
         const { toolCalls, finish } = await turn.step((delta) => {
           stepChars += delta.length;
           stepText += delta;

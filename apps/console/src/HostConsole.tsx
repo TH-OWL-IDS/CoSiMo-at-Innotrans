@@ -165,6 +165,7 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
       <Tip tip={title} className="min-w-0 flex-1">
         <span className="block truncate">
           {d.deviceId}
+          {d.seat && <span className="text-mute"> · Sitz {d.seat}</span>}
           {d.kind !== "kiosk" && <span className="text-mute"> · {KIND_LABEL[d.kind]}</span>}
           {d.active && <span className="text-accent"> · Session</span>}
         </span>

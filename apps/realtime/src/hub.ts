@@ -1121,6 +1121,7 @@ export class Hub {
       role: d.role,
       kind: d.kind,
       connectedAt: new Date(d.connectedAt).toISOString(),
+      ...(d.seat ? { seat: d.seat } : {}),
       transport: transportOf(d.socket),
       lastActivityAt: d.role === "kiosk" ? new Date(d.lastActivity).toISOString() : null,
       active: d.active,

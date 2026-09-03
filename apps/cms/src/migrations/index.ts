@@ -10,6 +10,7 @@ import * as migration_20260828_103959_persona_no_contrast from './20260828_10395
 import * as migration_20260831_064525_cabin_control_cues from './20260831_064525_cabin_control_cues';
 import * as migration_20260831_100805_voice_language from './20260831_100805_voice_language';
 import * as migration_20260903_172812_lpu2_rig_catalog from './20260903_172812_lpu2_rig_catalog';
+import * as migration_20260903_183344_session_modality_tap from './20260903_183344_session_modality_tap';
 
 export const migrations = [
   {
@@ -70,6 +71,11 @@ export const migrations = [
   {
     up: migration_20260903_172812_lpu2_rig_catalog.up,
     down: migration_20260903_172812_lpu2_rig_catalog.down,
-    name: '20260903_172812_lpu2_rig_catalog'
+    name: '20260903_172812_lpu2_rig_catalog',
+  },
+  {
+    up: migration_20260903_183344_session_modality_tap.up,
+    down: migration_20260903_183344_session_modality_tap.down,
+    name: '20260903_183344_session_modality_tap'
   },
 ];
