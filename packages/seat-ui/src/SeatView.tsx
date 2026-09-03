@@ -129,9 +129,10 @@ export default function SeatView({
    */
   fullscreen: boolean;
   /**
-   * What surrounds the cutouts. "cabin" (the iPad): plain white, so any
-   * light bleed around the physical panel reads as panel, not as a screen
-   * edge. "panel" (the emulator): an
+   * What surrounds the cutouts. "cabin" (the iPad): white — and while
+   * CoSiMo thinks or speaks, soft blobs in the scheme's state colour drift
+   * across it, so whatever shows around the panel's cutouts breathes with
+   * the conversation. "panel" (the emulator): an
    * off-white ground with the circle and slit inset — a soft inner shadow and
    * a faint halo, the way holes in a real panel read.
    */
@@ -228,43 +229,66 @@ export default function SeatView({
       }}
     />
   );
-  // "Wabern": while CoSiMo thinks or speaks, two soft blobs in the scheme's
-  // state colour wander along the rim at different speeds and breathe in
-  // size — the combined motion never repeats visibly, so it reads as a
-  // living glow rather than a spinner. Reduced motion: a still, soft rim.
-  const wabering = showDot || Boolean(cosimo.speaking && !listening);
+  // The ground's "Wabern": while CoSiMo thinks or speaks, three large soft
+  // blobs in the scheme's state colour drift across the whole stage behind
+  // the circle and the slit, each on its own slow orbit and breath, so the
+  // motion never visibly repeats. Idle: plain ground. Reduced motion: a
+  // still, faint tint.
+  const wabering = (!listening && cosimo.phase === "thinking") || Boolean(cosimo.speaking && !listening);
   const waberColor = cosimo.speaking && !listening ? scheme.states.speaking : scheme.states.thinking;
-  const blob = (size: number, spin: string, breathe: string, delay: string, alpha: number) => (
+  const groundBlob = (x: string, y: string, size: string, spin: string, breathe: string, delay: string, alpha: number) => (
     <div
       aria-hidden
       style={{
-        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none",
+        position: "absolute", left: x, top: y, width: 0, height: 0, pointerEvents: "none",
         animation: reduceMotion ? "none" : `cosimo-orbit ${spin} linear infinite`,
         animationDelay: delay,
       }}
     >
       <div
         style={{
-          position: "absolute", left: "50%", top: "8%", transform: "translate(-50%, -50%)",
-          width: `calc(var(--circle) * ${size})`, height: `calc(var(--circle) * ${size})`, borderRadius: "50%",
-          background: `radial-gradient(circle, ${withAlpha(waberColor, alpha)} 0%, ${withAlpha(waberColor, alpha * 0.45)} 40%, ${withAlpha(waberColor, 0)} 70%)`,
+          position: "absolute", left: "12cqw", top: 0, transform: "translate(-50%, -50%)",
+          width: size, height: size, borderRadius: "50%",
+          background: `radial-gradient(circle, ${withAlpha(waberColor, alpha)} 0%, ${withAlpha(waberColor, alpha * 0.5)} 35%, ${withAlpha(waberColor, 0)} 70%)`,
           animation: reduceMotion ? "none" : `cosimo-breathe ${breathe} ease-in-out infinite`,
           animationDelay: delay,
         }}
       />
     </div>
   );
-  const glowWaber = (
+  const groundWaber = (
     <div
       aria-hidden
       style={{
-        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4, overflow: "hidden",
+        position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0,
         opacity: wabering ? 1 : 0,
-        transition: "opacity 600ms ease",
+        transition: "opacity 900ms ease",
       }}
     >
-      {blob(0.5, "7.5s", "3.1s", "0s", 0.42)}
-      {blob(0.38, "11s", "4.3s", "-2.2s", 0.34)}
+      {groundBlob("30%", "22%", "70cqw", "19s", "5.2s", "0s", 0.32)}
+      {groundBlob("72%", "58%", "60cqw", "14s", "4.1s", "-3s", 0.28)}
+      {groundBlob("45%", "88%", "55cqw", "23s", "6.3s", "-7s", 0.24)}
+    </div>
+  );
+  const glowDot = (
+    <div
+      aria-hidden
+      style={{
+        // the orbit: a full-size layer that rotates; the dot sits at its top edge
+        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
+        opacity: showDot ? 1 : 0,
+        transition: "opacity 350ms ease",
+        animation: reduceMotion ? "none" : "cosimo-orbit 2.6s linear infinite",
+        animationPlayState: showDot ? "running" : "paused",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute", left: "50%", top: "1.5%", transform: "translate(-50%, -50%)",
+          width: "calc(var(--circle) * 0.055)", height: "calc(var(--circle) * 0.055)", borderRadius: "50%",
+          background: `radial-gradient(circle, ${withAlpha(scheme.states.thinking, 0.6)} 0%, ${withAlpha(scheme.states.thinking, 0.28)} 45%, ${withAlpha(scheme.states.thinking, 0)} 70%)`,
+        }}
+      />
     </div>
   );
 
@@ -310,6 +334,9 @@ export default function SeatView({
               }),
         }}
       >
+        {/* the ground's living colour — beneath both cutouts (DOM order) */}
+        {groundWaber}
+
         {/* ── circle cutout: the Face ─────────────────────────────── */}
         <div
           onContextMenu={(e) => e.preventDefault()}
@@ -335,9 +362,9 @@ export default function SeatView({
           }}
         >
           <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }
-@keyframes cosimo-breathe { 0%, 100% { transform: translate(-50%, -50%) scale(0.85) } 50% { transform: translate(-50%, -50%) scale(1.25) } }`}</style>
+@keyframes cosimo-breathe { 0%, 100% { transform: translate(-50%, -50%) scale(0.8) } 50% { transform: translate(-50%, -50%) scale(1.25) } }`}</style>
           {glowRim}
-          {glowWaber}
+          {glowDot}
           <Inset radius="50%" />
           {/* the Face — centred by default; shrinks to the top when the rider
               reads a running transcript (showText). reduceMotion stills its idle life. */}
