@@ -229,45 +229,45 @@ export default function SeatView({
       }}
     />
   );
-  // The ground's "Wabern": while CoSiMo thinks or speaks, three large soft
-  // blobs in the scheme's state colour drift across the whole stage behind
-  // the circle and the slit, each on its own slow orbit and breath, so the
-  // motion never visibly repeats. Idle: plain ground. Reduced motion: a
-  // still, faint tint.
+  // The ground's "Wabern": while CoSiMo thinks or speaks the WHOLE ground —
+  // the full window in a browser, the full screen on the iPad — carries a
+  // soft wash of the scheme's state colour whose bright regions drift and
+  // swell. Two oversized gradient sheets on different slow orbits, so the
+  // motion never visibly repeats and no edge ever shows. Idle: plain ground.
+  // Reduced motion: a still, faint tint.
   const wabering = (!listening && cosimo.phase === "thinking") || Boolean(cosimo.speaking && !listening);
   const waberColor = cosimo.speaking && !listening ? scheme.states.speaking : scheme.states.thinking;
-  const groundBlob = (x: string, y: string, size: string, spin: string, breathe: string, delay: string, alpha: number) => (
+  const sheet = (gradient: string, drift: string, breathe: string, delay: string) => (
     <div
       aria-hidden
       style={{
-        position: "absolute", left: x, top: y, width: 0, height: 0, pointerEvents: "none",
-        animation: reduceMotion ? "none" : `cosimo-orbit ${spin} linear infinite`,
+        // oversized and centred, so translating/scaling it never reveals a corner
+        position: "absolute", left: "-25%", top: "-25%", width: "150%", height: "150%", pointerEvents: "none",
+        background: gradient,
+        animation: reduceMotion ? "none" : `cosimo-drift ${drift} ease-in-out infinite alternate, cosimo-swell ${breathe} ease-in-out infinite`,
         animationDelay: delay,
       }}
-    >
-      <div
-        style={{
-          position: "absolute", left: "12cqw", top: 0, transform: "translate(-50%, -50%)",
-          width: size, height: size, borderRadius: "50%",
-          background: `radial-gradient(circle, ${withAlpha(waberColor, alpha)} 0%, ${withAlpha(waberColor, alpha * 0.5)} 35%, ${withAlpha(waberColor, 0)} 70%)`,
-          animation: reduceMotion ? "none" : `cosimo-breathe ${breathe} ease-in-out infinite`,
-          animationDelay: delay,
-        }}
-      />
-    </div>
+    />
   );
   const groundWaber = (
     <div
       aria-hidden
       style={{
         position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0,
+        // base tint over the whole surface; the sheets add the moving light
+        background: withAlpha(waberColor, 0.10),
         opacity: wabering ? 1 : 0,
         transition: "opacity 900ms ease",
       }}
     >
-      {groundBlob("30%", "22%", "70cqw", "19s", "5.2s", "0s", 0.32)}
-      {groundBlob("72%", "58%", "60cqw", "14s", "4.1s", "-3s", 0.28)}
-      {groundBlob("45%", "88%", "55cqw", "23s", "6.3s", "-7s", 0.24)}
+      {sheet(
+        `radial-gradient(60% 55% at 35% 40%, ${withAlpha(waberColor, 0.32)} 0%, ${withAlpha(waberColor, 0)} 100%)`,
+        "17s", "6.5s", "0s",
+      )}
+      {sheet(
+        `radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.26)} 0%, ${withAlpha(waberColor, 0)} 100%)`,
+        "23s", "8.2s", "-5s",
+      )}
     </div>
   );
   const glowDot = (
@@ -317,6 +317,9 @@ export default function SeatView({
         ["--ink" as string]: scheme.ink,
       }}
     >
+      {/* the ground's living colour — the whole surface, beneath the stage */}
+      {groundWaber}
+
       {/* ── the stage: the iPad's screen ────────────────────────── */}
       <div
         style={{
@@ -334,9 +337,6 @@ export default function SeatView({
               }),
         }}
       >
-        {/* the ground's living colour — beneath both cutouts (DOM order) */}
-        {groundWaber}
-
         {/* ── circle cutout: the Face ─────────────────────────────── */}
         <div
           onContextMenu={(e) => e.preventDefault()}
@@ -362,7 +362,8 @@ export default function SeatView({
           }}
         >
           <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }
-@keyframes cosimo-breathe { 0%, 100% { transform: translate(-50%, -50%) scale(0.8) } 50% { transform: translate(-50%, -50%) scale(1.25) } }`}</style>
+@keyframes cosimo-drift { from { translate: -8% -6% } to { translate: 8% 6% } }
+@keyframes cosimo-swell { 0%, 100% { scale: 1 } 50% { scale: 1.18 } }`}</style>
           {glowRim}
           {glowDot}
           <Inset radius="50%" />
