@@ -15,7 +15,15 @@ const ICONS: Record<SeatCardIcon, typeof Check> = {
   check: Check, x: X, minus: Minus, plus: Plus, skip: SkipForward, done: CircleCheck,
 };
 
-const TAP = "clamp(44px, 9cqw, 56px)";
+/**
+ * Sizes are in cqh of the SLIT (the cutout is its own size container):
+ * on the iPad the slit is ~154 pt tall, so a chip is ~70 pt and the
+ * question ~35 pt — readable from a seat, not phone-UI small. The clamps
+ * keep the browser emulator (a much smaller stage) usable.
+ */
+const TAP = "clamp(40px, 46cqh, 96px)";
+const CHIP_FONT = (textScale: number) => `clamp(12px, ${21 * textScale}cqh, ${44 * textScale}px)`;
+const TEXT_FONT = (textScale: number) => `clamp(11px, ${24 * textScale}cqh, ${56 * textScale}px)`;
 
 function Chip({
   label, icon, ink, onTap, textScale, ariaLabel,
@@ -30,14 +38,14 @@ function Chip({
         appearance: "none",
         minWidth: TAP,
         height: TAP,
-        padding: Icon ? 0 : "0 1em",
-        border: `1.5px solid ${ink}`,
+        padding: Icon ? 0 : "0 0.9em",
+        border: `max(1.5px, 2cqh) solid ${ink}`,
         borderRadius: 999,
         background: pressed ? ink : "transparent",
         color: pressed ? "var(--slit-bg, #fff)" : ink,
         fontFamily: "inherit",
         fontWeight: 600,
-        fontSize: `clamp(12px, ${2.3 * textScale}cqw, ${17 * textScale}px)`,
+        fontSize: CHIP_FONT(textScale),
         cursor: "pointer",
         whiteSpace: "nowrap",
         display: "inline-flex",
@@ -48,7 +56,7 @@ function Chip({
         touchAction: "manipulation",
       }}
     >
-      {Icon ? <Icon size={22} strokeWidth={2.2} aria-hidden /> : label}
+      {Icon ? <Icon size="1.15em" strokeWidth={2.2} aria-hidden /> : label}
     </button>
   );
 }
@@ -70,7 +78,7 @@ function Slider({ card, ink, onCommit }: { card: SeatCard; ink: string; onCommit
       onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") onCommit(v); }}
       style={{
         // a bare line with a knob — styled through accent-color + a track gradient
-        width: "clamp(140px, 42cqw, 320px)",
+        width: "clamp(140px, 240cqh, 640px)",
         height: TAP,
         accentColor: ink,
         background: `linear-gradient(to right, ${ink} ${pct}%, transparent ${pct}%) no-repeat center / 100% 2px`,
@@ -103,8 +111,9 @@ export function SlitCard({
       role="group"
       aria-label={card.question}
       style={{
-        width: "100%", height: "100%",
-        display: "flex", alignItems: "center", gap: 12, padding: "0 3%",
+        width: "100%", height: "100%", boxSizing: "border-box",
+        display: "flex", flexDirection: "column", justifyContent: "center", gap: "5cqh",
+        padding: "6cqh 5cqh",
         overflow: "hidden", color: ink,
         // @ts-expect-error custom property for the pressed chip's text colour
         "--slit-bg": scheme.bg,
@@ -112,23 +121,30 @@ export function SlitCard({
       }}
     >
       <style>{`@keyframes slit-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
-      {/* context: the spoken question (+ wizard step) */}
-      <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flexShrink: 1 }}>
+      {/* row 1: the spoken question (+ wizard step) */}
+      <span style={{ display: "flex", alignItems: "baseline", gap: "0.6em", minWidth: 0, flexShrink: 0, lineHeight: 1.1 }}>
         {card.step && (
-          <span style={{ fontSize: "clamp(10px, 1.8cqw, 12px)", fontWeight: 700, opacity: 0.6, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+          <span style={{ fontSize: `clamp(10px, ${16 * textScale}cqh, 36px)`, fontWeight: 700, opacity: 0.6, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
             {card.step.index + 1}/{card.step.total}
           </span>
         )}
         <span style={{
-          fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`, fontWeight: 600,
+          fontSize: TEXT_FONT(textScale), fontWeight: 600,
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0,
         }}>
           {card.question}
         </span>
       </span>
 
-      {/* actions */}
-      <span style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto", flexShrink: 0 }}>
+      {/* row 2: the chips — a horizontal strip that scrolls instead of clipping,
+          with a soft fade on the right as the "there is more" cue */}
+      <span style={{
+        display: "flex", gap: "3.5cqh", alignItems: "center", flexShrink: 0,
+        overflowX: "auto", overflowY: "hidden", scrollbarWidth: "none",
+        paddingRight: "10cqh",
+        maskImage: "linear-gradient(to right, black calc(100% - 10cqh), transparent)",
+        WebkitMaskImage: "linear-gradient(to right, black calc(100% - 10cqh), transparent)",
+      }}>
         {card.kind === "themes" &&
           main.map((o) => {
             const sch = schemeById(o.value);
@@ -139,8 +155,8 @@ export function SlitCard({
                 aria-label={sch.label}
                 title={sch.label}
                 style={{
-                  appearance: "none", width: "clamp(30px, 6cqw, 40px)", height: "clamp(30px, 6cqw, 40px)",
-                  borderRadius: "50%", border: `2px solid ${sch.ink}`, background: sch.bg,
+                  appearance: "none", width: "clamp(30px, 42cqh, 88px)", height: "clamp(30px, 42cqh, 88px)",
+                  borderRadius: "50%", border: `max(2px, 2cqh) solid ${sch.ink}`, background: sch.bg,
                   outline: scheme.id === sch.id ? `2px solid ${ink}` : "none", outlineOffset: 2,
                   cursor: "pointer", padding: 0, flexShrink: 0, touchAction: "manipulation",
                 }}
@@ -185,12 +201,13 @@ export function RepeatAffordance({ lastReplyAt, ink, onRepeat, lang }: { lastRep
       title={lang === "de" ? "Nochmal sagen" : "Say it again"}
       style={{
         appearance: "none", width: TAP, height: TAP, borderRadius: "50%",
-        border: `1.5px solid ${ink}`, background: "transparent", color: ink,
+        border: `max(1.5px, 2cqh) solid ${ink}`, background: "transparent", color: ink,
+        fontSize: CHIP_FONT(1),
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         cursor: "pointer", flexShrink: 0, opacity: 0.85, touchAction: "manipulation",
       }}
     >
-      <RotateCcw size={20} aria-hidden />
+      <RotateCcw size="1.2em" aria-hidden />
     </button>
   );
 }
@@ -207,9 +224,9 @@ export function IdleHint({ lastActivityAt, ink, textScale, lang }: { lastActivit
   }, [lastActivityAt]);
   if (!idle) return null;
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: ink, opacity: 0.8 }}>
-      <Mic size={18} aria-hidden />
-      <span style={{ fontSize: `clamp(11px, ${2.2 * textScale}cqw, ${16 * textScale}px)`, fontWeight: 600, whiteSpace: "nowrap" }}>
+    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5em", color: ink, opacity: 0.8, fontSize: TEXT_FONT(textScale) }}>
+      <Mic size="1em" aria-hidden />
+      <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
         {lang === "de" ? "Taste halten und sprechen" : "Hold the button and speak"}
       </span>
     </div>

@@ -402,6 +402,10 @@ export default function SeatView({
             background: scheme.bg,
             color: scheme.ink,
             overflow: "hidden",
+            // Size container: the strip, cards and chips are sized in cqh of
+            // the SLIT (24 mm tall on the panel), not of the whole screen —
+            // so type stays legible whatever the calibration says.
+            containerType: "size",
             outline: guide,
             boxShadow: panel ? halo : undefined,
             transition: "background 300ms",

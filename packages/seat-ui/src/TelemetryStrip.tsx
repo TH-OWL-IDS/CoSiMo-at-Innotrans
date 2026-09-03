@@ -41,16 +41,18 @@ export default function TelemetryStrip({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 12,
-        padding: "0 4%",
+        gap: "4cqh",
+        padding: "0 5cqh",
         fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
         fontWeight: 700,
-        fontSize: "clamp(11px, 2.1cqw, 18px)",
+        // ~31 pt on the iPad's 154 pt tall slit — the widest line (clock ·
+        // riders · next stop · speed) must still fit 706 pt; emulator clamps
+        fontSize: "clamp(11px, 20cqh, 48px)",
         whiteSpace: "nowrap",
         overflow: "hidden",
       }}
     >
-      <span style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
+      <span style={{ display: "flex", gap: "6cqh", alignItems: "center", minWidth: 0 }}>
         <Item><Clock {...icon} /> {clock}</Item>
         {telemetry && <Item><Users {...icon} /> {telemetry.occupancy}</Item>}
         {next && (
