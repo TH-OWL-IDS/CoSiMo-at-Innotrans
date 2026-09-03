@@ -25,7 +25,6 @@ export default function SlitWave({
     if (!ctx) return;
     const buf = new Float32Array(512);
     const N = 160; // points across the slit
-    const smooth = new Float32Array(N);
     let raf = 0;
     const t0 = performance.now();
     const fit = () => {
@@ -38,6 +37,10 @@ export default function SlitWave({
     const ro = new ResizeObserver(fit);
     ro.observe(canvas);
 
+    // Soft by design: the line is a smooth, slowly drifting wave whose
+    // AMPLITUDE follows the voice (attack fast, release slow), not the raw
+    // samples — it swells and settles like breathing instead of jittering.
+    let level = 0;
     const draw = () => {
       raf = requestAnimationFrame(draw);
       const w = canvas.width;
@@ -45,27 +48,31 @@ export default function SlitWave({
       const mid = h / 2;
       const t = (performance.now() - t0) / 1000;
       ctx.clearRect(0, 0, w, h);
-      ctx.lineWidth = Math.max(2, h * 0.035);
+      ctx.lineWidth = Math.max(2, h * 0.04);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.strokeStyle = ink;
-      ctx.beginPath();
+
       const real = kind() === "audio" && sample(buf);
+      let target = 0;
+      if (real) {
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
+        // RMS lifted into a useful range; quiet room ≈ 0, speech ≈ 0.5–1
+        target = Math.min(1, Math.sqrt(sum / buf.length) * 6);
+      }
+      level += (target - level) * (target > level ? 0.18 : 0.06);
+      // amplitude: a floor so the line is never dead flat, then the voice
+      const amp = real ? h * (0.04 + 0.38 * level) : h * (0.06 + 0.04 * Math.sin(t * 1.6));
+
+      ctx.beginPath();
       for (let i = 0; i < N; i++) {
-        const x = (i / (N - 1)) * w;
-        let y: number;
-        if (real) {
-          // mic signals are small — lift them, cap at the slit's edge
-          const s = buf[Math.floor((i / N) * buf.length)]! * 3.2;
-          const target = Math.max(-1, Math.min(1, s)) * h * 0.42;
-          // a little temporal smoothing so single frames don't jitter
-          smooth[i] = smooth[i]! * 0.35 + target * 0.65;
-          y = mid + smooth[i]!;
-        } else {
-          // listening, no samples: a slow, even breath across the strip
-          const env = 0.06 + 0.04 * Math.sin(t * 1.6);
-          y = mid + Math.sin((i / N) * Math.PI * 4 - t * 2.4) * h * env;
-        }
+        const u = i / (N - 1);
+        const x = u * w;
+        // two slow sines, drifting against each other, tapered at both ends
+        const taper = Math.sin(u * Math.PI);
+        const shape = Math.sin(u * Math.PI * 3 - t * 2.2) * 0.7 + Math.sin(u * Math.PI * 5 + t * 1.3) * 0.3;
+        const y = mid + shape * amp * taper;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.stroke();
