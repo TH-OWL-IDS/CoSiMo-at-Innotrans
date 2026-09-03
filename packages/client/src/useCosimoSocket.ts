@@ -99,6 +99,8 @@ export interface CosimoState {
   repeatLast: () => void;
   /** When the last reply finished (ms epoch) — drives the ↻ affordance. */
   lastReplyAt: number;
+  /** The sentence CoSiMo is speaking right now (server TTS); stays after the reply. */
+  caption: string;
   /** Last rider activity at this seat (ms epoch) — drives the idle hint. */
   lastActivityAt: number;
   /** True while CoSiMo's reply is still streaming. */
@@ -273,6 +275,8 @@ export function useCosimoSocket(
   const [card, setCard] = useState<SeatCard | null>(null);
   const [lastReset, setLastReset] = useState<{ nonce: number; consent: boolean | null } | null>(null);
   const [lastReplyAt, setLastReplyAt] = useState(0);
+  /** The sentence being spoken right now (server TTS, per clip) — the slit's subtitle. */
+  const [caption, setCaption] = useState("");
   const [lastActivityAt, setLastActivityAt] = useState(() => Date.now());
   const touch = () => setLastActivityAt(Date.now());
   /** Live playback volume for TTS clips — a ref, because the tts:chunk
@@ -351,7 +355,7 @@ export function useCosimoSocket(
   const ttsQueueRef = useRef<{
     turn: number;
     next: number;
-    pending: Map<number, { audioBase64: string; mime: string }>;
+    pending: Map<number, { audioBase64: string; mime: string; text?: string }>;
     ended: boolean;
     playing: boolean;
   }>({ turn: -2, next: 0, pending: new Map(), ended: false, playing: false });
@@ -376,6 +380,7 @@ export function useCosimoSocket(
     q.pending.delete(q.next);
     q.next++;
     q.playing = true;
+    if (clip.text) setCaption(clip.text);
     if (settleTimerRef.current) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
     const onDone = () => {
       analysingRef.current = false;
@@ -528,7 +533,7 @@ export function useCosimoSocket(
       // Server-STT path: the rider's words arrive here (browser-STT goes via send()).
       if (text.trim()) setTranscript((t) => [...t, { role: "user", text }]);
     });
-    socket.on("tts:chunk", ({ turn, seq, last, audioBase64, mime }) => {
+    socket.on("tts:chunk", ({ turn, seq, last, audioBase64, mime, text }) => {
       // A clip from a superseded (barged-in) turn arrives late — drop it.
       if (turn !== -1 && turn < turnRef.current) return;
       const q = ttsQueueRef.current;
@@ -543,7 +548,7 @@ export function useCosimoSocket(
         if (!q.playing && q.pending.size === 0) settleSpeaking();
         return;
       }
-      q.pending.set(seq, { audioBase64, mime });
+      q.pending.set(seq, { audioBase64, mime, text });
       playNextChunk();
     });
 
@@ -742,7 +747,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt, lastReset,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, hostLight, cabinLight, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,

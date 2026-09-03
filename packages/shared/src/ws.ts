@@ -115,6 +115,9 @@ export interface TtsChunk {
   last: boolean;
   audioBase64: string;
   mime: string;
+  /** The sentence this clip speaks — the slit shows it as a caption while
+   *  the clip plays (empty on the end marker). */
+  text?: string;
 }
 
 /** Per-request generation settings (CMS-editable, applied live). */

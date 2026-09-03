@@ -1,78 +1,13 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
-import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
+import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
 import SlitWave from "./SlitWave.js";
+import SlitCaption from "./SlitCaption.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
 import type { Seat } from "./useSeat.js";
 
-/**
- * Running conversation, shown inside the circle for text-first (deaf) riders:
- * a small face sits above, this fills the rest and auto-scrolls to the latest.
- * No replay button — re-requests stay conversational ("say that again").
- */
-function Transcript({
-  items,
-  reply,
-  replying,
-  ink,
-  textScale,
-}: {
-  items: { role: "user" | "cosimo"; text: string }[];
-  reply: string;
-  replying: boolean;
-  ink: string;
-  textScale: number;
-}) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = boxRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [items.length, reply]);
-
-  return (
-    <div
-      ref={boxRef}
-      role="log"
-      aria-live="polite"
-      style={{
-        position: "absolute",
-        left: "50%",
-        top: "36%",
-        transform: "translateX(-50%)",
-        width: "78%",
-        height: "56%",
-        overflowY: "auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: `${6 * textScale}px`,
-        fontSize: `${13 * textScale}px`,
-        lineHeight: 1.35,
-        color: ink,
-        scrollbarWidth: "none",
-      }}
-    >
-      {/* no idle hint — talking happens via the physical button */}
-      {items.map((m, i) => (
-        <div
-          key={i}
-          style={{
-            alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-            textAlign: m.role === "user" ? "right" : "left",
-            maxWidth: "88%",
-            opacity: m.role === "user" ? 0.6 : 1,
-          }}
-        >
-          {m.text}
-        </div>
-      ))}
-      {replying && reply && (
-        <div style={{ alignSelf: "flex-start", maxWidth: "88%" }}>{reply} ▍</div>
-      )}
-    </div>
-  );
-}
 
 // No idle hint — talking happens via the physical button, not the screen.
 const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
@@ -209,6 +144,24 @@ export default function SeatView({
     return () => clearTimeout(t);
   }, [ptt.active]);
   const thinking = !listening && cosimo.phase === "thinking";
+  // The slit follows the conversation, never a clock: the rider's wave →
+  // the same line settled while CoSiMo thinks → the spoken sentence as a
+  // subtitle → that sentence stays with ↻ for a while → the destination
+  // board. A card (a question) takes the slit whenever one is open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  // Subtitles are the `showText` presentation setting (set_presentation /
+  // persona): on → the spoken sentence in the slit; off → face and voice only.
+  const captionText = showText ? cosimo.caption || cosimo.reply : "";
+  const speakingNow = Boolean(cosimo.speaking) && !listening && Boolean(captionText);
+  const afterReply = showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
+  const idleFor = now - cosimo.lastActivityAt;
+  const idleHint = idleFor > 30_000 && !cosimo.replying ? (lang === "de" ? "Taste halten und sprechen" : "Hold the button and speak") : null;
+  const slitMode: "wave" | "calm" | "caption" | "card" | "idle" =
+    waveShown ? "wave" : thinking ? "calm" : cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
   const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : cosimo.speaking ? "speaking" : null;
   // The rim keeps its last colour while fading out, so the fade is not a colour jump.
@@ -389,8 +342,8 @@ export default function SeatView({
           {glowRim}
           {glowDot}
           <Inset radius="50%" />
-          {/* the Face — centred by default; shrinks to the top when the rider
-              reads a running transcript (showText). reduceMotion stills its idle life. */}
+          {/* the Face — always centred; text never enters the circle (subtitles
+              live in the slit, see showText). reduceMotion stills its idle life. */}
           <div
             ref={faceRef}
             style={{
@@ -398,10 +351,9 @@ export default function SeatView({
               // 52%: the artwork's visual mass (eyes mid 125, mouth 104) sits
               // left of its viewBox centre (130) — this optically centres it.
               left: "52%",
-              top: showText ? "18%" : "48%",
+              top: "48%",
               transform: "translate(-50%, -50%)",
-              width: showText ? "44%" : "88%",
-              transition: "top 300ms, width 300ms",
+              width: "88%",
             }}
           >
             <CosimoFaceAnimated
@@ -413,18 +365,9 @@ export default function SeatView({
             />
           </div>
 
-          {/* Reply text is progressive disclosure: face-and-voice-first by
-              default (only a short phase hint); a running transcript when the
-              rider needs to read (showText, e.g. a deaf rider). */}
-          {showText ? (
-            <Transcript
-              items={cosimo.transcript}
-              reply={cosimo.reply}
-              replying={cosimo.replying}
-              ink={scheme.ink}
-              textScale={textScale}
-            />
-          ) : (
+          {/* only a short phase hint in the circle — the words are the slit's
+              subtitles (showText), never text on the face */}
+          {(
             <div
               role="status"
               aria-live="polite"
@@ -491,31 +434,27 @@ export default function SeatView({
           }}
         >
           <Inset radius={layout.slitR} />
-          {waveShown ? (
-            /* hold-to-talk: the rider's voice as a line across the slit */
-            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} leaving={!ptt.active} />
-          ) : cosimo.card ? (
+          {slitMode === "wave" || slitMode === "calm" ? (
+            /* hold-to-talk: the rider's voice as a line; thinking: the same line, settled */
+            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} leaving={!ptt.active && slitMode === "wave"} calm={slitMode === "calm"} />
+          ) : slitMode === "caption" ? (
+            <SlitCaption
+              text={captionText}
+              telemetry={cosimo.telemetry}
+              lang={lang}
+              textScale={textScale}
+              aside={afterReply ? <RepeatAffordance lastReplyAt={cosimo.lastReplyAt} ink={scheme.ink} onRepeat={cosimo.repeatLast} lang={lang} /> : undefined}
+            />
+          ) : slitMode === "card" ? (
             <SlitCard
-              card={cosimo.card}
+              card={cosimo.card!}
               scheme={scheme}
               textScale={textScale}
               onLocal={(value) => cosimo.answerCard(cosimo.card!.id, value)}
               onModel={(label) => cosimo.send(label, lang, "tap")}
             />
           ) : (
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              {!cosimo.replying && (
-                <IdleHint lastActivityAt={cosimo.lastActivityAt} ink={scheme.ink} textScale={textScale} lang={lang} />
-              )}
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center" }}>
-                <div style={{ flex: 1, minWidth: 0, height: "100%" }}>
-                  <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} />
-                </div>
-                <div style={{ flexShrink: 0, paddingRight: "3%", display: "flex", alignItems: "center" }}>
-                  <RepeatAffordance lastReplyAt={cosimo.lastReplyAt} ink={scheme.ink} onRepeat={cosimo.repeatLast} lang={lang} />
-                </div>
-              </div>
-            </div>
+            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} hint={idleHint} />
           )}
         </div>
       </div>

@@ -1,72 +1,51 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, Clock, Gauge, Users } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 
-/** Icons scale with the strip's font; `aria-hidden` — the numbers carry the meaning. */
-const icon = { size: "1em", strokeWidth: 2.5, "aria-hidden": true, style: { flexShrink: 0 } } as const;
-const Item = ({ children }: { children: React.ReactNode }) => (
-  <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35em", minWidth: 0 }}>{children}</span>
-);
-
 /**
- * Slit telemetry strip — the narrow horizontal cutout at the bottom of the
- * physical panel. Styled after the MonoCab mockup: clock · occupancy ·
- * next stop | speed, in a compact monospace line.
+ * The slit at rest — a destination board, one statement: the next stop
+ * large, beneath it in small type how far and whether on time (a fault or
+ * delay takes that line). No clock, no head count, no speed: nothing the
+ * rider would not look for here. `hint` swaps the small line for the
+ * talk-button invitation after a while without contact.
  */
 export default function TelemetryStrip({
   telemetry,
   lang,
+  hint,
 }: {
   telemetry: MonoCabTelemetry | null;
   lang: Locale;
+  hint?: string | null;
 }) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 10_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const clock = now.toLocaleTimeString(lang === "de" ? "de-DE" : "en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const de = lang === "de";
   const next = telemetry?.nextStops[0];
+  const fault = telemetry?.faults?.[0];
+  const delay = telemetry?.delayMinutes ?? 0;
+  const big = next ? next.name[lang] : telemetry ? telemetry.location[lang] : "MonoCab";
+  const small = hint
+    ? hint
+    : fault
+      ? `${fault.cause[lang]}${delay ? ` · +${delay} min` : ""}`
+      : next
+        ? `${de ? "nächster Halt" : "next stop"} · ${next.etaMinutes} min · ${delay ? `+${delay} min` : de ? "pünktlich" : "on time"}`
+        : de ? "unterwegs" : "en route";
 
   return (
     <div
-      aria-label={lang === "de" ? "Fahrzeugdaten" : "Vehicle data"}
+      aria-label={de ? "Fahrtinformation" : "Journey information"}
       style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "4cqh",
-        padding: "0 5cqh",
-        fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-        fontWeight: 700,
-        // ~31 pt on the iPad's 154 pt tall slit — the widest line (clock ·
-        // riders · next stop · speed) must still fit 706 pt; emulator clamps
-        fontSize: "clamp(11px, 20cqh, 48px)",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
+        width: "100%", height: "100%", boxSizing: "border-box",
+        display: "flex", flexDirection: "column", justifyContent: "center", gap: "3cqh",
+        padding: "6cqh 7cqh",
+        whiteSpace: "nowrap", overflow: "hidden",
+        animation: "slit-in 300ms ease-out",
       }}
     >
-      <span style={{ display: "flex", gap: "6cqh", alignItems: "center", minWidth: 0 }}>
-        <Item><Clock {...icon} /> {clock}</Item>
-        {telemetry && <Item><Users {...icon} /> {telemetry.occupancy}</Item>}
-        {next && (
-          <Item>
-            <ArrowRight {...icon} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", opacity: 0.85 }}>
-              {next.name[lang]} · {next.etaMinutes} min
-            </span>
-          </Item>
-        )}
+      <span style={{ fontSize: "clamp(14px, 34cqh, 72px)", fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {big}
       </span>
-      <Item>
-        <Gauge {...icon} /> {telemetry ? `${Math.round(telemetry.speedKmh)} KM/H` : "— KM/H"}
-      </Item>
+      <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.1, opacity: hint ? 0.9 : 0.62, overflow: "hidden", textOverflow: "ellipsis", transition: "opacity 300ms" }}>
+        {small}
+      </span>
     </div>
   );
 }

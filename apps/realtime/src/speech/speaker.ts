@@ -101,7 +101,7 @@ export class TurnSpeaker {
         this.chunks++;
         this.bytes += Math.floor((audio.audioBase64.length * 3) / 4);
         this.firstChunkAt ??= Date.now();
-        hub.emitTtsChunk(sessionId, { turn, seq: this.seq++, last: false, audioBase64: audio.audioBase64, mime: audio.mime });
+        hub.emitTtsChunk(sessionId, { turn, seq: this.seq++, last: false, audioBase64: audio.audioBase64, mime: audio.mime, text: sentence });
       })
       .catch((err) => {
         // eslint-disable-next-line no-console

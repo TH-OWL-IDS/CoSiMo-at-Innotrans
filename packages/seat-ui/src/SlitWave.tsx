@@ -13,15 +13,21 @@ export default function SlitWave({
   kind,
   ink,
   leaving = false,
+  calm = false,
 }: {
   sample: (out: Float32Array) => boolean;
   kind: () => "audio" | "native" | null;
   ink: string;
   /** Release: the line settles flat and fades out (the parent unmounts after). */
   leaving?: boolean;
+  /** Thinking: the same line, settled to a quiet slow breath — "heard you,
+   *  working on it". No progress, no promise of a duration. */
+  calm?: boolean;
 }) {
   const leavingRef = useRef(leaving);
   leavingRef.current = leaving;
+  const calmRef = useRef(calm);
+  calmRef.current = calm;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -69,7 +75,7 @@ export default function SlitWave({
       ctx.lineJoin = "round";
       ctx.strokeStyle = ink;
 
-      const real = kind() === "audio" && sample(buf);
+      const real = !calmRef.current && kind() === "audio" && sample(buf);
       let target = 0;
       if (real) {
         let sum = 0;
@@ -79,7 +85,11 @@ export default function SlitWave({
       }
       level += (target - level) * (target > level ? 0.18 : 0.06);
       // amplitude: a floor so the line is never dead flat, then the voice
-      const amp = (real ? h * (0.04 + 0.38 * level) : h * (0.06 + 0.04 * Math.sin(t * 1.6))) * reveal * (1 - leave);
+      const amp = (real
+        ? h * (0.04 + 0.38 * level)
+        : calmRef.current
+          ? h * (0.035 + 0.02 * Math.sin(t * 1.1)) // settled: barely there, slow
+          : h * (0.06 + 0.04 * Math.sin(t * 1.6))) * reveal * (1 - leave);
 
       ctx.beginPath();
       const drawn = Math.max(2, Math.round(N * reveal));
