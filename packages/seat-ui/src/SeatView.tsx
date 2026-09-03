@@ -252,8 +252,10 @@ export default function SeatView({
     const tick = () => {
       raf = requestAnimationFrame(tick);
       const drive = cosimo.speaking ? cosimo.getMouthDrive?.() : null;
-      const target = drive ? Math.min(1, drive.open * 1.15) : 0.18 + 0.14 * Math.sin((performance.now() - t0) / 900);
-      level += (target - level) * (target > level ? 0.28 : 0.07);
+      // gentle: the mouth envelope is made for a mouth; the room only needs
+      // its slow shape — damped, slow attack, slower release, never a flash
+      const target = drive ? Math.min(1, drive.open * 0.7) : 0.18 + 0.14 * Math.sin((performance.now() - t0) / 900);
+      level += (target - level) * (target > level ? 0.06 : 0.03);
       el.style.setProperty("--voice", level.toFixed(3));
     };
     raf = requestAnimationFrame(tick);
@@ -284,10 +286,10 @@ export default function SeatView({
         transition: "opacity 900ms ease",
       }}
     >
-      {sheet(`radial-gradient(60% 55% at 35% 40%, ${withAlpha(waberColor, 0.4)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "15s", "5.5s", "0s", 0.75, 0.35)}
-      {sheet(`radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.34)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "21s", "7.4s", "-5s", 0.7, 0.4)}
+      {sheet(`radial-gradient(60% 55% at 35% 40%, ${withAlpha(waberColor, 0.4)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "15s", "5.5s", "0s", 0.75, 0.15)}
+      {sheet(`radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.34)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "21s", "7.4s", "-5s", 0.7, 0.18)}
       {/* the voice sheet: dark while silent, lights up with each phrase */}
-      {sheet(`radial-gradient(70% 45% at 50% 52%, ${withAlpha(waberColor, 0.36)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "11s", "4.6s", "-2s", 0.05, 0.9)}
+      {sheet(`radial-gradient(70% 45% at 50% 52%, ${withAlpha(waberColor, 0.36)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "11s", "4.6s", "-2s", 0.08, 0.32)}
     </div>
   );
   const glowDot = (
