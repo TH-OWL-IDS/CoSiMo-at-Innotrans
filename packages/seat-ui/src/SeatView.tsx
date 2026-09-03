@@ -231,21 +231,42 @@ export default function SeatView({
   );
   // The ground's "Wabern": while CoSiMo thinks or speaks the WHOLE ground —
   // the full window in a browser, the full screen on the iPad — carries a
-  // soft wash of the scheme's state colour whose bright regions drift and
-  // swell. Two oversized gradient sheets on different slow orbits, so the
-  // motion never visibly repeats and no edge ever shows. Idle: plain ground.
-  // Reduced motion: a still, faint tint.
+  // soft wash of the theme's colour whose bright regions drift and swell.
+  // Oversized gradient sheets on different slow orbits, so the motion never
+  // visibly repeats and no edge ever shows. While speaking the wash follows
+  // the VOICE: the same envelope that drives the mouth (`--voice`, 0–1,
+  // attack fast / release slow) lifts the sheets and lights a third one, so
+  // the room breathes with each phrase. Thinking: a slow synthetic pulse.
+  // Idle: plain ground. Reduced motion: a still, faint tint.
   const wabering = (!listening && cosimo.phase === "thinking") || Boolean(cosimo.speaking && !listening);
   // the THEME's colour (its ink — what the colour swatches show), not the
   // semantic state colours: the ground says which CoSiMo this is, the rim says what it does
   const waberColor = scheme.ink;
-  const sheet = (gradient: string, drift: string, breathe: string, delay: string) => (
+  const waberRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = waberRef.current;
+    if (!el || !wabering) return;
+    let raf = 0;
+    let level = 0;
+    const t0 = performance.now();
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const drive = cosimo.speaking ? cosimo.getMouthDrive?.() : null;
+      const target = drive ? Math.min(1, drive.open * 1.15) : 0.18 + 0.14 * Math.sin((performance.now() - t0) / 900);
+      level += (target - level) * (target > level ? 0.28 : 0.07);
+      el.style.setProperty("--voice", level.toFixed(3));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [wabering, cosimo.speaking, cosimo.getMouthDrive]);
+  const sheet = (gradient: string, drift: string, breathe: string, delay: string, base: number, voice: number) => (
     <div
       aria-hidden
       style={{
         // oversized and centred, so translating/scaling it never reveals a corner
         position: "absolute", left: "-25%", top: "-25%", width: "150%", height: "150%", pointerEvents: "none",
         background: gradient,
+        opacity: `calc(${base} + ${voice} * var(--voice, 0))`,
         animation: reduceMotion ? "none" : `cosimo-drift ${drift} ease-in-out infinite alternate, cosimo-swell ${breathe} ease-in-out infinite`,
         animationDelay: delay,
       }}
@@ -253,23 +274,20 @@ export default function SeatView({
   );
   const groundWaber = (
     <div
+      ref={waberRef}
       aria-hidden
       style={{
         position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0,
         // base tint over the whole surface; the sheets add the moving light
-        background: withAlpha(waberColor, 0.10),
+        background: withAlpha(waberColor, 0.12),
         opacity: wabering ? 1 : 0,
         transition: "opacity 900ms ease",
       }}
     >
-      {sheet(
-        `radial-gradient(60% 55% at 35% 40%, ${withAlpha(waberColor, 0.32)} 0%, ${withAlpha(waberColor, 0)} 100%)`,
-        "17s", "6.5s", "0s",
-      )}
-      {sheet(
-        `radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.26)} 0%, ${withAlpha(waberColor, 0)} 100%)`,
-        "23s", "8.2s", "-5s",
-      )}
+      {sheet(`radial-gradient(60% 55% at 35% 40%, ${withAlpha(waberColor, 0.4)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "15s", "5.5s", "0s", 0.75, 0.35)}
+      {sheet(`radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.34)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "21s", "7.4s", "-5s", 0.7, 0.4)}
+      {/* the voice sheet: dark while silent, lights up with each phrase */}
+      {sheet(`radial-gradient(70% 45% at 50% 52%, ${withAlpha(waberColor, 0.36)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "11s", "4.6s", "-2s", 0.05, 0.9)}
     </div>
   );
   const glowDot = (
@@ -364,8 +382,8 @@ export default function SeatView({
           }}
         >
           <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }
-@keyframes cosimo-drift { from { translate: -8% -6% } to { translate: 8% 6% } }
-@keyframes cosimo-swell { 0%, 100% { scale: 1 } 50% { scale: 1.18 } }`}</style>
+@keyframes cosimo-drift { from { translate: -12% -9% } to { translate: 12% 9% } }
+@keyframes cosimo-swell { 0%, 100% { scale: 1 } 50% { scale: 1.24 } }`}</style>
           {glowRim}
           {glowDot}
           <Inset radius="50%" />
