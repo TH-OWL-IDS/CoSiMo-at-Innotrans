@@ -43,6 +43,11 @@ export function usePushToTalk({
   supported: boolean;
   start: () => void;
   stop: () => void;
+  /** The live microphone signal while the button is held — for the slit's
+   *  waveform. `kind` "audio" = real samples from the captured stream;
+   *  "native" = Apple dictation owns the mic (no samples available, the UI
+   *  shows a neutral listening motion instead); null = not listening. */
+  wave: { kind: () => "audio" | "native" | null; sample: (out: Float32Array) => boolean };
   /** What went wrong on the last press, in words (mic denied, no speech,
    *  recognition service refused…). Cleared on the next press. */
   error: string | null;
@@ -57,6 +62,46 @@ export function usePushToTalk({
    *  continuously with the same text (observed at ~400/s), which flooded the
    *  server with identical turns until it OOM'd. */
   const sentRef = useRef(false);
+  /** Analyser on the captured mic stream (server STT / browser dev) — the
+   *  slit draws the actual signal from it. Torn down on release. */
+  const analyserRef = useRef<{ ctx: AudioContext; an: AnalyserNode; own: MediaStream | null; buf: Uint8Array<ArrayBuffer> } | null>(null);
+  const waveKindRef = useRef<"audio" | "native" | null>(null);
+
+  function attachAnalyser(stream: MediaStream, own: MediaStream | null): void {
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const an = ctx.createAnalyser();
+      an.fftSize = 512;
+      an.smoothingTimeConstant = 0.15;
+      ctx.createMediaStreamSource(stream).connect(an);
+      analyserRef.current = { ctx, an, own, buf: new Uint8Array(an.fftSize) };
+      waveKindRef.current = "audio";
+      void ctx.resume();
+    } catch {
+      // no analyser — the wave just stays flat
+    }
+  }
+  function releaseAnalyser(): void {
+    const a = analyserRef.current;
+    analyserRef.current = null;
+    waveKindRef.current = null;
+    if (!a) return;
+    a.own?.getTracks().forEach((t) => t.stop());
+    void a.ctx.close().catch(() => undefined);
+  }
+  const wave = useRef({
+    kind: () => waveKindRef.current,
+    sample: (out: Float32Array): boolean => {
+      const a = analyserRef.current;
+      if (!a) return false;
+      a.an.getByteTimeDomainData(a.buf);
+      const n = Math.min(out.length, a.buf.length);
+      for (let i = 0; i < n; i++) out[i] = (a.buf[i]! - 128) / 128;
+      return true;
+    },
+  }).current;
 
   const supported =
     typeof window !== "undefined" &&
@@ -77,6 +122,7 @@ export function usePushToTalk({
     if (serverStt) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        attachAnalyser(stream, null); // the recorder's own stream — tracks stop with it
         const rec = new MediaRecorder(stream);
         chunksRef.current = [];
         rec.ondataavailable = (e) => {
@@ -92,6 +138,7 @@ export function usePushToTalk({
         recorderRef.current = rec;
       } catch (err) {
         setError(`microphone: ${err instanceof Error ? err.message : String(err)}`);
+        releaseAnalyser();
         setActive(false);
         onStop();
       }
@@ -99,6 +146,7 @@ export function usePushToTalk({
     }
 
     if (nativeStt) {
+      waveKindRef.current = "native";
       try {
         await nativeStt.start(lang === "de" ? "de-DE" : "en-US", (msg) => setError(`dictation: ${msg}`));
       } catch (err) {
@@ -146,6 +194,9 @@ export function usePushToTalk({
       if (!sentRef.current) setError((prev) => prev ?? "speech recognition: ended without a transcript (nothing recognised — check Dictation is on and the mic level)");
     };
     recognitionRef.current = rec;
+    // Browsers allow a second capture next to SpeechRecognition — used only
+    // to draw the wave; it is stopped on release.
+    void navigator.mediaDevices?.getUserMedia({ audio: true }).then((s) => { if (active || recognitionRef.current === rec) attachAnalyser(s, s); }).catch(() => undefined);
     try {
       rec.start();
     } catch (err) {
@@ -157,6 +208,7 @@ export function usePushToTalk({
     if (!active) return;
     setActive(false);
     onStop();
+    releaseAnalyser();
     if (serverStt) {
       try {
         recorderRef.current?.stop();
@@ -180,7 +232,7 @@ export function usePushToTalk({
     }
   }
 
-  return { active, supported, start, stop, error };
+  return { active, supported, start, stop, error, wave };
 }
 
 function blobToBase64(blob: Blob): Promise<string> {

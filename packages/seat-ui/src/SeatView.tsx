@@ -3,6 +3,7 @@ import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
 import { IdleHint, RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
+import SlitWave from "./SlitWave.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
 import type { Seat } from "./useSeat.js";
 
@@ -412,7 +413,10 @@ export default function SeatView({
           }}
         >
           <Inset radius={layout.slitR} />
-          {cosimo.card ? (
+          {ptt.active ? (
+            /* hold-to-talk: the rider's voice as a line across the slit */
+            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} />
+          ) : cosimo.card ? (
             <SlitCard
               card={cosimo.card}
               scheme={scheme}
