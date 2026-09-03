@@ -66,6 +66,10 @@ export function usePushToTalk({
    *  slit draws the actual signal from it. Torn down on release. */
   const analyserRef = useRef<{ ctx: AudioContext; an: AnalyserNode; own: MediaStream | null; buf: Uint8Array<ArrayBuffer> } | null>(null);
   const waveKindRef = useRef<"audio" | "native" | null>(null);
+  /** Release grace: people let go of the button a beat before the last
+   *  word is out. The capture keeps running this long after release. */
+  const RELEASE_GRACE_MS = 450;
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function attachAnalyser(stream: MediaStream, own: MediaStream | null): void {
     try {
@@ -114,6 +118,12 @@ export function usePushToTalk({
         ));
 
   async function start() {
+    // Pressed again inside the release grace: just keep listening.
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+      return;
+    }
     if (active || !supported) return;
     setActive(true);
     setError(null);
@@ -205,7 +215,16 @@ export function usePushToTalk({
   }
 
   function stop() {
-    if (!active) return;
+    if (!active || stopTimerRef.current) return;
+    // Keep capturing for a moment so the tail of the sentence lands; the
+    // wave stays up meanwhile, which reads as "still listening".
+    stopTimerRef.current = setTimeout(() => {
+      stopTimerRef.current = null;
+      stopNow();
+    }, RELEASE_GRACE_MS);
+  }
+
+  function stopNow() {
     setActive(false);
     onStop();
     releaseAnalyser();
