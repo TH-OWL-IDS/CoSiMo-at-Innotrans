@@ -163,6 +163,7 @@ export interface CosimoState {
   /** Console "Testen": last result, or "pending" while a test runs. */
   llmTest: LlmTestResult | "pending" | null;
   testLlm: () => void;
+  hostLight: (key: string, on?: boolean) => void;
   ttsTest: SpeechTestResult | "pending" | null;
   /** Optional catalog voice key; omitted = default voice. */
   testTts: (voice?: string) => void;
@@ -236,6 +237,9 @@ export function useCosimoSocket(
   kind: ClientKind = role === "host" ? "console" : "kiosk",
   /** Consoles: the operator password's SHA-256 — the hub's HOST_TOKEN check. */
   token?: string,
+  /** Kiosks: physical seat position 1-4 (operator setting) — picks the
+   *  reading-lamp playback on the hub. */
+  seat?: number,
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
   // Stable across reloads of this tab, unique per tab: sessionStorage. A
@@ -381,30 +385,38 @@ export function useCosimoSocket(
       const audio = new Audio(`data:${clip.mime};base64,${clip.audioBase64}`);
       audio.volume = volumeRef.current; // "leiser bitte" — playback-side, instant
       audioRef.current = audio;
-      // Route the clip through the analyser so the mouth can follow the
-      // actual voice. Only when the context is unlocked ("running") — a
-      // suspended context would swallow the sound entirely.
-      try {
-        const an = ensureAnalyser();
-        if (an && audioCtxRef.current?.state === "running") {
-          const src = audioCtxRef.current.createMediaElementSource(audio);
-          src.connect(an);
-          analysingRef.current = true;
-          envelopeRef.current = 0;
-          // Routed: the gain node is the volume, the element must stay at 1
-          // (desktop would otherwise apply both — volume squared).
-          if (gainRef.current) {
-            gainRef.current.gain.value = volumeRef.current;
-            audio.volume = 1;
+      // Route the clip through the analyser (mouth sync) and the gain node —
+      // on iOS the gain node is the ONLY working volume control, the element's
+      // `volume` is silently ignored. `resume()` is async, so give a just-
+      // unlocked context a beat to reach "running" before deciding; otherwise
+      // the first clip after boot plays unrouted at full volume on the iPad.
+      void (async () => {
+        try {
+          const an = ensureAnalyser();
+          const ctx = audioCtxRef.current;
+          if (an && ctx && ctx.state !== "running") {
+            await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 200))]);
           }
+          if (an && ctx?.state === "running") {
+            const src = ctx.createMediaElementSource(audio);
+            src.connect(an);
+            analysingRef.current = true;
+            envelopeRef.current = 0;
+            // Routed: the gain node is the volume, the element must stay at 1
+            // (desktop would otherwise apply both — volume squared).
+            if (gainRef.current) {
+              gainRef.current.gain.value = volumeRef.current;
+              audio.volume = 1;
+            }
+          }
+        } catch {
+          // analyser unavailable — plain playback, synthetic mouth cadence
         }
-      } catch {
-        // analyser unavailable — plain playback, synthetic mouth cadence
-      }
-      audio.onplay = () => setSpeaking(true);
-      audio.onended = onDone;
-      audio.onerror = onDone;
-      void audio.play().catch(onDone);
+        audio.onplay = () => setSpeaking(true);
+        audio.onended = onDone;
+        audio.onerror = onDone;
+        void audio.play().catch(onDone);
+      })();
     } catch {
       onDone();
     }
@@ -433,7 +445,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
-      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}) });
+      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}) });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -562,7 +574,7 @@ export function useCosimoSocket(
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId, role, kind, token]);
+  }, [realtimeUrl, deviceId, role, kind, token, seat]);
 
   const clearCard = () => setCard(null);
 
@@ -653,6 +665,10 @@ export function useCosimoSocket(
     setLlmTest("pending");
     sockRef.current?.emit("host:llm-test", {});
   };
+  /** Console light buttons: zone/signal key on/off, or "blackout" / "release-all" / "hello". */
+  const hostLight = (key: string, on?: boolean) => {
+    sockRef.current?.emit("host:light", { key, ...(on !== undefined ? { on } : {}) });
+  };
   const testTts = (voice?: string) => {
     setTtsTest("pending");
     sockRef.current?.emit("host:tts-test", voice ? { voice } : {});
@@ -664,6 +680,19 @@ export function useCosimoSocket(
   const inspectSeat = (deviceId: string) =>
     sockRef.current?.emit("host:inspect", { deviceId });
   const clearInspection = () => setInspection(null);
+
+  // The consent tap used to be the guaranteed first gesture that unlocked
+  // the AudioContext; card riders skip that screen now. So: the very first
+  // touch or key on the page — whatever it is — unlocks playback volume.
+  useEffect(() => {
+    const unlock = () => ensureAnalyser();
+    window.addEventListener("pointerdown", unlock, { once: true, capture: true });
+    window.addEventListener("keydown", unlock, { once: true, capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock, { capture: true });
+      window.removeEventListener("keydown", unlock, { capture: true });
+    };
+  }, []);
 
   const pttStart = () => {
     touch();
@@ -694,6 +723,7 @@ export function useCosimoSocket(
   }, []);
 
   const registerNfc = (tagId: string, lang: Locale) => {
+    ensureAnalyser(); // the scan's keydown is a user activation — unlock before the greeting speaks
     sockRef.current?.emit("nfc:register", { sessionId: sessionRef.current, tagId, lang });
   };
 
@@ -709,7 +739,7 @@ export function useCosimoSocket(
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt, lastReset,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
-    llmTest, testLlm, ttsTest, testTts, sttTest, testStt,
+    llmTest, testLlm, hostLight, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     unauthorized, restartService, restartResults,

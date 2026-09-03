@@ -8,8 +8,8 @@
 
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
-import { buildActuation, type Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, type CabinControlId, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry } from "@cosimo/shared";
+import { buildHostLight, type Lpu2Mapping } from "../cabin/lpu2.js";
+import { CABIN_CONTROLS, LPU2_KEYS, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry } from "@cosimo/shared";
 
 /** Today's effective values (Qwen generation_config + our max_tokens). */
 export const DEFAULT_GENERATION: LlmGeneration = { temperature: 0.7, topP: 0.8, maxTokens: 1024, repetitionPenalty: 1.0, thinking: false };
@@ -69,7 +69,7 @@ function envDefaults(): ResolvedOperatorConfig {
   };
 }
 
-const CONTROL_IDS = new Set<string>(CABIN_CONTROLS.map((c) => c.id));
+const MAPPING_KEYS = new Set<string>(LPU2_KEYS.map((k) => k.key));
 
 /** Read the CMS playback rows into a mapping, ignoring junk rows. */
 function toMapping(rows: { control?: string | null; playback?: number | null; cues?: { scene?: string | null; cue?: number | null }[] | null }[]): Lpu2Mapping {
@@ -77,20 +77,10 @@ function toMapping(rows: { control?: string | null; playback?: number | null; cu
   for (const row of rows) {
     const control = row.control ?? "";
     const pb = row.playback ?? 0;
-    // Out-of-range playbacks would address a fixture that isn't there.
-    if (!CONTROL_IDS.has(control) || !Number.isInteger(pb) || pb < 1 || pb > 64) continue;
-    const def = CABIN_CONTROLS.find((c) => c.id === control);
-    // Cue rows only count when the def declares the scene key (keys are
-    // code-defined; the CMS supplies numbers) and the cue is in range 1–48.
-    const cues: Record<string, number> = {};
-    for (const c of row.cues ?? []) {
-      const key = c.scene ?? "";
-      const cue = c.cue ?? 0;
-      if (!def?.scenes?.some((sc) => sc.key === key)) continue;
-      if (!Number.isInteger(cue) || cue < 1 || cue > 48) continue;
-      cues[key] = cue;
-    }
-    mapping[control as CabinControlId] = { playback: pb, ...(Object.keys(cues).length ? { cues } : {}) };
+    // Out-of-range playbacks would address a fixture that isn't there;
+    // unknown keys are stray rows (the catalog lives in shared cabin.ts).
+    if (!MAPPING_KEYS.has(control) || !Number.isInteger(pb) || pb < 1 || pb > 64) continue;
+    mapping[control] = { playback: pb };
   }
   return mapping;
 }
@@ -176,26 +166,17 @@ export class OperatorConfigProvider {
         mapped: Object.keys(c.cabin.lpu2Mapping).length,
         controls: CABIN_CONTROLS.length,
         timeoutMs: c.cabin.lpu2TimeoutMs,
-        routes: CABIN_CONTROLS.map((def) => {
+        routes: LPU2_KEYS.map((k) => {
           const lpu2 = { baseUrl: c.cabin.lpu2BaseUrl, mapping: c.cabin.lpu2Mapping, timeoutMs: c.cabin.lpu2TimeoutMs };
-          // One preview row per action the kiosk could fire, per kind.
-          const urls: { label: string; url: string }[] = [];
-          const push = (label: string, change: Parameters<typeof buildActuation>[1]) => {
-            const url = buildActuation(def.id, change, lpu2)?.urls[0];
-            if (url) urls.push({ label, url });
+          // urls[0] is the key's own playback command (a sibling release may follow it).
+          return {
+            key: k.key,
+            label: k.label,
+            group: k.group,
+            playback: c.cabin.lpu2Mapping[k.key]?.playback ?? null,
+            on: buildHostLight(k.key, true, lpu2)?.urls[0] ?? null,
+            off: buildHostLight(k.key, false, lpu2)?.urls[0] ?? null,
           };
-          if (def.kind === "toggle") {
-            push("an", { on: true });
-            push("aus", { on: false });
-          } else if (def.kind === "level") {
-            push("50 %", { level: 50 });
-            push("aus", { on: false });
-          } else if (def.kind === "scene") {
-            for (const sc of def.scenes ?? []) push(sc.label.de, { scene: sc.key });
-          } else if (def.kind === "flash") {
-            push("Blitz", { flash: true });
-          }
-          return { control: def.id, label: def.label.de, real: def.real, scope: def.scope, kind: def.kind, playback: c.cabin.lpu2Mapping[def.id]?.playback ?? null, urls };
         }),
       },
       systemPrompt: c.agent.systemPrompt,

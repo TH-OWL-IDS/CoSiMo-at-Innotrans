@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
-import { SeatView, useSeat, type PanelLayout } from "@cosimo/seat-ui";
+import { SeatView, useSeat, type NativeDictation, type PanelLayout } from "@cosimo/seat-ui";
 import { X } from "lucide-react";
 import { Button, Eyebrow, Input } from "@cosimo/ui";
 import { isNative } from "../config/serverUrl";
 import { useHidInput } from "./useHidInput";
 import { useCabinActuator } from "./useCabinActuator";
+import { createNativeDictation } from "./nativeDictation";
 
 /**
  * Testing aid, reached via the hidden setup screen: chat with CoSiMo in
@@ -86,18 +87,27 @@ function TestConsole({
 export default function CosimoKiosk({
   serverUrl,
   layout,
+  seatNumber,
   onOpenSetup,
   testChat = false,
   onCloseTestChat,
 }: {
   serverUrl: string;
   layout: PanelLayout;
+  /** Physical seat position 1-4 (0 = not configured) — reading-lamp mapping. */
+  seatNumber: number;
   onOpenSetup: () => void;
   /** Testing aid: show the hidden text console (opened via the setup screen). */
   testChat?: boolean;
   onCloseTestChat?: () => void;
 }) {
-  const seat = useSeat(serverUrl);
+  // Apple dictation as the voice fallback when the hub has no server STT.
+  // Resolved once; null on the web/emulator or when the device refuses.
+  const [nativeStt, setNativeStt] = useState<NativeDictation | null>(null);
+  useEffect(() => {
+    void createNativeDictation().then(setNativeStt);
+  }, []);
+  const seat = useSeat(serverUrl, "kiosk", { nativeStt, seat: seatNumber >= 1 && seatNumber <= 4 ? seatNumber : undefined });
   const { cosimo, lang, ptt } = seat;
 
   // This seat drives the cabin's light controller on the local LAN — the hub

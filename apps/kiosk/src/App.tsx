@@ -8,6 +8,7 @@ import {
   setPanelLayout,
   type PanelLayout,
 } from "./config/panelLayout";
+import { getSeatNumber, setSeatNumber } from "./config/seatNumber";
 
 /**
  * App shell: resolves the server URL (stored override → baked default →
@@ -19,6 +20,8 @@ export default function App() {
   // undefined = still loading from Preferences; null = unknown, must ask.
   const [serverUrl, setUrl] = useState<string | null | undefined>(undefined);
   const [layout, setLayout] = useState<PanelLayout>(DEFAULT_PANEL_LAYOUT);
+  /** Physical seat position 1-4 (0 = not configured) — reading-lamp mapping. */
+  const [seat, setSeat] = useState(0);
   const [setupOpen, setSetupOpen] = useState(false);
   /** Testing aid (reached via the hidden setup): text chat with CoSiMo. */
   const [testChat, setTestChat] = useState(false);
@@ -26,12 +29,14 @@ export default function App() {
   useEffect(() => {
     void getServerUrl().then(setUrl);
     void getPanelLayout().then(setLayout);
+    void getSeatNumber().then(setSeat);
   }, []);
 
-  const save = useCallback((url: string, nextLayout: PanelLayout) => {
-    void Promise.all([setServerUrl(url), setPanelLayout(nextLayout)]).then(() => {
+  const save = useCallback((url: string, nextLayout: PanelLayout, nextSeat: number) => {
+    void Promise.all([setServerUrl(url), setPanelLayout(nextLayout), setSeatNumber(nextSeat)]).then(() => {
       setUrl(url);
       setLayout(nextLayout);
+      setSeat(nextSeat);
       setSetupOpen(false);
     });
   }, []);
@@ -42,6 +47,7 @@ export default function App() {
       <ServerSetup
         current={serverUrl}
         layout={layout}
+        seat={seat}
         onSave={save}
         onCancel={serverUrl !== null ? () => setSetupOpen(false) : undefined}
         onOpenTestChat={
@@ -61,6 +67,7 @@ export default function App() {
       key={serverUrl}
       serverUrl={serverUrl}
       layout={layout}
+      seatNumber={seat}
       onOpenSetup={() => setSetupOpen(true)}
       testChat={testChat}
       onCloseTestChat={() => setTestChat(false)}

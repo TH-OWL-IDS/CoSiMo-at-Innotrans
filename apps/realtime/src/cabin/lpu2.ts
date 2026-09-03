@@ -7,23 +7,23 @@
  * this service. HTTP is plain GET on port 80 (`/ajax/…`), fire-and-forget —
  * there is no push feedback, which is why the kiosk reports the outcome.
  *
- * Mapping: one playback (01–64) per cabin control, configured in the CMS.
- *   toggle on   → pbXX/in=100     level → pbXX/in=<0..100>
- *   toggle off  → pbXX/re (release, so the standalone scene resumes)
- *   scene       → pbXX/ju=<cue>   (cue 1–48; the CMS maps scene key → cue)
- *   flash       → pbXX/fl=1       (momentary; the device does the timing)
- * Intensity is native to the device, so a dimmable control needs no extra
- * plumbing. `/ajax/hello` is the health ping.
+ * Mapping: one playback (01–64) per catalog key (packages/shared cabin.ts
+ * `LPU2_KEYS`), numbers from the CMS. Command style follows the rig's own
+ * table: start = `pbXX/go` (runs the programmed cue at its stored levels),
+ * stop = `pbXX/re` (release — the standalone/background scene takes over,
+ * the cabin is never left dark by our doing). Playbacks are ADDITIVE, so
+ * switching a CW/WW zone on means: go on the wanted variant + re on its
+ * sibling. `in=0..100` dims a RUNNING playback below its stored maxima;
+ * `ju=` jumps to a cue, `fl=` flashes.
  */
 
 import type { CabinActuation, CabinControlId } from "@cosimo/shared";
 
-/** Which playback drives which cabin control; scene controls also carry
- *  their cue numbers (scene key → cue 1–48). */
-export type Lpu2Mapping = Partial<Record<CabinControlId, { playback: number; cues?: Record<string, number> }>>;
+/** Playback per catalog key (see `LPU2_KEYS`); scene controls may carry cue numbers. */
+export type Lpu2Mapping = Record<string, { playback: number; cues?: Record<string, number> }>;
 
 export interface Lpu2Config {
-  /** Base URL on the cabin LAN, e.g. http://10.0.0.50 — empty = not wired up. */
+  /** Base URL on the cabin LAN — empty = not wired up, everything simulated. */
   baseUrl: string;
   mapping: Lpu2Mapping;
   timeoutMs: number;
@@ -39,31 +39,71 @@ function intensity(level: number): number {
   return Math.max(0, Math.min(100, Math.round(level)));
 }
 
+function ajax(config: Lpu2Config, path: string): string {
+  return `${config.baseUrl.replace(/\/+$/, "")}/ajax/${path}`;
+}
+
+/** One playback command URL for a mapped key, or null when unmapped. */
+function pbUrl(config: Lpu2Config, key: string, cmd: string): string | null {
+  const entry = config.mapping[key];
+  if (!config.baseUrl || !entry) return null;
+  return ajax(config, `${playback(entry.playback)}/${cmd}`);
+}
+
 /**
- * Build the actuation for one control change, or null when this control has no
- * playback configured (simulated-only) or the controller isn't set up at all —
- * in which case the demo simply runs on-screen, as it does today.
+ * Build the actuation for one RIDER control change, or null when nothing is
+ * mapped (simulated-only) — the demo then simply runs on-screen.
+ *
+ * `interior-light` = the rooflight pair: on → warm white `go` + cold white
+ * `re` (spoken default is WW; additive playbacks would otherwise mix), off →
+ * both `re`. `reading-lamp` = the seat's own playback (`reading-<seat>`),
+ * so a seat without a configured number stays simulated.
  */
 export function buildActuation(
   control: CabinControlId,
   change: { on?: boolean; level?: number; scene?: string; flash?: true },
   config: Lpu2Config,
+  seat?: number,
 ): CabinActuation | null {
-  const entry = config.mapping[control];
-  if (!config.baseUrl || !entry) return null;
-
-  const base = `${config.baseUrl.replace(/\/+$/, "")}/ajax/${playback(entry.playback)}`;
   const urls: string[] = [];
-  if (change.flash) urls.push(`${base}/fl=1`);
-  else if (change.scene !== undefined) {
-    // Unknown scene key or unmapped cue → simulated only, never a bad jump.
-    const cue = entry.cues?.[change.scene];
-    if (cue !== undefined) urls.push(`${base}/ju=${cue}`);
-  } else if (change.level !== undefined) urls.push(`${base}/in=${intensity(change.level)}`);
-  else if (change.on === true) urls.push(`${base}/in=100`);
-  // Release rather than in=0: the playback lets go and the LPU-2's standalone
-  // scene takes over again — the cabin is never left dark by our doing.
-  else if (change.on === false) urls.push(`${base}/re`);
+  const push = (u: string | null) => { if (u) urls.push(u); };
+
+  if (control === "interior-light") {
+    if (change.level !== undefined) push(pbUrl(config, "interior-light-ww", `in=${intensity(change.level)}`));
+    else if (change.on === true) { push(pbUrl(config, "interior-light-ww", "go")); push(pbUrl(config, "interior-light-cw", "re")); }
+    else if (change.on === false) { push(pbUrl(config, "interior-light-ww", "re")); push(pbUrl(config, "interior-light-cw", "re")); }
+  } else if (control === "reading-lamp") {
+    const key = seat && seat >= 1 && seat <= 4 ? `reading-${seat}` : null;
+    if (!key) return null;
+    if (change.level !== undefined) push(pbUrl(config, key, `in=${intensity(change.level)}`));
+    else if (change.on === true) push(pbUrl(config, key, "go"));
+    else if (change.on === false) push(pbUrl(config, key, "re"));
+  }
 
   return urls.length ? { control, urls, timeoutMs: config.timeoutMs } : null;
+}
+
+/**
+ * Host light actions (console buttons): a mapped catalog key toggled on/off
+ * (`go`/`re`), or a global — blackout on/off, release-all, hello (the
+ * connection test; the actuating iPad reports whether the LPU answered).
+ */
+export function buildHostLight(
+  key: string,
+  on: boolean,
+  config: Lpu2Config,
+): CabinActuation | null {
+  if (!config.baseUrl) return null;
+  const urls: string[] = [];
+  if (key === "blackout") urls.push(ajax(config, `blackout=${on ? 1 : 0}`));
+  else if (key === "release-all") urls.push(ajax(config, "release"));
+  else if (key === "hello") urls.push(ajax(config, "hello"));
+  else {
+    const u = pbUrl(config, key, on ? "go" : "re");
+    if (u) urls.push(u);
+    // A zone's `go` must silence the additive sibling variant.
+    const sibling = key.endsWith("-cw") ? key.replace(/-cw$/, "-ww") : key.endsWith("-ww") ? key.replace(/-ww$/, "-cw") : null;
+    if (on && u && sibling) { const s = pbUrl(config, sibling, "re"); if (s) urls.push(s); }
+  }
+  return urls.length ? { control: key, urls, timeoutMs: config.timeoutMs } : null;
 }

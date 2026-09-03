@@ -274,6 +274,49 @@ async function seed(): Promise<void> {
     console.log(`[seed] voice catalog seeded (${VOICES.length} voices)`);
   }
 
+  // The cabin light rig: LPU-2 address + playback map, exactly the Cuety
+  // table from the vehicle team (2026-09-02). Zones are CW/WW pairs, reading
+  // lamps individual per seat, red signals host-only. Only seeded when no
+  // mapping exists — an operator-edited map stays.
+  const PLAYBACKS = [
+    { control: "interior-light-cw", playback: 7 },
+    { control: "interior-light-ww", playback: 8 },
+    { control: "reading-1", playback: 49 },
+    { control: "reading-2", playback: 50 },
+    { control: "reading-3", playback: 51 },
+    { control: "reading-4", playback: 52 },
+    { control: "outer-cw", playback: 1 },
+    { control: "outer-ww", playback: 2 },
+    { control: "floor-cw", playback: 3 },
+    { control: "floor-ww", playback: 4 },
+    { control: "roofline-cw", playback: 5 },
+    { control: "roofline-ww", playback: 6 },
+    { control: "headrests-cw", playback: 9 },
+    { control: "headrests-ww", playback: 10 },
+    { control: "signals-cw", playback: 25 },
+    { control: "signals-ww", playback: 26 },
+    { control: "signals-front-red", playback: 33 },
+    { control: "signals-rear-red", playback: 34 },
+    { control: "signals-front-flash", playback: 35 },
+    { control: "signals-rear-flash", playback: 36 },
+  ] as const;
+  const opConfig3 = await payload.findGlobal({ slug: "operator-config" });
+  if (opConfig3?.cabin?.lpu2Playbacks?.length) {
+    console.log("[seed] LPU-2 playback map exists: keeping the operator's mapping");
+  } else {
+    await payload.updateGlobal({
+      slug: "operator-config",
+      data: {
+        cabin: {
+          ...(opConfig3?.cabin ?? {}),
+          lpu2BaseUrl: opConfig3?.cabin?.lpu2BaseUrl || "http://192.168.96.176",
+          lpu2Playbacks: PLAYBACKS.map((p) => ({ ...p })),
+        },
+      },
+    });
+    console.log(`[seed] LPU-2 playback map seeded (${PLAYBACKS.length} playbacks)`);
+  }
+
   process.exit(0);
 }
 

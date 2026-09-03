@@ -3,12 +3,27 @@ import type { Locale } from "@cosimo/shared";
 
 /**
  * Push-to-talk capture, extracted from the old button so any surface (the
- * Face circle, later a physical button relay) can drive it. Two modes:
+ * Face circle, later a physical button relay) can drive it. Three modes, in
+ * this order:
  *  - server STT available → record audio (MediaRecorder) and upload it;
+ *  - a native recognizer was injected (the iPad app wraps Apple's
+ *    SFSpeechRecognizer — free, on-device, works without server STT);
  *  - otherwise → browser Web Speech recognition (not available in WKWebView).
  */
+
+/**
+ * A platform recognizer injected by the host app (Capacitor plugin around
+ * Apple dictation). seat-ui stays pure web: it only calls this contract.
+ */
+export interface NativeDictation {
+  /** Begin listening. Errors (permission, engine) surface via `onError`. */
+  start: (lang: "de-DE" | "en-US", onError: (message: string) => void) => Promise<void>;
+  /** Stop listening and resolve with the final transcript (null = nothing heard). */
+  stop: () => Promise<string | null>;
+}
 export function usePushToTalk({
   serverStt,
+  nativeStt,
   lang,
   onStart,
   onStop,
@@ -16,6 +31,8 @@ export function usePushToTalk({
   onTranscript,
 }: {
   serverStt: boolean;
+  /** Injected by the native app when Apple dictation is available. */
+  nativeStt?: NativeDictation | null;
   lang: Locale;
   onStart: () => void;
   onStop: () => void;
@@ -45,7 +62,8 @@ export function usePushToTalk({
     typeof window !== "undefined" &&
     (serverStt
       ? typeof navigator !== "undefined" && !!navigator.mediaDevices
-      : !!(
+      : Boolean(nativeStt) ||
+        !!(
           (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition ||
           (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
         ));
@@ -74,6 +92,17 @@ export function usePushToTalk({
         recorderRef.current = rec;
       } catch (err) {
         setError(`microphone: ${err instanceof Error ? err.message : String(err)}`);
+        setActive(false);
+        onStop();
+      }
+      return;
+    }
+
+    if (nativeStt) {
+      try {
+        await nativeStt.start(lang === "de" ? "de-DE" : "en-US", (msg) => setError(`dictation: ${msg}`));
+      } catch (err) {
+        setError(`dictation: ${err instanceof Error ? err.message : String(err)}`);
         setActive(false);
         onStop();
       }
@@ -134,6 +163,14 @@ export function usePushToTalk({
       } catch {
         /* ignore */
       }
+    } else if (nativeStt) {
+      void nativeStt
+        .stop()
+        .then((text) => {
+          if (text) onTranscript(text, lang);
+          else setError((prev) => prev ?? "dictation: nothing recognised");
+        })
+        .catch((err) => setError(`dictation: ${err instanceof Error ? err.message : String(err)}`));
     } else {
       try {
         recognitionRef.current?.stop();

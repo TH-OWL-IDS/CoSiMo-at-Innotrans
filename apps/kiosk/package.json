@@ -10,6 +10,7 @@
     "ios:open": "cap open ios"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/core": "^7.4.0",
     "@capacitor/ios": "^7.4.0",
     "@capacitor/preferences": "^7.0.1",

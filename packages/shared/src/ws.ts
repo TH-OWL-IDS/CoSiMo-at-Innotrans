@@ -146,19 +146,17 @@ export interface HostConfigBroadcast {
     mapped: number;
     controls: number;
     timeoutMs: number;
-    /** One row per cabin control: which playback drives it (null = not
-     *  assigned in the CMS, simulated only) and the exact URLs the kiosk
-     *  fires for on / off — the console shows them so the mapping can be
-     *  checked against the LPU-2 without a cabin. */
+    /** One row per LPU-2 catalog key (packages/shared cabin.ts LPU2_KEYS):
+     *  which playback drives it (null = not assigned in the CMS, simulated
+     *  only) and the exact URLs the kiosk fires for an (`go`) / aus (`re`) —
+     *  so the mapping can be checked against the LPU-2 without a cabin.
+     *  `rider` keys are reachable through CoSiMo, `zone`/`signal` keys only
+     *  through the console's light buttons. */
     routes: {
-      control: CabinControlId; label: string; real: boolean;
-      scope: "cabin" | "seat";
-      kind: "toggle" | "level" | "scene" | "flash";
+      key: string; label: string; group: "rider" | "zone" | "signal";
       playback: number | null;
-      /** The exact URLs the kiosk would fire, one row per action ("an",
-       *  "aus", "50 %", a scene, "Blitz") — so the mapping can be checked
-       *  against the LPU-2 without a cabin. Empty = simulated only. */
-      urls: { label: string; url: string }[];
+      on: string | null;
+      off: string | null;
     }[];
   };
   /** The system prompt as the agent builds it right now (core + voice
@@ -308,7 +306,7 @@ export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
   /** `token`: consoles send the SHA-256 of the operator password; the hub
    *  compares it with its HOST_TOKEN. Journey views and seats send none. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string }) => void;
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;
@@ -361,6 +359,10 @@ export interface ClientToServerEvents {
   /** Restart a deployable's container via the Docker socket proxy (prod). */
   "host:restart-service": (payload: { id: ServiceInfo["id"] }) => void;
   /** Console "Testen": one short generation on the current LLM route. */
+  /** Console light buttons: a catalog key (zone/signal) toggled on/off, or a
+   *  global — "blackout" (on/off), "release-all", "hello" (LPU-2 test). The
+   *  hub builds the URLs and routes them to one healthy kiosk. */
+  "host:light": (payload: { key: string; on?: boolean }) => void;
   "host:llm-test": (payload: Record<string, never>) => void;
   /** Console "Testen" on the TTS / STT cards: one round-trip on the live route, no seat. */
   "host:tts-test": (payload: { /** Catalog voice key; omitted = the default voice. */ voice?: string }) => void;

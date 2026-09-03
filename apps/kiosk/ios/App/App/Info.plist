@@ -42,6 +42,8 @@
 	<string>CoSiMo steuert das Licht in der Kabine über das lokale Kabinennetz.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CoSiMo hört nur, während die Sprechen-Taste gehalten wird (Push-to-talk).</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>CoSiMo erkennt deine Frage direkt auf dem iPad, wenn keine Server-Spracherkennung verfügbar ist.</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>

@@ -101,6 +101,30 @@ Tailwind v4 needs WebKit 16.4+ (cascade layers, `@property`), so the iOS
 deployment target is **17.0** (`ios/App/Podfile`, `project.pbxproj`) —
 the iPad minis at the stand run iOS 17/18.
 
+## Seat position (Sitzplatz)
+
+The hidden setup screen carries a **Sitzplatz** picker (1 = front … 4 =
+rear, "keiner" = unset), stored per device like the panel calibration and
+sent in the socket `hello`. The hub uses it to pick the seat's reading-lamp
+playback (PB 49-52 on the LPU-2); an unset seat keeps its lamp simulated.
+Set it once per iPad at build-up.
+
+## Voice input — three modes
+
+`usePushToTalk` picks the first available mode on each press:
+
+1. **Server STT** (`status.serverStt`, Deepgram): record via MediaRecorder,
+   upload, hub transcribes. The primary path — works in app and emulator.
+2. **Native dictation** (app only): Apple `SFSpeechRecognizer` via
+   `@capacitor-community/speech-recognition`, injected by the app as the
+   seat-ui `NativeDictation` contract (`nativeDictation.ts`). Free,
+   on-device, the fallback when the hub has no Deepgram key. Needs
+   `NSSpeechRecognitionUsageDescription` (present) and one permission
+   prompt per device.
+3. **Web Speech** (browser only): Chrome/Safari dev fallback —
+   `webkitSpeechRecognition` does not exist in WKWebView, which is why the
+   native app is silent without modes 1 or 2.
+
 ## Build & run
 
 ```bash

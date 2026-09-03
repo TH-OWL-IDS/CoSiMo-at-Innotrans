@@ -45,6 +45,8 @@ import {
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
+  LIGHT_SIGNALS,
+  LIGHT_ZONES,
   type Accommodations,
   type CabinControlId,
   type CabinControlState,
@@ -774,27 +776,28 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             ["Schaltungen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""} · zuletzt ${ago(lastCabin!.ts, now)}${lastCabin!.data.ok ? "" : ` (${lastCabin!.data.error ?? "Fehler"})`}` : "noch keine"],
           ]}
         >
-          {/* the routes, as the CMS maps them: control → playback → the URLs the iPad fires */}
-          <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
-            {(cfg?.cabin.routes ?? []).map((r) => (
-              <div key={r.control} className="flex min-w-0 flex-col gap-0.5 text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="font-semibold">{r.label}</span>
-                  <span className="text-mute">{r.scope === "cabin" ? "Kabine" : "Sitz"} · {r.real ? "echt" : "nur Bildschirm"}</span>
-                  <span className="ml-auto shrink-0 tabular-nums">{r.playback != null ? `Playback ${String(r.playback).padStart(2, "0")}` : <span className="text-mute">nicht zugeordnet</span>}</span>
-                </span>
-                {r.urls.length > 0 ? (
-                  <span className="flex flex-col gap-0.5 text-xs text-mute">
-                    {r.urls.map((u) => (
-                      <span key={u.label} className="truncate" title={u.url}>{u.label} → <code>{u.url.replace(/^https?:\/\//, "")}</code></span>
-                    ))}
+          {/* the rig catalog, as the CMS maps it: key → playback; the exact go/re URLs live in the tooltip */}
+          <div className="flex max-h-[210px] flex-col gap-1 overflow-y-auto border-t border-line-soft pt-2.5 pr-1">
+            {(["rider", "zone", "signal"] as const).map((group) => {
+              const rows = (cfg?.cabin.routes ?? []).filter((r) => r.group === group);
+              if (rows.length === 0) return null;
+              return (
+                <div key={group} className="flex flex-col gap-0.5">
+                  <span className="text-2xs uppercase tracking-caps text-mute">
+                    {group === "rider" ? "Fahrgast (per Stimme)" : group === "zone" ? "Zonen (nur Personal)" : "Signale (nur Personal)"}
                   </span>
-                ) : (
-                  <span className="text-xs text-mute">{cfg?.cabin.lpu2BaseUrl ? "kein Playback im CMS — wird nur simuliert" : "keine LPU-2-Adresse im CMS — wird nur simuliert"}</span>
-                )}
-              </div>
-            ))}
-            {cfg && cfg.cabin.routes.length === 0 && <span className="text-sm text-mute">keine Kabinenfunktionen definiert</span>}
+                  {rows.map((r) => (
+                    <Tip key={r.key} tip={r.on ? `an → ${r.on}\naus → ${r.off ?? "—"}` : "kein Playback im CMS — wird nur simuliert"}>
+                      <span className="flex items-center gap-2 text-sm">
+                        <span className="min-w-0 truncate">{r.label}</span>
+                        <span className="ml-auto shrink-0 tabular-nums">{r.playback != null ? `pb${String(r.playback).padStart(2, "0")}` : <span className="text-mute">—</span>}</span>
+                      </span>
+                    </Tip>
+                  ))}
+                </div>
+              );
+            })}
+            {cfg && cfg.cabin.routes.length === 0 && <span className="text-sm text-mute">{cfg.cabin.lpu2BaseUrl ? "keine Playbacks im CMS" : "keine LPU-2-Adresse im CMS — alles simuliert"}</span>}
           </div>
         </ServiceCard>
         <Dialog.Root open={lightOpen} onOpenChange={setLightOpen}>
@@ -843,8 +846,42 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
                     />
                   );
                 })}
+                {/* host-only rig control: zones (CW/WW pairs, additive → the hub
+                    releases the sibling), red signals, globals. Stateless by
+                    design — the cabin is in front of the operator's eyes. */}
+                <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
+                  <span className="text-2xs uppercase tracking-caps text-mute">Zonen (nur Personal)</span>
+                  {LIGHT_ZONES.map((z) => (
+                    <div key={z.id} className="flex items-center gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate">{z.label}</span>
+                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(`${z.id}-cw`, true)}>kalt</Button>
+                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(`${z.id}-ww`, true)}>warm</Button>
+                      <Button size="xs" variant="secondary" onClick={() => { c.hostLight(`${z.id}-cw`, false); c.hostLight(`${z.id}-ww`, false); }}>aus</Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
+                  <span className="text-2xs uppercase tracking-caps text-mute">Signale (nur Personal)</span>
+                  {LIGHT_SIGNALS.map((sg) => (
+                    <div key={sg.id} className="flex items-center gap-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate">{sg.label}</span>
+                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(sg.id, true)}>an</Button>
+                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(sg.id, false)}>aus</Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
+                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("blackout", true)}>Blackout an</Button>
+                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("blackout", false)}>Blackout aus</Button>
+                  <Button size="xs" variant="secondary" tone="accent" onClick={() => { if (window.confirm("Alle Playbacks releasen? Die Standalone-Szene übernimmt.")) c.hostLight("release-all"); }}>
+                    Alles releasen
+                  </Button>
+                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("hello")}>
+                    <FlaskConical size={13} /> LPU-2 testen
+                  </Button>
+                </div>
                 <span className="text-xs text-mute">
-                  Die Kabinen-Lichter sind für alle Sitze dieselben — ein iPad feuert die LPU-2-URLs („nicht bestätigt“ = keine Antwort vom Controller). Die Leselampe gehört dem einzelnen Sitz und existiert nur auf dessen Bildschirm.
+                  Innenlicht (Rooflight) und die Leselampe des jeweiligen Sitzes erreicht auch der Fahrgast über CoSiMo — Zonen, Signale und Blackout nur diese Konsole. Ein iPad im Kabinen-LAN feuert die LPU-2-URLs; das Ergebnis steht in den System-Logs („nicht bestätigt“ = keine Antwort vom Controller).
                 </span>
               </div>
             </Dialog.Content>

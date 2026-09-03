@@ -25,15 +25,22 @@ export interface PanelLayout {
   guides: boolean;
 }
 
-/** Rough defaults for a portrait iPad mini behind the MonoCab panel. */
+/**
+ * Defaults measured against the real panel (2026-08-31): iPad mini (A17 Pro)
+ * active screen 115.9 x 176.6 mm portrait (2266x1488 @ 326 ppi); cutouts
+ * circle Ø 110 mm, slit 24 x 110 mm. Percentages = mm / screen mm. The Y
+ * positions assume the cutout group sits vertically centred with equal
+ * spacing (14 mm top / gap / bottom) — calibrate per device with `guides`,
+ * the horizontal margin is only ~3 mm per side.
+ */
 export const DEFAULT_PANEL_LAYOUT: PanelLayout = {
   circleX: 50,
-  circleY: 36,
-  circleD: 82,
+  circleY: 39.2,
+  circleD: 94.9,
   slitX: 50,
-  slitY: 78,
-  slitW: 78,
-  slitH: 5,
+  slitY: 85.2,
+  slitW: 94.9,
+  slitH: 13.6,
   slitR: 999,
   guides: false,
 };

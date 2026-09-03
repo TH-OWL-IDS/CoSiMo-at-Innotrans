@@ -55,7 +55,9 @@ export interface CabinControlState {
  * makes them the actuators. The calls are idempotent — a repeat is harmless.
  */
 export interface CabinActuation {
-  control: CabinControlId;
+  /** A CabinControlId, or a host light key (zones/signals/global) — the
+   *  kiosk never interprets it, it only echoes it in the result. */
+  control: string;
   /** Absolute URLs to GET in order, built server-side. */
   urls: string[];
   /** Per-request timeout; the cabin LAN is local, so this is short. */
@@ -64,13 +66,62 @@ export interface CabinActuation {
 
 /** What the kiosk reports back after trying an actuation. */
 export interface CabinActuationResult {
-  control: CabinControlId;
+  control: string;
   ok: boolean;
   /** Short reason when it failed — surfaced in the host console. */
   error?: string;
 }
 
+/**
+ * The rig's playback catalog (Cuety table, 2026-09-02). Every entry is one
+ * CMS-mappable key → LPU-2 playback. Zones come as CW/WW pairs (playbacks
+ * are additive, so switching a zone to WW must release its CW sibling);
+ * reading lamps are individual per seat (the kiosk's configured seat number
+ * picks the key). The rider reaches only the rooflight (via
+ * `interior-light`, WW is the spoken default) and their own reading lamp —
+ * everything else is host-only, driven from the console.
+ */
+export interface Lpu2KeyDef {
+  key: string;
+  label: string;
+  group: "rider" | "zone" | "signal";
+}
+
+/** Console-operable zones (each `<id>-cw` / `<id>-ww` mapping key). */
+export const LIGHT_ZONES: { id: string; label: string }[] = [
+  { id: "outer", label: "Au\u00dfenlicht" },
+  { id: "floor", label: "Bodenlicht" },
+  { id: "roofline", label: "Dachlinie" },
+  { id: "headrests", label: "Kopfst\u00fctzen" },
+  { id: "signals", label: "Signale wei\u00df" },
+];
+
+/** The red signal playbacks — host-only, momentary toggles (go/re). */
+export const LIGHT_SIGNALS: { id: string; label: string }[] = [
+  { id: "signals-front-red", label: "Signal vorn rot" },
+  { id: "signals-rear-red", label: "Signal hinten rot" },
+  { id: "signals-front-flash", label: "Signal vorn rot blinkend" },
+  { id: "signals-rear-flash", label: "Signal hinten rot blinkend" },
+];
+
+export const LPU2_KEYS: Lpu2KeyDef[] = [
+  { key: "interior-light-cw", label: "Innenlicht (Rooflight) \u2013 kaltwei\u00df", group: "rider" },
+  { key: "interior-light-ww", label: "Innenlicht (Rooflight) \u2013 warmwei\u00df", group: "rider" },
+  { key: "reading-1", label: "Leselampe Sitz 1 (vorn)", group: "rider" },
+  { key: "reading-2", label: "Leselampe Sitz 2 (Mitte vorn)", group: "rider" },
+  { key: "reading-3", label: "Leselampe Sitz 3 (Mitte hinten)", group: "rider" },
+  { key: "reading-4", label: "Leselampe Sitz 4 (hinten)", group: "rider" },
+  ...LIGHT_ZONES.flatMap(({ id, label }) => [
+    { key: `${id}-cw`, label: `${label} \u2013 kaltwei\u00df`, group: "zone" as const },
+    { key: `${id}-ww`, label: `${label} \u2013 warmwei\u00df`, group: "zone" as const },
+  ]),
+  ...LIGHT_SIGNALS.map(({ id, label }) => ({ key: id, label, group: "signal" as const })),
+];
+
+/** Host-only global actions (no playback, fixed endpoints). */
+export type HostLightGlobal = "blackout" | "release-all" | "hello";
+
 export const CABIN_CONTROLS: CabinControlDef[] = [
   { id: "interior-light", label: { de: "Innenlicht", en: "Interior light" }, real: true, kind: "toggle", scope: "cabin" },
-  { id: "reading-lamp", label: { de: "Leselampe", en: "Reading lamp" }, real: false, kind: "toggle", scope: "seat" },
+  { id: "reading-lamp", label: { de: "Leselampe", en: "Reading lamp" }, real: true, kind: "toggle", scope: "seat" },
 ];

@@ -9,7 +9,7 @@
 
 import { createHash } from "node:crypto";
 import type { Server, Socket } from "socket.io";
-import { buildActuation, type Lpu2Config } from "./cabin/lpu2.js";
+import { buildActuation, buildHostLight, type Lpu2Config } from "./cabin/lpu2.js";
 import { logger } from "./log/logger.js";
 import { config } from "./config.js";
 import {
@@ -183,6 +183,9 @@ interface DeviceEntry {
   lastActivity: number;
   /** This seat's cabin controls (per-seat reading lamp etc.). */
   controls: CabinControlState[];
+  /** Physical seat position 1-4 (kiosk operator setting) — picks the
+   *  reading-lamp playback. undefined = not configured, lamp stays simulated. */
+  seat?: number;
   /** A visitor session is in progress (consent decided or first input). */
   active: boolean;
   consent: boolean;
@@ -241,7 +244,7 @@ export class Hub {
   private readonly cabinControls: CabinControlState[] = freshState(CABIN_CONTROLS.filter((c) => c.scope === "cabin"));
   /** Who asked for the last actuation of a control — log attribution only
    *  (the result may come from a stand-in actuator). */
-  private readonly pendingActuation = new Map<CabinControlId, { requestedBy: string; at: number }>();
+  private readonly pendingActuation = new Map<string, { requestedBy: string; at: number }>();
   /** The last real (physical) switch attempt reported by a seat failed. */
   private lightFailed = false;
   private personaResolver: PersonaResolver | undefined;
@@ -607,7 +610,7 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role, kind, token }) => {
+    socket.on("hello", ({ deviceId, role, kind, token, seat }) => {
       const resolvedKind: ClientKind = kind ?? (role === "host" ? "console" : "kiosk");
       // Consoles must present the operator password (as SHA-256); without
       // HOST_TOKEN configured (dev) everything passes. Seats and journey
@@ -659,6 +662,9 @@ export class Hub {
         if (state.sessionId) this.sessionDevice.set(state.sessionId, deviceId);
         logger.log("seat.connect", { role, restored: true }, { deviceId, sessionId: state.sessionId || undefined });
       }
+      // The seat number is a property of the MOUNT (operator-set on the
+      // device), so the fresh hello always wins over parked state.
+      entry.seat = typeof seat === "number" && seat >= 1 && seat <= 4 ? Math.round(seat) : undefined;
       this.parked.delete(deviceId);
       // Console cap: evict the oldest console(s) to make room for this one.
       if (entry.kind === "console") {
@@ -721,6 +727,22 @@ export class Hub {
           } else {
             e.socket.emit("host:reload", { by: deviceId });
           }
+        });
+        socket.on("host:light", ({ key, on }) => {
+          const cfg = this.lpu2Config?.();
+          const actuation = cfg ? buildHostLight(key, Boolean(on), cfg) : null;
+          if (!actuation) {
+            logger.log("cabin.result", { control: key, scope: "host", ok: false, error: cfg?.baseUrl ? "nicht zugeordnet" : "keine LPU-2-Adresse" }, { deviceId, level: "warn" });
+            return;
+          }
+          const actor = this.pickActuator(undefined);
+          if (!actor) {
+            logger.log("cabin.result", { control: key, scope: "host", ok: false, error: "no actuator" }, { deviceId, level: "warn" });
+            return;
+          }
+          this.pendingActuation.set(key, { requestedBy: deviceId, at: Date.now() });
+          logger.log("cabin.actuate", { control: key, scope: "host", urls: actuation.urls, change: { on: Boolean(on) }, actuator: actor.id }, { deviceId });
+          actor.entry.socket.emit("cabin:actuate", actuation);
         });
         socket.on("host:llm-test", () => {
           logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
@@ -888,7 +910,17 @@ export class Hub {
       this.countEvent("cabin:actuate:result", deviceId);
       const entry = this.devices.get(deviceId);
       const def = CABIN_CONTROLS.find((c) => c.id === control);
-      if (!entry || !def) return;
+      if (!entry) return;
+      if (!def) {
+        // A host light action (zone/signal/global) — no rider-visible state,
+        // but every one of these is a real LPU-2 call, so it drives the
+        // light status like the lamp does.
+        this.pendingActuation.delete(control);
+        logger.log("cabin.result", { control, scope: "host", ok, ...(error ? { error } : {}) }, { deviceId, level: ok ? "info" : "warn" });
+        this.lightFailed = !ok;
+        this.syncLightStatus();
+        return;
+      }
       // degraded lives with the state's owner: the cabin for shared controls,
       // this seat for its own. flash carries no state — log only.
       const state = def.kind === "flash"
@@ -1491,7 +1523,7 @@ export class Hub {
     // Fire-and-forget — the actuator answers with cabin:actuate:result, and
     // the demo carries on regardless (state is already broadcast above).
     const actuation = this.lpu2Config
-      ? buildActuation(control, change, this.lpu2Config())
+      ? buildActuation(control, change, this.lpu2Config(), requester?.seat)
       : null;
     if (actuation) {
       const actor = this.pickActuator(deviceId);

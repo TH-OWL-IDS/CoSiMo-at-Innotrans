@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, RotateCcw } from "lucide-react";
 import { Brand, Button, Card, Eyebrow, Input } from "@cosimo/ui";
-import type { PanelLayout } from "../config/panelLayout";
+import { DEFAULT_PANEL_LAYOUT, type PanelLayout } from "../config/panelLayout";
 
 /**
  * Operator-only screen: server URL + panel-cutout calibration. Shown on
@@ -12,13 +12,16 @@ import type { PanelLayout } from "../config/panelLayout";
 export default function ServerSetup({
   current,
   layout,
+  seat,
   onSave,
   onCancel,
   onOpenTestChat,
 }: {
   current: string | null;
   layout: PanelLayout;
-  onSave: (url: string, layout: PanelLayout) => void;
+  /** Physical seat position 1-4, 0 = not configured. */
+  seat: number;
+  onSave: (url: string, layout: PanelLayout, seat: number) => void;
   /** Present when opened as an overlay over a running kiosk. */
   onCancel?: () => void;
   /** Testing aid: return to the kiosk with the text console open. */
@@ -26,6 +29,7 @@ export default function ServerSetup({
 }) {
   const [draft, setDraft] = useState(current ?? "https://");
   const [geo, setGeo] = useState<PanelLayout>(layout);
+  const [seatDraft, setSeatDraft] = useState(seat);
   const [error, setError] = useState("");
 
   const submit = (e: React.FormEvent) => {
@@ -38,7 +42,7 @@ export default function ServerSetup({
       setError("Bitte eine vollständige URL angeben, z. B. https://cosimo.example.org");
       return;
     }
-    onSave(url, geo);
+    onSave(url, geo, seatDraft);
   };
 
   const num = (key: keyof PanelLayout, label: string) => (
@@ -87,6 +91,29 @@ export default function ServerSetup({
         />
 
         <Card className="items-center">
+          <Eyebrow>Sitzplatz</Eyebrow>
+          {/* which physical seat this iPad is mounted at — the hub picks the
+              seat's reading-lamp playback (PB 49-52) from this */}
+          <div className="flex gap-2">
+            {[0, 1, 2, 3, 4].map((n) => (
+              <Button
+                key={n}
+                type="button"
+                size="sm"
+                variant={seatDraft === n ? "primary" : "secondary"}
+                aria-pressed={seatDraft === n}
+                onClick={() => setSeatDraft(n)}
+              >
+                {n === 0 ? "keiner" : String(n)}
+              </Button>
+            ))}
+          </div>
+          <p className="m-0 max-w-[26rem] text-sm text-mute">
+            1 = vorn, 4 = hinten. Bestimmt, welche Leselampe dieser Sitz schaltet — ohne Zuordnung bleibt sie simuliert.
+          </p>
+        </Card>
+
+        <Card className="items-center">
           <Eyebrow>Panel-Kalibrierung (%)</Eyebrow>
           <div className="flex flex-wrap justify-center gap-3">
             {num("circleX", "Kreis X")}
@@ -109,6 +136,11 @@ export default function ServerSetup({
             />
             Umrisse anzeigen (zum Ausrichten hinter dem Panel)
           </label>
+          {/* Back to the measured panel defaults (Ø 110 mm / 24 x 110 mm on the
+              iPad mini). Only the draft resets — nothing sticks until Speichern. */}
+          <Button type="button" size="sm" onClick={() => setGeo({ ...DEFAULT_PANEL_LAYOUT, guides: geo.guides })}>
+            <RotateCcw size={14} /> Auf Standardmaße zurücksetzen
+          </Button>
         </Card>
 
         <div className="flex gap-2.5">

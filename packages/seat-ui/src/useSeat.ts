@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
 import { schemeById, type ColorScheme } from "@cosimo/face";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
-import { usePushToTalk } from "./usePushToTalk.js";
+import { usePushToTalk, type NativeDictation } from "./usePushToTalk.js";
 import { useBrowserTts } from "./useBrowserTts.js";
 
 /** Everything a seat renderer needs, derived once from the live socket state. */
@@ -28,8 +28,17 @@ export interface Seat {
  * the same language resolution, accommodation mapping,
  * push-to-talk and TTS fallback — so "works in the emulator" means something.
  */
-export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk"): Seat {
-  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind);
+export function useSeat(
+  serverUrl: string,
+  kind: "kiosk" | "emulator" = "kiosk",
+  opts?: {
+    /** Native dictation (Apple SFSpeechRecognizer), injected by the iPad app. */
+    nativeStt?: NativeDictation | null;
+    /** Physical seat position 1-4 (kiosk operator setting). */
+    seat?: number;
+  },
+): Seat {
+  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind, undefined, opts?.seat);
   const [lang, setLang] = useState<Locale>("de");
   // The active profile's preferred language becomes the seat's UI language
   // (e.g. an NFC scan loads an English-speaking rider). The visitor can still
@@ -55,6 +64,7 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
 
   const ptt = usePushToTalk({
     serverStt,
+    nativeStt: opts?.nativeStt,
     lang,
     onStart: cosimo.pttStart,
     onStop: cosimo.pttStop,
@@ -69,7 +79,7 @@ export function useSeat(serverUrl: string, kind: "kiosk" | "emulator" = "kiosk")
     if (!pttSupported) {
       // eslint-disable-next-line no-console
       console.warn(
-        "[cosimo-seat] push-to-talk unavailable: no server STT (DEEPGRAM_API_KEY) and this browser has no SpeechRecognition (use Chrome for the dev fallback).",
+        "[cosimo-seat] push-to-talk unavailable: no server STT (DEEPGRAM_API_KEY), no native dictation, and this browser has no SpeechRecognition (use Chrome for the dev fallback).",
       );
     }
   }, [pttSupported]);

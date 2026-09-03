@@ -1,4 +1,5 @@
 import type { GlobalConfig } from "payload";
+import { LPU2_KEYS } from "@cosimo/shared";
 
 /**
  * Operator config — the AI endpoints CoSiMo talks to, editable live in the
@@ -252,7 +253,7 @@ export const OperatorConfig: GlobalConfig = {
           label: "Playback-Zuordnung",
           admin: {
             description:
-              "Welcher Playback (1–64) steuert welche Kabinenfunktion. Nicht zugeordnete Funktionen bleiben rein simuliert. An = in=100, Stufe = in=<Wert>, Aus = re (Release, die Standalone-Szene übernimmt wieder), Szene = ju=<Cue>, Blitz = fl=1. Szenen-Schlüssel kommen aus dem Code (packages/shared cabin.ts) — hier wird nur die Cue-Nummer zugeordnet.",
+              "Welcher Playback (1–64) steuert welchen Eintrag des Rig-Katalogs. Nicht zugeordnete Einträge bleiben rein simuliert. An = pbXX/go (Cue mit gespeicherten Werten), Aus = pbXX/re (Release, die Standalone-Szene übernimmt). Playbacks sind additiv — bei CW/WW-Paaren released der Hub das Geschwister automatisch. Fahrgast-Einträge erreicht CoSiMo per Stimme (Innenlicht = Rooflight, warmweiß als Default; Leselampe je Sitz), Zonen und Signale nur das Standpersonal über die Konsole.",
           },
           fields: [
             {
@@ -260,14 +261,11 @@ export const OperatorConfig: GlobalConfig = {
               name: "control",
               type: "select",
               required: true,
-              label: "Kabinenfunktion",
-              // Hand-maintained duplicate of CABIN_CONTROLS in
-              // packages/shared/src/cabin.ts — keep the two in sync (the hub
-              // drops ids it does not know, so a stray row is harmless).
-              options: [
-                { label: "Innenlicht", value: "interior-light" },
-                { label: "Leselampe", value: "reading-lamp" },
-              ],
+              label: "Rig-Eintrag",
+              // Generated from the shared rig catalog (packages/shared
+              // cabin.ts LPU2_KEYS) — the hub drops keys it does not know,
+              // so a stray row is harmless.
+              options: LPU2_KEYS.map((k) => ({ label: k.label, value: k.key })),
             },
             {
               name: "playback",
@@ -276,31 +274,6 @@ export const OperatorConfig: GlobalConfig = {
               min: 1,
               max: 64,
               label: "Playback (1–64)",
-            },
-            {
-              name: "cues",
-              type: "array",
-              label: "Szenen (nur für Szenen-Funktionen)",
-              admin: {
-                description: "Szenen-Schlüssel → Cue-Nummer (1–48) im Playback. Nur für Funktionen mit Szenen relevant.",
-              },
-              fields: [
-                {
-                  // Not `id`: an array row's own PK is called that (AGENTS.md rule 7).
-                  name: "scene",
-                  type: "text",
-                  required: true,
-                  label: "Szenen-Schlüssel (aus dem Code)",
-                },
-                {
-                  name: "cue",
-                  type: "number",
-                  required: true,
-                  min: 1,
-                  max: 48,
-                  label: "Cue (1–48)",
-                },
-              ],
             },
           ],
         },
