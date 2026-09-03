@@ -363,6 +363,8 @@ export interface ClientToServerEvents {
    *  global — "blackout" (on/off), "release-all", "hello" (LPU-2 test). The
    *  hub builds the URLs and routes them to one healthy kiosk. */
   "host:light": (payload: { key: string; on?: boolean }) => void;
+  /** The same rig actions from a kiosk's hidden operator menu — that iPad fires them itself. */
+  "cabin:light": (payload: { key: string; on?: boolean }) => void;
   "host:llm-test": (payload: Record<string, never>) => void;
   /** Console "Testen" on the TTS / STT cards: one round-trip on the live route, no seat. */
   "host:tts-test": (payload: { /** Catalog voice key; omitted = the default voice. */ voice?: string }) => void;

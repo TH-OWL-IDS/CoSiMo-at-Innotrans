@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FlaskConical, RotateCcw } from "lucide-react";
+import { FlaskConical, Lightbulb, RotateCcw } from "lucide-react";
+import { LIGHT_SIGNALS, LIGHT_ZONES } from "@cosimo/shared";
 import { Brand, Button, Card, Eyebrow, Input } from "@cosimo/ui";
 import { DEFAULT_PANEL_LAYOUT, type PanelLayout } from "../config/panelLayout";
 
@@ -9,6 +10,32 @@ import { DEFAULT_PANEL_LAYOUT, type PanelLayout } from "../config/panelLayout";
  * telemetry slit. Visitors never see it — so it wears the console's CI,
  * not the rider UI's.
  */
+/** One rig row: a CW/WW pair (kalt · warm · aus) or a single playback (an · aus). */
+function LightRow({ label, onLight, pair, single }: {
+  label: string;
+  onLight: (key: string, on?: boolean) => void;
+  pair?: string;
+  single?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-left text-md">
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {pair ? (
+        <>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onLight(`${pair}-cw`, true)}>kalt</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onLight(`${pair}-ww`, true)}>warm</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => { onLight(`${pair}-cw`, false); onLight(`${pair}-ww`, false); }}>aus</Button>
+        </>
+      ) : (
+        <>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onLight(single!, true)}>an</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onLight(single!, false)}>aus</Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ServerSetup({
   current,
   layout,
@@ -16,6 +43,7 @@ export default function ServerSetup({
   onSave,
   onCancel,
   onOpenTestChat,
+  onLight,
 }: {
   current: string | null;
   layout: PanelLayout;
@@ -26,6 +54,8 @@ export default function ServerSetup({
   onCancel?: () => void;
   /** Testing aid: return to the kiosk with the text console open. */
   onOpenTestChat?: () => void;
+  /** Rig actions (zones, signals, globals) — this iPad fires them. Absent on first launch (no socket yet). */
+  onLight?: (key: string, on?: boolean) => void;
 }) {
   const [draft, setDraft] = useState(current ?? "https://");
   const [geo, setGeo] = useState<PanelLayout>(layout);
@@ -112,6 +142,27 @@ export default function ServerSetup({
             1 = vorn, 4 = hinten. Bestimmt, welche Leselampe dieser Sitz schaltet — ohne Zuordnung bleibt sie simuliert.
           </p>
         </Card>
+
+        {onLight && (
+          <Card className="items-stretch">
+            <Eyebrow className="justify-center"><Lightbulb size={12} className="-mb-px inline" /> Licht (Standpersonal)</Eyebrow>
+            <LightRow label="Innenlicht (Rooflight)" onLight={onLight} pair="interior-light" />
+            {[1, 2, 3, 4].map((n) => (
+              <LightRow key={n} label={`Leselampe Sitz ${n}`} onLight={onLight} single={`reading-${n}`} />
+            ))}
+            {LIGHT_ZONES.map((z) => <LightRow key={z.id} label={z.label} onLight={onLight} pair={z.id} />)}
+            {LIGHT_SIGNALS.map((sg) => <LightRow key={sg.id} label={sg.label} onLight={onLight} single={sg.id} />)}
+            <div className="flex flex-wrap justify-center gap-2 border-t border-line-soft pt-2.5">
+              <Button type="button" size="sm" variant="secondary" onClick={() => onLight("blackout", true)}>Blackout an</Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => onLight("blackout", false)}>Blackout aus</Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => { if (window.confirm("Alle Playbacks releasen?")) onLight("release-all"); }}>Alles releasen</Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => onLight("hello")}>LPU-2 testen</Button>
+            </div>
+            <p className="m-0 text-sm text-mute">
+              Dieses iPad feuert die Befehle direkt ins Kabinen-LAN. Ergebnis in der Konsole unter System-Logs.
+            </p>
+          </Card>
+        )}
 
         <Card className="items-center">
           <Eyebrow>Panel-Kalibrierung (%)</Eyebrow>

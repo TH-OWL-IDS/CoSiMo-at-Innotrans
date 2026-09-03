@@ -164,6 +164,7 @@ export interface CosimoState {
   llmTest: LlmTestResult | "pending" | null;
   testLlm: () => void;
   hostLight: (key: string, on?: boolean) => void;
+  cabinLight: (key: string, on?: boolean) => void;
   ttsTest: SpeechTestResult | "pending" | null;
   /** Optional catalog voice key; omitted = default voice. */
   testTts: (voice?: string) => void;
@@ -665,6 +666,10 @@ export function useCosimoSocket(
     setLlmTest("pending");
     sockRef.current?.emit("host:llm-test", {});
   };
+  /** Kiosk operator menu: the same rig actions, fired by this iPad. */
+  const cabinLight = (key: string, on?: boolean) => {
+    sockRef.current?.emit("cabin:light", { key, ...(on !== undefined ? { on } : {}) });
+  };
   /** Console light buttons: zone/signal key on/off, or "blackout" / "release-all" / "hello". */
   const hostLight = (key: string, on?: boolean) => {
     sockRef.current?.emit("host:light", { key, ...(on !== undefined ? { on } : {}) });
@@ -739,7 +744,7 @@ export function useCosimoSocket(
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, lastActivityAt, lastReset,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
-    llmTest, testLlm, hostLight, ttsTest, testTts, sttTest, testStt,
+    llmTest, testLlm, hostLight, cabinLight, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     unauthorized, restartService, restartResults,

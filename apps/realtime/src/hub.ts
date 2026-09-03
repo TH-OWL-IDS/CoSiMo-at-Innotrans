@@ -953,6 +953,26 @@ export class Hub {
       }
     });
 
+    // The iPad's hidden operator menu (3 s slit hold): the same rig actions
+    // as the console's light dialog, fired by this very iPad — it is in the
+    // cabin LAN, so the requester is the natural actuator.
+    socket.on("cabin:light", ({ key, on }) => {
+      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      const entry = this.devices.get(deviceId);
+      if (!entry || entry.role !== "kiosk") return;
+      const cfg = this.lpu2Config?.();
+      const actuation = cfg ? buildHostLight(String(key), Boolean(on), cfg) : null;
+      if (!actuation) {
+        logger.log("cabin.result", { control: String(key), scope: "host", ok: false, error: cfg?.baseUrl ? "nicht zugeordnet" : "keine LPU-2-Adresse" }, { deviceId, level: "warn" });
+        return;
+      }
+      const actor = this.pickActuator(deviceId);
+      if (!actor) return;
+      this.pendingActuation.set(String(key), { requestedBy: deviceId, at: Date.now() });
+      logger.log("cabin.actuate", { control: String(key), scope: "host", urls: actuation.urls, change: { on: Boolean(on) }, ...(actor.id !== deviceId ? { actuator: actor.id } : {}) }, { deviceId });
+      actor.entry.socket.emit("cabin:actuate", actuation);
+    });
+
     // NFC scan at this kiosk → persona/"account" resolution.
     socket.on("nfc:register", ({ sessionId, tagId, lang }) => {
       const deviceId = this.trackSession(socket, sessionId);
@@ -1566,9 +1586,13 @@ export class Hub {
   private pickActuator(requesterId: string | undefined): { id: string; entry: DeviceEntry } | null {
     const requester = requesterId ? this.devices.get(requesterId) : undefined;
     if (requester && requester.role === "kiosk" && requester.kind === "kiosk") return { id: requesterId!, entry: requester };
+    // Preference: the lowest configured seat number (seat 1 sits next to
+    // the staff), then healthy before slow, then longest-connected — so the
+    // actuator is predictable at the stand and still fails over by itself.
+    const rank = (e: DeviceEntry) => (e.seat ?? 99) * 10 + (e.health === "ok" ? 0 : 1);
     const kiosks = Array.from(this.devices)
       .filter(([, e]) => e.kind === "kiosk" && e.health !== "lost")
-      .sort((a, b) => (a[1].health === b[1].health ? a[1].connectedAt - b[1].connectedAt : a[1].health === "ok" ? -1 : 1));
+      .sort((a, b) => rank(a[1]) - rank(b[1]) || a[1].connectedAt - b[1].connectedAt);
     if (kiosks.length) return { id: kiosks[0]![0], entry: kiosks[0]![1] };
     if (requester && requester.role === "kiosk") return { id: requesterId!, entry: requester };
     return null;

@@ -42,26 +42,13 @@ export default function App() {
   }, []);
 
   if (serverUrl === undefined) return null;
-  if (serverUrl === null || setupOpen) {
-    return (
-      <ServerSetup
-        current={serverUrl}
-        layout={layout}
-        seat={seat}
-        onSave={save}
-        onCancel={serverUrl !== null ? () => setSetupOpen(false) : undefined}
-        onOpenTestChat={
-          serverUrl !== null
-            ? () => {
-                setTestChat(true);
-                setSetupOpen(false);
-              }
-            : undefined
-        }
-      />
-    );
+  // First launch: no server known yet — the setup stands alone.
+  if (serverUrl === null) {
+    return <ServerSetup current={null} layout={layout} seat={seat} onSave={save} />;
   }
 
+  // Afterwards the setup is an overlay on the running kiosk, so the seat's
+  // socket stays connected — the operator's light buttons need it.
   return (
     <CosimoKiosk
       key={serverUrl}
@@ -69,6 +56,18 @@ export default function App() {
       layout={layout}
       seatNumber={seat}
       onOpenSetup={() => setSetupOpen(true)}
+      setup={
+        setupOpen
+          ? {
+              onSave: save,
+              onCancel: () => setSetupOpen(false),
+              onOpenTestChat: () => {
+                setTestChat(true);
+                setSetupOpen(false);
+              },
+            }
+          : null
+      }
       testChat={testChat}
       onCloseTestChat={() => setTestChat(false)}
     />

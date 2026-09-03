@@ -7,6 +7,7 @@ import { isNative } from "../config/serverUrl";
 import { useHidInput } from "./useHidInput";
 import { useCabinActuator } from "./useCabinActuator";
 import { createNativeDictation } from "./nativeDictation";
+import ServerSetup from "./ServerSetup";
 
 /**
  * Testing aid, reached via the hidden setup screen: chat with CoSiMo in
@@ -89,6 +90,7 @@ export default function CosimoKiosk({
   layout,
   seatNumber,
   onOpenSetup,
+  setup,
   testChat = false,
   onCloseTestChat,
 }: {
@@ -97,6 +99,8 @@ export default function CosimoKiosk({
   /** Physical seat position 1-4 (0 = not configured) — reading-lamp mapping. */
   seatNumber: number;
   onOpenSetup: () => void;
+  /** The hidden operator setup, overlaid while non-null (the kiosk keeps running underneath). */
+  setup: { onSave: (url: string, layout: PanelLayout, seat: number) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
   /** Testing aid: show the hidden text console (opened via the setup screen). */
   testChat?: boolean;
   onCloseTestChat?: () => void;
@@ -124,6 +128,18 @@ export default function CosimoKiosk({
   });
 
   return (
+    <>
+    {setup && (
+      <ServerSetup
+        current={serverUrl}
+        layout={layout}
+        seat={seatNumber}
+        onSave={setup.onSave}
+        onCancel={setup.onCancel}
+        onOpenTestChat={setup.onOpenTestChat}
+        onLight={(key, on) => cosimo.cabinLight(key, on)}
+      />
+    )}
     <SeatView seat={seat} layout={layout} fullscreen={isNative()} onSlitHold={onOpenSetup}>
       {/* hidden testing console (via setup screen) — text chat with CoSiMo */}
       {testChat && onCloseTestChat && (
@@ -137,5 +153,6 @@ export default function CosimoKiosk({
         />
       )}
     </SeatView>
+    </>
   );
 }
