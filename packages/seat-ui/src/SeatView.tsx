@@ -198,6 +198,14 @@ export default function SeatView({
    * dot stands still with reduced motion.
    */
   const listening = ptt.active || cosimo.phase === "listening";
+  // The wave stays mounted ~260 ms after release so it can settle and fade
+  // instead of vanishing on the frame the button comes up.
+  const [waveShown, setWaveShown] = useState(false);
+  useEffect(() => {
+    if (ptt.active) { setWaveShown(true); return; }
+    const t = setTimeout(() => setWaveShown(false), 260);
+    return () => clearTimeout(t);
+  }, [ptt.active]);
   const thinking = !listening && cosimo.phase === "thinking";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
   const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : cosimo.speaking ? "speaking" : null;
@@ -413,9 +421,9 @@ export default function SeatView({
           }}
         >
           <Inset radius={layout.slitR} />
-          {ptt.active ? (
+          {waveShown ? (
             /* hold-to-talk: the rider's voice as a line across the slit */
-            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} />
+            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} leaving={!ptt.active} />
           ) : cosimo.card ? (
             <SlitCard
               card={cosimo.card}

@@ -12,11 +12,16 @@ export default function SlitWave({
   sample,
   kind,
   ink,
+  leaving = false,
 }: {
   sample: (out: Float32Array) => boolean;
   kind: () => "audio" | "native" | null;
   ink: string;
+  /** Release: the line settles flat and fades out (the parent unmounts after). */
+  leaving?: boolean;
 }) {
+  const leavingRef = useRef(leaving);
+  leavingRef.current = leaving;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,13 +46,24 @@ export default function SlitWave({
     // AMPLITUDE follows the voice (attack fast, release slow), not the raw
     // samples — it swells and settles like breathing instead of jittering.
     let level = 0;
+    const REVEAL_MS = 380;
+    const LEAVE_MS = 260;
+    let leaveAt: number | null = null;
+    const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
     const draw = () => {
       raf = requestAnimationFrame(draw);
       const w = canvas.width;
       const h = canvas.height;
       const mid = h / 2;
-      const t = (performance.now() - t0) / 1000;
+      const now = performance.now();
+      const t = (now - t0) / 1000;
+      // reveal: the line draws itself in from the left while its swing
+      // grows; leave: swing collapses and the stroke fades
+      const reveal = easeOut(Math.min(1, (now - t0) / REVEAL_MS));
+      if (leavingRef.current && leaveAt === null) leaveAt = now;
+      const leave = leaveAt === null ? 0 : Math.min(1, (now - leaveAt) / LEAVE_MS);
       ctx.clearRect(0, 0, w, h);
+      ctx.globalAlpha = 1 - easeOut(leave);
       ctx.lineWidth = Math.max(2, h * 0.04);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -63,10 +79,11 @@ export default function SlitWave({
       }
       level += (target - level) * (target > level ? 0.18 : 0.06);
       // amplitude: a floor so the line is never dead flat, then the voice
-      const amp = real ? h * (0.04 + 0.38 * level) : h * (0.06 + 0.04 * Math.sin(t * 1.6));
+      const amp = (real ? h * (0.04 + 0.38 * level) : h * (0.06 + 0.04 * Math.sin(t * 1.6))) * reveal * (1 - leave);
 
       ctx.beginPath();
-      for (let i = 0; i < N; i++) {
+      const drawn = Math.max(2, Math.round(N * reveal));
+      for (let i = 0; i < drawn; i++) {
         const u = i / (N - 1);
         const x = u * w;
         // two slow sines, drifting against each other, tapered at both ends
@@ -88,7 +105,7 @@ export default function SlitWave({
     <canvas
       ref={canvasRef}
       aria-hidden
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", animation: "slit-in 120ms ease-out" }}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
     />
   );
 }
