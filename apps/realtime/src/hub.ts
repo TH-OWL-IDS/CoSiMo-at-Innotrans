@@ -139,7 +139,7 @@ const PARK_MS = 10 * 60_000;
 type ParkedState = Pick<
   DeviceEntry,
   "persona" | "emotion" | "consent" | "active" | "sessionId" | "lastUser" | "lastReply" | "lastReplyFull" | "controls" | "turn" | "lastActivity"
-> & { parkedAt: number };
+> & { parkedAt: number } & { replyBuffer?: string; missedReply?: boolean };
 
 /** At most this many consoles at once — the oldest is evicted for a new one,
  *  so forgotten tabs can't pile up. */
@@ -186,6 +186,8 @@ interface DeviceEntry {
   /** Physical seat position 1-4 (kiosk operator setting) — picks the
    *  reading-lamp playback. undefined = not configured, lamp stays simulated. */
   seat?: number;
+  /** Set while parked: a reply finished during the absence (see emitChatDelta). */
+  missedReply?: boolean;
   /** A visitor session is in progress (consent decided or first input). */
   active: boolean;
   consent: boolean;
@@ -661,6 +663,17 @@ export class Hub {
         );
         if (state.sessionId) this.sessionDevice.set(state.sessionId, deviceId);
         logger.log("seat.connect", { role, restored: true }, { deviceId, sessionId: state.sessionId || undefined });
+        // A reply that finished while the seat was away: show it now (text
+        // only — the rider can ↻ to hear it), so the turn is not lost.
+        if (state.missedReply && state.lastReplyFull) {
+          setTimeout(() => socket.emit("chat:delta", { sessionId: state.sessionId, text: state.lastReplyFull, done: true, turn: entry.turn }), 300);
+        } else if (state.replyBuffer) {
+          // still streaming: catch the client up with what it missed, the
+          // live deltas continue from here
+          const missed = state.replyBuffer;
+          setTimeout(() => socket.emit("chat:delta", { sessionId: state.sessionId, text: missed, done: false, turn: entry.turn }), 300);
+        }
+        entry.missedReply = false;
       }
       // The seat number is a property of the MOUNT (operator-set on the
       // device), so the fresh hello always wins over parked state.
@@ -1397,7 +1410,20 @@ export class Hub {
   emitChatDelta(sessionId: string, text: string, done: boolean, turn: number): void {
     const entry = this.entryOf(sessionId);
     if (!entry) {
-      this.io.emit("chat:delta", { sessionId, text, done, turn });
+      // The seat is away (parked) or gone. NEVER broadcast — every other
+      // seat would show and speak this rider's reply. A parked seat gets
+      // the finished reply on return (hello restore) instead.
+      const deviceId = this.sessionDevice.get(sessionId);
+      const p = deviceId ? this.parked.get(deviceId) : undefined;
+      if (p) {
+        p.replyBuffer = (p.replyBuffer ?? "") + text;
+        if (done && p.replyBuffer.trim()) {
+          p.lastReplyFull = p.replyBuffer;
+          p.lastReply = p.replyBuffer.slice(0, SNIPPET_MAX);
+          p.replyBuffer = "";
+          p.missedReply = true;
+        }
+      }
       return;
     }
     // Drop chunks from a superseded turn — a barged-in stream may still race in.
@@ -1434,8 +1460,9 @@ export class Hub {
     if (entry && chunk.turn !== -1 && chunk.turn < entry.turn) return;
     // Not `(socket ?? io).emit`: the two emit signatures diverge once an
     // event with an ack (sys:ping) exists, and the union isn't callable.
+    // no seat for this session (away or gone): drop — never play a rider's
+    // voice reply on every other iPad
     if (entry) entry.socket.emit("tts:chunk", { sessionId, ...chunk });
-    else this.io.emit("tts:chunk", { sessionId, ...chunk });
   }
 
   // ── Global showcase state ─────────────────────────────────────────

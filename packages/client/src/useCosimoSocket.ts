@@ -533,7 +533,8 @@ export function useCosimoSocket(
       // Server-STT path: the rider's words arrive here (browser-STT goes via send()).
       if (text.trim()) setTranscript((t) => [...t, { role: "user", text }]);
     });
-    socket.on("tts:chunk", ({ turn, seq, last, audioBase64, mime, text }) => {
+    socket.on("tts:chunk", ({ sessionId: sid, turn, seq, last, audioBase64, mime, text }) => {
+      if (sid && sid !== sessionRef.current) return; // another seat's voice — never ours
       // A clip from a superseded (barged-in) turn arrives late — drop it.
       if (turn !== -1 && turn < turnRef.current) return;
       const q = ttsQueueRef.current;
@@ -552,7 +553,9 @@ export function useCosimoSocket(
       playNextChunk();
     });
 
-    socket.on("chat:delta", ({ text, done, turn }) => {
+    socket.on("chat:delta", ({ sessionId: sid, text, done, turn }) => {
+      // only this seat's session (or the "*" reset marker) — defence in depth
+      if (sid && sid !== "*" && sid !== sessionRef.current) return;
       if (turn !== -1) {
         if (turn < turnRef.current) return; // stale turn (barged-in) — drop
         if (turn > turnRef.current) {
