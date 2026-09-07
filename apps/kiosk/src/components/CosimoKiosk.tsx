@@ -89,6 +89,7 @@ export default function CosimoKiosk({
   serverUrl,
   layout,
   seatNumber,
+  showcase,
   onOpenSetup,
   setup,
   testChat = false,
@@ -98,9 +99,11 @@ export default function CosimoKiosk({
   layout: PanelLayout;
   /** Physical seat position 1-4 (0 = not configured) — reading-lamp mapping. */
   seatNumber: number;
+  /** Showcase: silent endless performance; buttons ignored, only the menu ends it. */
+  showcase: boolean;
   onOpenSetup: () => void;
   /** The hidden operator setup, overlaid while non-null (the kiosk keeps running underneath). */
-  setup: { onSave: (url: string, layout: PanelLayout, seat: number) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
+  setup: { onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
   /** Testing aid: show the hidden text console (opened via the setup screen). */
   testChat?: boolean;
   onCloseTestChat?: () => void;
@@ -111,7 +114,7 @@ export default function CosimoKiosk({
   useEffect(() => {
     void createNativeDictation().then(setNativeStt);
   }, []);
-  const seat = useSeat(serverUrl, "kiosk", { nativeStt, seat: seatNumber >= 1 && seatNumber <= 4 ? seatNumber : undefined });
+  const seat = useSeat(serverUrl, "kiosk", { nativeStt, seat: seatNumber >= 1 && seatNumber <= 4 ? seatNumber : undefined, showcase });
   const { cosimo, lang, ptt } = seat;
 
   // This seat drives the cabin's light controller on the local LAN — the hub
@@ -120,7 +123,8 @@ export default function CosimoKiosk({
 
   // Physical buttons + NFC reader (ESP32 as a BLE keyboard).
   useHidInput({
-    enabled: true,
+    // showcase: the physical buttons do nothing — the performance is not a session
+    enabled: !showcase,
     onTalkStart: ptt.start,
     onTalkEnd: ptt.stop,
     onInfo: seat.askInfo,
@@ -134,13 +138,14 @@ export default function CosimoKiosk({
         current={serverUrl}
         layout={layout}
         seat={seatNumber}
+        showcase={showcase}
         onSave={setup.onSave}
         onCancel={setup.onCancel}
         onOpenTestChat={setup.onOpenTestChat}
         onLight={(key, on) => cosimo.cabinLight(key, on)}
       />
     )}
-    <SeatView seat={seat} layout={layout} fullscreen={isNative()} onSlitHold={onOpenSetup}>
+    <SeatView seat={seat} layout={layout} fullscreen={isNative()} onSlitHold={onOpenSetup} showcase={showcase}>
       {/* hidden testing console (via setup screen) — text chat with CoSiMo */}
       {testChat && onCloseTestChat && (
         <TestConsole

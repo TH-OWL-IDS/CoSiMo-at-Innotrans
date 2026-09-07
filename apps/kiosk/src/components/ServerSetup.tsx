@@ -40,6 +40,7 @@ export default function ServerSetup({
   current,
   layout,
   seat,
+  showcase,
   onSave,
   onCancel,
   onOpenTestChat,
@@ -49,7 +50,9 @@ export default function ServerSetup({
   layout: PanelLayout;
   /** Physical seat position 1-4, 0 = not configured. */
   seat: number;
-  onSave: (url: string, layout: PanelLayout, seat: number) => void;
+  /** Showcase mode (silent endless performance) on/off. */
+  showcase: boolean;
+  onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean) => void;
   /** Present when opened as an overlay over a running kiosk. */
   onCancel?: () => void;
   /** Testing aid: return to the kiosk with the text console open. */
@@ -60,6 +63,7 @@ export default function ServerSetup({
   const [draft, setDraft] = useState(current ?? "https://");
   const [geo, setGeo] = useState<PanelLayout>(layout);
   const [seatDraft, setSeatDraft] = useState(seat);
+  const [showDraft, setShowDraft] = useState(showcase);
   const [error, setError] = useState("");
 
   const submit = (e: React.FormEvent) => {
@@ -72,7 +76,7 @@ export default function ServerSetup({
       setError("Bitte eine vollständige URL angeben, z. B. https://cosimo.example.org");
       return;
     }
-    onSave(url, geo, seatDraft);
+    onSave(url, geo, seatDraft, showDraft);
   };
 
   const num = (key: keyof PanelLayout, label: string) => (
@@ -140,6 +144,19 @@ export default function ServerSetup({
           </div>
           <p className="m-0 max-w-[26rem] text-sm text-mute">
             1 = vorn, 4 = hinten. Bestimmt, welche Leselampe dieser Sitz schaltet — ohne Zuordnung bleibt sie simuliert.
+          </p>
+        </Card>
+
+        <Card className="items-center">
+          <Eyebrow>Schaustellung</Eyebrow>
+          {/* the two seats visitors cannot reach: the face performs silently and
+              endlessly; the buttons do nothing; only this switch ends it */}
+          <label className="flex cursor-pointer items-center gap-2 text-md">
+            <input type="checkbox" className="accent-ink" checked={showDraft} onChange={(e) => setShowDraft(e.target.checked)} />
+            Stummes Schauspiel, endlos — für Sitze, die kein Besucher erreicht
+          </label>
+          <p className="m-0 max-w-[26rem] text-sm text-mute">
+            Gesicht, Farben und Untertitel laufen von selbst; die Tasten sind aus. Nur dieser Schalter beendet es.
           </p>
         </Card>
 

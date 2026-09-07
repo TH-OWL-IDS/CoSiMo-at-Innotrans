@@ -145,7 +145,8 @@ export default function App() {
              kiosk's system font, which SeatView inherits. It has the whole
              viewport on an off-white ground, the cutouts inset like holes in
              a real panel; the developer panel floats over it. ── */}
-      <SeatView seat={seat} layout={EMULATOR_LAYOUT} fullscreen={false} surface="panel" />
+      {/* ?showcase=1 previews the silent endless performance of an unreachable seat */}
+      <SeatView seat={seat} layout={EMULATOR_LAYOUT} fullscreen={false} surface="panel" showcase={new URLSearchParams(window.location.search).has("showcase")} />
 
       {/* ── the panel's handle: a small, almost invisible dot in the corner.
              Visitors don't find it; staff know it is there. ── */}

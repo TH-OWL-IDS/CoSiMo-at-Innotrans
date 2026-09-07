@@ -37,6 +37,8 @@ export interface ConnectedDevice {
   kind: ClientKind;
   /** Kiosk: physical seat position 1-4 (operator setting), if configured. */
   seat?: number;
+  /** Kiosk: performing the silent showcase (operator setting) — not a rider seat. */
+  showcase?: boolean;
   /** ISO time the socket said hello. */
   connectedAt: string;
   /** The engine.io transport in use — polling on the cabin WLAN is a smell. */
@@ -69,6 +71,8 @@ export interface SeatSummary {
   consent: boolean;
   /** A visitor session is in progress at this seat. */
   active: boolean;
+  /** The seat performs the silent showcase (operator setting). */
+  showcase?: boolean;
   /** Last visitor utterance / last CoSiMo reply (live view, truncated). */
   lastUser: string;
   lastReply: string;
@@ -311,7 +315,7 @@ export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
   /** `token`: consoles send the SHA-256 of the operator password; the hub
    *  compares it with its HOST_TOKEN. Journey views and seats send none. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number }) => void;
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number; /** Kiosk: silent showcase mode (operator setting). */ showcase?: boolean }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;

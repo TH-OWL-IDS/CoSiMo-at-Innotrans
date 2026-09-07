@@ -243,6 +243,8 @@ export function useCosimoSocket(
   /** Kiosks: physical seat position 1-4 (operator setting) — picks the
    *  reading-lamp playback on the hub. */
   seat?: number,
+  /** Kiosks: silent showcase mode (operator setting) — the hub shows it, nothing else changes. */
+  showcase?: boolean,
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
   // Stable across reloads of this tab, unique per tab: sessionStorage. A
@@ -451,7 +453,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
-      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}) });
+      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}), ...(showcase ? { showcase: true } : {}) });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -583,7 +585,7 @@ export function useCosimoSocket(
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId, role, kind, token, seat]);
+  }, [realtimeUrl, deviceId, role, kind, token, seat, showcase]);
 
   const clearCard = () => setCard(null);
 

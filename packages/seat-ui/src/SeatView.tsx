@@ -5,6 +5,7 @@ import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import TelemetryStrip from "./TelemetryStrip.js";
 import SlitWave from "./SlitWave.js";
 import SlitCaption from "./SlitCaption.js";
+import { useShowcase } from "./useShowcase.js";
 import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
 import type { Seat } from "./useSeat.js";
 
@@ -53,6 +54,7 @@ export default function SeatView({
   fullscreen,
   surface = "cabin",
   onSlitHold,
+  showcase = false,
   children,
 }: {
   seat: Seat;
@@ -74,10 +76,21 @@ export default function SeatView({
   surface?: "cabin" | "panel";
   /** Operator gesture: the slit was held for 3 seconds. */
   onSlitHold?: () => void;
+  /** Showcase ("Schaustellung"): the seat performs silently, endlessly; the
+   *  live conversation state is ignored until the operator turns it off. */
+  showcase?: boolean;
   /** Overlays drawn on top of the stage (e.g. the hidden test console). */
   children?: ReactNode;
 }) {
-  const { cosimo, lang, scheme, textScale, showText, reduceMotion, ptt } = seat;
+  const { cosimo, lang, textScale, reduceMotion, ptt } = seat;
+  // Showcase overlays the live state: same renderer, different source.
+  const show = useShowcase(Boolean(showcase), lang, seat.scheme);
+  const scheme = show?.scheme ?? seat.scheme;
+  const showText = show ? true : seat.showText;
+  const faceEmotion = show ? show.emotion : cosimo.faceEmotion;
+  const phase = show ? show.phase : cosimo.phase;
+  const speaking = show ? show.phase === "speaking" : Boolean(cosimo.speaking);
+  const mouthDrive = show ? show.mouthDrive : cosimo.getMouthDrive;
 
   // CoSiMo follows a finger on its face: while the circle is pressed (not on
   // a button or card), the pointer's position relative to the face becomes
@@ -134,7 +147,7 @@ export default function SeatView({
    * least THINK_MIN_MS). Plain elements, so the fades actually run; the
    * dot stands still with reduced motion.
    */
-  const listening = ptt.active || cosimo.phase === "listening";
+  const listening = ptt.active || phase === "listening";
   // The wave stays mounted ~260 ms after release so it can settle and fade
   // instead of vanishing on the frame the button comes up.
   const [waveShown, setWaveShown] = useState(false);
@@ -143,7 +156,7 @@ export default function SeatView({
     const t = setTimeout(() => setWaveShown(false), 260);
     return () => clearTimeout(t);
   }, [ptt.active]);
-  const thinking = !listening && cosimo.phase === "thinking";
+  const thinking = !listening && phase === "thinking";
   // The slit follows the conversation, never a clock: the rider's wave →
   // the same line settled while CoSiMo thinks → the spoken sentence as a
   // subtitle → that sentence stays with ↻ for a while → the destination
@@ -155,15 +168,15 @@ export default function SeatView({
   }, []);
   // Subtitles are the `showText` presentation setting (set_presentation /
   // persona): on → the spoken sentence in the slit; off → face and voice only.
-  const captionText = showText ? cosimo.caption || cosimo.reply : "";
-  const speakingNow = Boolean(cosimo.speaking) && !listening && Boolean(captionText);
-  const afterReply = showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
+  const captionText = show ? show.caption : showText ? cosimo.caption || cosimo.reply : "";
+  const speakingNow = speaking && !listening && Boolean(captionText);
+  const afterReply = !show && showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
   const idleFor = now - cosimo.lastActivityAt;
-  const idleHint = idleFor > 30_000 && !cosimo.replying ? (lang === "de" ? "Taste halten und sprechen" : "Hold the button and speak") : null;
+  const idleHint = !show && idleFor > 30_000 && !cosimo.replying ? (lang === "de" ? "Taste halten und sprechen" : "Hold the button and speak") : null;
   const slitMode: "wave" | "calm" | "caption" | "card" | "idle" =
-    waveShown ? "wave" : thinking ? "calm" : cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
+    waveShown || (show && listening) ? "wave" : thinking ? "calm" : !show && cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
-  const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : cosimo.speaking ? "speaking" : null;
+  const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : speaking ? "speaking" : null;
   // The rim keeps its last colour while fading out, so the fade is not a colour jump.
   const lastRim = useRef<keyof StateColors>("listening");
   if (rimState) lastRim.current = rimState;
@@ -191,7 +204,7 @@ export default function SeatView({
   // attack fast / release slow) lifts the sheets and lights a third one, so
   // the room breathes with each phrase. Thinking: a slow synthetic pulse.
   // Idle: plain ground. Reduced motion: a still, faint tint.
-  const wabering = (!listening && cosimo.phase === "thinking") || Boolean(cosimo.speaking && !listening);
+  const wabering = (!listening && phase === "thinking") || (speaking && !listening);
   // the THEME's colour (its ink — what the colour swatches show), not the
   // semantic state colours: the ground says which CoSiMo this is, the rim says what it does
   const waberColor = scheme.ink;
@@ -204,7 +217,7 @@ export default function SeatView({
     const t0 = performance.now();
     const tick = () => {
       raf = requestAnimationFrame(tick);
-      const drive = cosimo.speaking ? cosimo.getMouthDrive?.() : null;
+      const drive = speaking ? mouthDrive?.() : null;
       // gentle: the mouth envelope is made for a mouth; the room only needs
       // its slow shape — damped, slow attack, slower release, never a flash
       const target = drive ? Math.min(1, drive.open * 0.7) : 0.18 + 0.14 * Math.sin((performance.now() - t0) / 900);
@@ -213,7 +226,7 @@ export default function SeatView({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [wabering, cosimo.speaking, cosimo.getMouthDrive]);
+  }, [wabering, speaking, mouthDrive]);
   const sheet = (gradient: string, drift: string, breathe: string, delay: string, base: number, voice: number) => (
     <div
       aria-hidden
@@ -357,9 +370,9 @@ export default function SeatView({
             }}
           >
             <CosimoFaceAnimated
-              emotion={cosimo.faceEmotion}
+              emotion={faceEmotion}
               idle={!reduceMotion}
-              mouthDrive={cosimo.getMouthDrive}
+              mouthDrive={mouthDrive}
               gazeDrive={gazeDrive}
               style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
             />
@@ -384,7 +397,7 @@ export default function SeatView({
                 opacity: 0.55,
               }}
             >
-              {PHASE_HINT[cosimo.phase][lang]}
+              {show ? "" : PHASE_HINT[cosimo.phase][lang]}
             </div>
           )}
 
@@ -436,7 +449,7 @@ export default function SeatView({
           <Inset radius={layout.slitR} />
           {slitMode === "wave" || slitMode === "calm" ? (
             /* hold-to-talk: the rider's voice as a line; thinking: the same line, settled */
-            <SlitWave sample={ptt.wave.sample} kind={ptt.wave.kind} ink={scheme.ink} leaving={!ptt.active && slitMode === "wave"} calm={slitMode === "calm"} />
+            <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} />
           ) : slitMode === "caption" ? (
             <SlitCaption
               text={captionText}

@@ -188,6 +188,8 @@ interface DeviceEntry {
   seat?: number;
   /** Set while parked: a reply finished during the absence (see emitChatDelta). */
   missedReply?: boolean;
+  /** Operator setting: the seat performs the silent showcase. */
+  showcase?: boolean;
   /** A visitor session is in progress (consent decided or first input). */
   active: boolean;
   consent: boolean;
@@ -612,7 +614,7 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role, kind, token, seat }) => {
+    socket.on("hello", ({ deviceId, role, kind, token, seat, showcase }) => {
       const resolvedKind: ClientKind = kind ?? (role === "host" ? "console" : "kiosk");
       // Consoles must present the operator password (as SHA-256); without
       // HOST_TOKEN configured (dev) everything passes. Seats and journey
@@ -678,6 +680,7 @@ export class Hub {
       // The seat number is a property of the MOUNT (operator-set on the
       // device), so the fresh hello always wins over parked state.
       entry.seat = typeof seat === "number" && seat >= 1 && seat <= 4 ? Math.round(seat) : undefined;
+      entry.showcase = showcase === true;
       this.parked.delete(deviceId);
       // Console cap: evict the oldest console(s) to make room for this one.
       if (entry.kind === "console") {
@@ -1135,6 +1138,7 @@ export class Hub {
       kind: d.kind,
       connectedAt: new Date(d.connectedAt).toISOString(),
       ...(d.seat ? { seat: d.seat } : {}),
+      ...(d.showcase ? { showcase: true } : {}),
       transport: transportOf(d.socket),
       lastActivityAt: d.role === "kiosk" ? new Date(d.lastActivity).toISOString() : null,
       active: d.active,
@@ -1221,6 +1225,7 @@ export class Hub {
         phase: e.phase,
         consent: e.consent,
         active: e.active,
+        ...(e.showcase ? { showcase: true } : {}),
         lastUser: e.lastUser,
         lastReply: e.lastReply,
         controls: e.controls,

@@ -168,6 +168,7 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
           {d.seat && <span className="text-mute"> · Sitz {d.seat}</span>}
           {d.kind !== "kiosk" && <span className="text-mute"> · {KIND_LABEL[d.kind]}</span>}
           {d.active && <span className="text-accent"> · Session</span>}
+          {d.showcase && <span className="text-mute"> · Schaustellung</span>}
         </span>
       </Tip>
       <span className="shrink-0 tabular-nums text-mute">{d.rttMs != null ? `${d.rttMs} ms` : "—"}</span>
@@ -1095,7 +1096,7 @@ function SeatCard({ seat, turns, onReset }: { seat: SeatSummary; turns: ConvoTur
           <Emotion emotion={seat.emotion} /> <code className="text-sm opacity-70">{seat.deviceId}</code>
         </span>
         <span className="text-sm opacity-70">
-          {seat.phase !== "idle" ? `● ${seat.phase}` : "idle"}
+          {seat.showcase ? "Schaustellung" : seat.phase !== "idle" ? `● ${seat.phase}` : "idle"}
           {seat.consent ? " · Aufzeichnung" : " · keine Aufzeichnung"}
         </span>
       </div>

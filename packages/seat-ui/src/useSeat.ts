@@ -36,9 +36,11 @@ export function useSeat(
     nativeStt?: NativeDictation | null;
     /** Physical seat position 1-4 (kiosk operator setting). */
     seat?: number;
+    /** Silent showcase mode (kiosk operator setting). */
+    showcase?: boolean;
   },
 ): Seat {
-  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind, undefined, opts?.seat);
+  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind, undefined, opts?.seat, opts?.showcase);
   const [lang, setLang] = useState<Locale>("de");
   // The active profile's preferred language becomes the seat's UI language
   // (e.g. an NFC scan loads an English-speaking rider). The visitor can still
