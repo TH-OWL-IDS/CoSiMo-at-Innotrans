@@ -38,17 +38,6 @@ export function confirmCard(question: string, lang: Locale): SeatCard {
   };
 }
 
-export function listCard(question: string, options: string[]): SeatCard {
-  return {
-    id: newId(),
-    kind: "list",
-    question,
-    local: false,
-    ttlMs: CARD_TTL,
-    options: options.slice(0, 4).map((o) => ({ value: o, label: o })),
-  };
-}
-
 /** Skip chip for wizard steps; the last step gets "done" instead. */
 function stepExtras(lang: Locale, step?: { index: number; total: number }): SeatCardOption[] {
   if (!step) return [];
@@ -126,13 +115,7 @@ export function customizeCard(index: number, lang: Locale, voices: VoiceCatalogE
     case "theme":
       return themesCard(q, lang, pos);
     case "textSize":
-      return {
-        id: newId(), kind: "list", question: q, local: true, ttlMs: WIZARD_TTL, step: pos,
-        options: [
-          { value: "s", label: "S" }, { value: "m", label: "M" }, { value: "l", label: "L" }, { value: "xl", label: "XL" },
-          ...stepExtras(lang, pos),
-        ],
-      };
+      return scaleCard(q, "textSize", acc, lang, pos);
     case "voice":
       return voicesCard(q, lang, voices, pos);
     case "speechRate":
@@ -169,13 +152,6 @@ export function localAnswer(card: SeatCard, value: string, lang: Locale, voices:
       const v = voices.find((x) => x.key === value);
       if (!v) return null;
       return { patch: { voice: v.key, voiceGender: v.gender }, spoken: g ? `So klinge ich jetzt — ${v.label}.` : `This is how I sound now — ${v.label}.` };
-    }
-    case "list": {
-      // wizard list steps carry setting values (textSize)
-      if (card.step?.index === CUSTOMIZE_STEPS.indexOf("textSize") && (TEXT_SIZES as readonly string[]).includes(value)) {
-        return { patch: { textSize: value as Accommodations["textSize"] }, spoken: g ? "So groß?" : "This big?" };
-      }
-      return null;
     }
     case "scale": {
       const sc = card.scale;

@@ -154,9 +154,10 @@ German).
 ## Slit cards (`src/agent/cards.ts`, hub `showCard`)
 
 The slit is CoSiMo's control strip: one fixed grid (context left, actions
-right), a small kind vocabulary — `confirm` (✓ ✗), `list` (2–4 chips),
-`themes` (swatches), `voices` (catalog chips), `scale` (slider for
-volume/speechRate, −/+ for textSize). **Model cards** (`confirm`, `list`)
+right), a small kind vocabulary — `confirm` (✓ ✗), `themes` (swatches),
+`voices` (catalog chips), `scale` (slider for volume/speechRate, −/+ for
+textSize). There is deliberately no free-text list card: open choices
+(which lamp, which stop) are asked aloud only. **Model cards** (`confirm`)
 send the tapped label back as the rider's next message. **Local cards**
 (`themes`, `voices`, `scale`, every customizer step) are answered by the hub
 via `card:answer` — no LLM round: it patches the seat's accommodations,

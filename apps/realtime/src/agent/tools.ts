@@ -26,7 +26,7 @@ import type { Hub } from "../hub.js";
 import type { PersonaProvider } from "./personas.js";
 import type { ProfileSink } from "./profileSink.js";
 import type { TelemetrySimulation } from "./telemetry.js";
-import { confirmCard, customizeCard, listCard, scaleCard, themesCard, voicesCard } from "./cards.js";
+import { confirmCard, customizeCard, scaleCard, themesCard, voicesCard } from "./cards.js";
 
 export interface ToolResult {
   /** Text returned to Claude as the tool_result content. */
@@ -126,19 +126,12 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "show_choices",
     description:
-      "Put tappable options in the rider's slit — ALWAYS also ask the question aloud in the same reply, then END your turn. Kinds: 'confirm' = Ja/Nein for any yes/no question you ask; 'list' = 2–4 short options (ambiguity: 'mach eine Lampe an' → Innenlicht/Leselampe); 'themes' = colour palette; 'voices' = the voice catalog; 'scale' = a slider for volume/speechRate or −/+ for textSize. themes/voices/scale are applied by the system itself when tapped (it also confirms aloud) — do not call set_presentation for them. The rider may still answer by voice. Never use a card when the request is clear.",
+      "Put tappable options in the rider's slit — ALWAYS also ask the question aloud in the same reply, then END your turn. Kinds: 'confirm' = Ja/Nein for any yes/no question you ask; 'themes' = colour palette; 'voices' = the voice catalog; 'scale' = a slider for volume/speechRate or −/+ for textSize. Free-text options do not exist — an open choice (e.g. which lamp) is asked aloud only. themes/voices/scale are applied by the system itself when tapped (it also confirms aloud) — do not call set_presentation for them. The rider may still answer by voice. Never use a card when the request is clear.",
     input_schema: {
       type: "object",
       properties: {
         question: { type: "string", description: "The short question, exactly as you speak it." },
-        kind: { type: "string", enum: ["confirm", "list", "themes", "voices", "scale"], description: "Default 'list'." },
-        options: {
-          type: "array",
-          items: { type: "string" },
-          minItems: 2,
-          maxItems: 4,
-          description: "For kind 'list' only: 2–4 short labels in the rider's language.",
-        },
+        kind: { type: "string", enum: ["confirm", "themes", "voices", "scale"], description: "Default 'confirm'." },
         setting: { type: "string", enum: ["volume", "speechRate", "textSize"], description: "For kind 'scale': which setting the slider changes." },
       },
       required: ["question"],
@@ -388,7 +381,7 @@ export async function executeTool(
     case "show_choices": {
       const question = String(input.question ?? "").trim();
       if (!question) return { text: "error: question is required", action: { tool: name } };
-      const kind = String(input.kind ?? "list");
+      const kind = String(input.kind ?? "confirm");
       const acc = ctx.hub.accommodationsOf(ctx.sessionId) ?? ctx.personas.get(ctx.persona).accommodations;
       let card;
       switch (kind) {
@@ -406,11 +399,8 @@ export async function executeTool(
           card = scaleCard(question, setting, acc, ctx.lang);
           break;
         }
-        default: {
-          const options = (Array.isArray(input.options) ? input.options : []).map((o) => String(o).trim()).filter(Boolean);
-          if (options.length < 2) return { text: "error: kind 'list' needs 2–4 options", action: { tool: name } };
-          card = listCard(question, options);
-        }
+        default:
+          return { text: "error: kind must be confirm, themes, voices or scale — open choices are asked aloud only", action: { tool: name } };
       }
       ctx.hub.showCard(ctx.sessionId, card, ctx.turn);
       return {

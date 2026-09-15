@@ -13,7 +13,7 @@ export type Modality = "voice" | "text" | "tap";
 
 /** How a card is answered: by the model (tap → user turn) or by the hub
  *  itself (instant, no LLM round — themes, voices, scales, the wizard). */
-export type SeatCardKind = "confirm" | "list" | "themes" | "voices" | "scale";
+export type SeatCardKind = "confirm" | "themes" | "voices" | "scale";
 export type SeatCardIcon = "check" | "x" | "minus" | "plus" | "skip" | "done";
 
 export interface SeatCardOption {

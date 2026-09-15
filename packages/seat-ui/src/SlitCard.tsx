@@ -172,7 +172,7 @@ export function SlitCard({
             <Chip label="größer" icon="plus" ink={ink} textScale={textScale} onTap={() => onLocal(String(Math.min(card.scale!.max, card.scale!.value + 1)))} />
           </>
         )}
-        {(card.kind === "confirm" || card.kind === "list" || card.kind === "voices") &&
+        {(card.kind === "confirm" || card.kind === "voices") &&
           main.map((o) => (
             <Chip key={o.value} label={o.label} icon={o.icon} ink={ink} textScale={textScale} onTap={() => pick(o.value, o.label)} />
           ))}
