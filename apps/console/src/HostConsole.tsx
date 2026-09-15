@@ -1041,7 +1041,8 @@ function conversationOf(logs: LogEvent[], deviceId: string): ConvoTurn[] {
     if (e.kind === "turn.start") get(e.turn).user = { text: e.data.text, modality: e.data.modality, ts: e.ts };
     else if (e.kind === "tool.call") get(e.turn).tools.push({ tool: e.data.tool, input: e.data.input, ok: e.data.ok, durationMs: e.data.durationMs });
     else if (e.kind === "card.show") get(e.turn).cards.push(`${e.data.kind}: ${e.data.question}`);
-    else if (e.kind === "card.answer") get(e.turn).cards.push(`↳ ${e.data.value}`);
+    else if (e.kind === "settings.open") get(e.turn).cards.push(`Einstellungen${e.data.section ? ` (${e.data.section})` : ""}`);
+    else if (e.kind === "settings.patch") get(e.turn).cards.push(`↳ ${JSON.stringify(e.data.applied)}`);
     else if (e.kind === "turn.end") get(e.turn).reply = { text: e.data.reply, outcome: e.data.outcome, latencyMs: e.data.latencyMs, error: e.data.error, ts: e.ts };
   }
   return [...turns.values()].sort((x, y) => x.turn - y.turn);

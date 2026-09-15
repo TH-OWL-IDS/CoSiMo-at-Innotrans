@@ -141,7 +141,7 @@ export function traitsPrelude(t: InteractionTraits): string {
   }
   if (t.confirmation === "every-step") lines.push("After every action, say plainly what you changed before anything else.");
   if (t.initiative === "leads") lines.push("Lead the conversation: after answering, offer the one most useful next step (next stop, light, text on screen).");
-  if (t.scope === "basics") lines.push("Stick to the basics — journey information and the cabin lights. Do not offer the customizer, voice changes or memory features unless the rider asks for them explicitly.");
+  if (t.scope === "basics") lines.push("Stick to the basics — journey information and the cabin lights. Do not offer the settings menu, voice changes or memory features unless the rider asks for them explicitly.");
   return lines.join(" ");
 }
 

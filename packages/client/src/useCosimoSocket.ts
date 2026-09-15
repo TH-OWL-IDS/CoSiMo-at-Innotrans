@@ -23,6 +23,8 @@ import type {
   SeatSummary,
   ServerToClientEvents,
   SeatCard,
+  SeatSettingsOpen,
+  Accommodations,
   HostConfigBroadcast,
   LlmTestResult,
   SpeechTestResult,
@@ -93,8 +95,13 @@ export interface CosimoState {
   card: SeatCard | null;
   /** Dismiss the card locally (e.g. after a tap already sent the answer). */
   clearCard: () => void;
-  /** Answer a LOCAL card (hub applies it, no LLM round). */
-  answerCard: (cardId: string, value: string) => void;
+  /** The rider's settings menu, while CoSiMo has it open (null = closed). */
+  settings: SeatSettingsOpen | null;
+  /** Close the menu locally (back button, idle timeout). */
+  closeSettings: () => void;
+  /** One change from the menu: the hub applies it (no LLM round) and, with
+   *  `speak`, confirms aloud in the new setting. */
+  patchSettings: (patch: Partial<Accommodations>, speak: boolean) => void;
   /** ↻ — have CoSiMo say the last reply again. */
   repeatLast: () => void;
   /** When the last reply finished (ms epoch) — drives the ↻ affordance. */
@@ -275,6 +282,7 @@ export function useCosimoSocket(
   const [persona, setPersonaState] = useState<PersonaBroadcast | null>(null);
   /** CoSiMo's option/info card for this seat (null = none). */
   const [card, setCard] = useState<SeatCard | null>(null);
+  const [settings, setSettings] = useState<SeatSettingsOpen | null>(null);
   const [lastReset, setLastReset] = useState<{ nonce: number; consent: boolean | null } | null>(null);
   const [lastReplyAt, setLastReplyAt] = useState(0);
   /** The sentence being spoken right now (server TTS, per clip) — the slit's subtitle. */
@@ -496,6 +504,7 @@ export function useCosimoSocket(
       setReplying(false);
       setTranscript([]);
       setCard(null);
+      setSettings(null);
       stopPlayback();
       setLastReset({ nonce: Date.now(), consent: consent ?? null });
       setResetNonce((n) => n + 1);
@@ -523,6 +532,11 @@ export function useCosimoSocket(
     socket.on("seat:card", ({ card: c, turn }) => {
       if (turn !== -1 && turn < turnRef.current) return; // stale turn's card
       setCard(c);
+    });
+    socket.on("seat:settings", (p) => {
+      if (p.turn !== -1 && p.turn < turnRef.current) return;
+      setSettings(p);
+      touch();
     });
     socket.on("persona:active", (p) => {
       setPersonaState(p);
@@ -589,9 +603,11 @@ export function useCosimoSocket(
 
   const clearCard = () => setCard(null);
 
-  const answerCard = (cardId: string, value: string) => {
+  const closeSettings = () => setSettings(null);
+
+  const patchSettings = (patch: Partial<Accommodations>, speak: boolean) => {
     touch();
-    sockRef.current?.emit("card:answer", { sessionId: sessionRef.current, cardId, value });
+    sockRef.current?.emit("settings:patch", { sessionId: sessionRef.current, patch, speak });
   };
 
   const repeatLast = () => {
@@ -602,6 +618,7 @@ export function useCosimoSocket(
   const send = (text: string, lang: Locale, modality: Modality = "text") => {
     touch();
     setCard(null); // any user turn answers/invalidates the card
+    setSettings(null); // and ends the settings menu — the rider is talking now
     const socket = sockRef.current;
     if (!socket) return;
     stopPlayback(); // new input supersedes whatever CoSiMo was saying
@@ -752,7 +769,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, answerCard, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, hostLight, cabinLight, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,

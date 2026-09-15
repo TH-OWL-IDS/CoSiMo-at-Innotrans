@@ -1,26 +1,24 @@
 import {
   SCHEME_IDS,
+  VOICE_TONES,
   type Accommodations,
   type Locale,
   type SeatCard,
-  type SeatCardOption,
   type VoiceCatalogEntry,
 } from "@cosimo/shared";
 
 /**
- * Card builders for the slit. A small fixed vocabulary — every kind has one
- * layout on the kiosk, so "minimal" is enforced by construction, not taste.
- *
- * Model cards (`local: false`): a tap sends the label back as the rider's
- * next message. Local cards: the hub applies the value itself (no LLM round)
- * and speaks a short templated confirmation — see `localAnswer`.
+ * The slit's one remaining card: a yes/no question from the model. A tap
+ * sends the label back as the rider's next message. Everything the rider
+ * used to answer on cards (colour, voice, sliders, the wizard) now lives in
+ * the settings menu — see `settingsSpoken` below and packages/shared
+ * settings.ts.
  */
 
 let counter = 0;
 const newId = () => `card-${Date.now().toString(36)}-${(counter++).toString(36)}`;
 
 const CARD_TTL = 20_000;
-const WIZARD_TTL = 45_000;
 
 const de = (lang: Locale) => lang === "de";
 
@@ -29,7 +27,6 @@ export function confirmCard(question: string, lang: Locale): SeatCard {
     id: newId(),
     kind: "confirm",
     question,
-    local: false,
     ttlMs: CARD_TTL,
     options: [
       { value: de(lang) ? "Ja" : "Yes", label: de(lang) ? "Ja" : "Yes", icon: "check" },
@@ -38,145 +35,65 @@ export function confirmCard(question: string, lang: Locale): SeatCard {
   };
 }
 
-/** Skip chip for wizard steps; the last step gets "done" instead. */
-function stepExtras(lang: Locale, step?: { index: number; total: number }): SeatCardOption[] {
-  if (!step) return [];
-  return step.index >= step.total - 1
-    ? [{ value: "__done", label: de(lang) ? "Fertig" : "Done", icon: "done" }]
-    : [{ value: "__skip", label: de(lang) ? "Überspringen" : "Skip", icon: "skip" }];
-}
-
-export function themesCard(question: string, lang: Locale, step?: SeatCard["step"]): SeatCard {
-  return {
-    id: newId(),
-    kind: "themes",
-    question,
-    local: true,
-    ttlMs: step ? WIZARD_TTL : CARD_TTL,
-    step,
-    // the kiosk owns the palette: it maps ids to colours + labels
-    options: [...SCHEME_IDS.map((id) => ({ value: id, label: id })), ...stepExtras(lang, step)],
-  };
-}
-
-export function voicesCard(question: string, lang: Locale, voices: VoiceCatalogEntry[], step?: SeatCard["step"]): SeatCard {
-  // The rider taps a voice they will actually hear in their language.
-  const pool = voices.filter((v) => v.language === lang);
-  const shown = pool.length ? pool : voices;
-  const opts: SeatCardOption[] = shown.length
-    ? shown.slice(0, 6).map((v) => ({ value: v.key, label: v.label }))
-    : [
-        { value: "female", label: de(lang) ? "Weiblich" : "Female" },
-        { value: "male", label: de(lang) ? "Männlich" : "Male" },
-      ];
-  return { id: newId(), kind: "voices", question, local: true, ttlMs: step ? WIZARD_TTL : CARD_TTL, step, options: [...opts, ...stepExtras(lang, step)] };
-}
-
-const TEXT_SIZES = ["s", "m", "l", "xl"] as const;
-
-export function scaleCard(
-  question: string,
-  setting: "volume" | "speechRate" | "textSize",
-  acc: Accommodations,
-  lang: Locale,
-  step?: SeatCard["step"],
-): SeatCard {
-  const scale: SeatCard["scale"] =
-    setting === "volume"
-      ? { setting, min: 0.2, max: 1, step: 0.05, value: acc.volume ?? 1, control: "slider" }
-      : setting === "speechRate"
-        ? { setting, min: 0.7, max: 1.3, step: 0.05, value: acc.speechRate ?? 1, control: "slider" }
-        : { setting, min: 0, max: 3, step: 1, value: TEXT_SIZES.indexOf(acc.textSize), control: "stepper" };
-  return { id: newId(), kind: "scale", question, local: true, ttlMs: step ? WIZARD_TTL : CARD_TTL, step, scale, options: stepExtras(lang, step) };
-}
-
-/* ── the customizer wizard ─────────────────────────────────────────────── */
-
-export const CUSTOMIZE_STEPS = ["theme", "textSize", "voice", "speechRate"] as const;
-export type CustomizeStep = (typeof CUSTOMIZE_STEPS)[number];
-
-/** The spoken question for a step (also the card's context line). */
-export function customizeQuestion(step: CustomizeStep, lang: Locale): string {
-  const q: Record<CustomizeStep, [string, string]> = {
-    theme: ["Welche Farbe magst du?", "Which colour do you like?"],
-    textSize: ["Wie groß soll die Schrift sein?", "How big should the text be?"],
-    voice: ["Welche Stimme gefällt dir?", "Which voice do you like?"],
-    speechRate: ["Und wie schnell soll ich sprechen?", "And how fast should I speak?"],
-  };
-  return q[step][de(lang) ? 0 : 1];
-}
-
-export function customizeCard(index: number, lang: Locale, voices: VoiceCatalogEntry[], acc: Accommodations): SeatCard | null {
-  const step = CUSTOMIZE_STEPS[index];
-  if (!step) return null;
-  const pos = { index, total: CUSTOMIZE_STEPS.length };
-  const q = customizeQuestion(step, lang);
-  switch (step) {
-    case "theme":
-      return themesCard(q, lang, pos);
-    case "textSize":
-      return scaleCard(q, "textSize", acc, lang, pos);
-    case "voice":
-      return voicesCard(q, lang, voices, pos);
-    case "speechRate":
-      return scaleCard(q, "speechRate", acc, lang, pos);
-  }
-}
-
-/* ── answering local cards ─────────────────────────────────────────────── */
-
-export interface LocalAnswer {
-  patch: Partial<Accommodations>;
-  /** Short spoken confirmation (before any follow-up question). */
-  spoken: string;
-}
+/* ── the settings menu's spoken confirmations ─────────────────────────── */
 
 const THEME_LABEL: Record<string, [string, string]> = {
   weiss: ["Weiß", "White"], dunkel: ["Dunkel", "Dark"], blau: ["Blau", "Blue"],
   gruen: ["Grün", "Green"], gelb: ["Gelb", "Yellow"], rosa: ["Rosa", "Pink"], grau: ["Grau", "Grey"],
 };
+const TONE_LABEL: Record<string, [string, string]> = {
+  neutral: ["neutral", "neutral"], warm: ["warm", "warm"], ruhig: ["ruhig", "calm"], lebhaft: ["lebhaft", "lively"],
+};
 
-/** Turn a tapped value on a local card into an accommodation patch + words. */
-export function localAnswer(card: SeatCard, value: string, lang: Locale, voices: VoiceCatalogEntry[], acc: Accommodations): LocalAnswer | null {
+/**
+ * Validate one patch from the settings menu and word CoSiMo's short spoken
+ * confirmation — spoken in the NEW setting (the new voice, the new volume…),
+ * which is how the rider judges it. Returns null for a patch the menu should
+ * never send (an unknown theme id, a voice not in the catalog).
+ */
+export function settingsSpoken(
+  patch: Partial<Accommodations>,
+  lang: Locale,
+  voices: VoiceCatalogEntry[],
+  before: Accommodations,
+): { patch: Partial<Accommodations>; spoken: string } | null {
   const g = de(lang);
-  switch (card.kind) {
-    case "themes": {
-      if (!(SCHEME_IDS as readonly string[]).includes(value)) return null;
-      const label = THEME_LABEL[value]?.[g ? 0 : 1] ?? value;
-      return { patch: { theme: value }, spoken: g ? `${label} — so?` : `${label} — like this?` };
-    }
-    case "voices": {
-      if (value === "female" || value === "male") {
-        return { patch: { voiceGender: value, voice: "" }, spoken: g ? "So klinge ich jetzt." : "This is how I sound now." };
-      }
-      const v = voices.find((x) => x.key === value);
+  if (patch.theme !== undefined) {
+    if (!(SCHEME_IDS as readonly string[]).includes(patch.theme)) return null;
+    const label = THEME_LABEL[patch.theme]?.[g ? 0 : 1] ?? patch.theme;
+    return { patch: { theme: patch.theme }, spoken: g ? `${label} — so?` : `${label} — like this?` };
+  }
+  if (patch.textSize !== undefined) {
+    if (!["s", "m", "l"].includes(patch.textSize)) return null;
+    return { patch: { textSize: patch.textSize }, spoken: g ? "So groß?" : "This big?" };
+  }
+  if (patch.volume !== undefined) {
+    const v = Math.max(0.2, Math.min(1, Number(patch.volume)));
+    if (!Number.isFinite(v)) return null;
+    const prev = before.volume ?? 1;
+    const spoken = v < prev ? (g ? "Etwas leiser — so?" : "A bit quieter — like this?") : v > prev ? (g ? "Etwas lauter — so?" : "A bit louder — like this?") : g ? "So?" : "Like this?";
+    return { patch: { volume: Math.round(v * 100) / 100 }, spoken };
+  }
+  if (patch.speechRate !== undefined) {
+    const v = Math.max(0.7, Math.min(1.3, Number(patch.speechRate)));
+    if (!Number.isFinite(v)) return null;
+    return { patch: { speechRate: Math.round(v * 100) / 100 }, spoken: g ? "So spreche ich jetzt." : "This is how I speak now." };
+  }
+  if (patch.voice !== undefined || patch.voiceGender !== undefined) {
+    if (patch.voice) {
+      const v = voices.find((x) => x.key === patch.voice);
       if (!v) return null;
       return { patch: { voice: v.key, voiceGender: v.gender }, spoken: g ? `So klinge ich jetzt — ${v.label}.` : `This is how I sound now — ${v.label}.` };
     }
-    case "scale": {
-      const sc = card.scale;
-      if (!sc) return null;
-      const n = Number(value);
-      if (!Number.isFinite(n)) return null;
-      if (sc.setting === "textSize") {
-        const size = TEXT_SIZES[Math.max(0, Math.min(3, Math.round(n)))]!;
-        return { patch: { textSize: size }, spoken: g ? "So groß?" : "This big?" };
-      }
-      const clamped = Math.max(sc.min, Math.min(sc.max, n));
-      if (sc.setting === "volume") {
-        const prev = acc.volume ?? 1;
-        const spoken = clamped < prev ? (g ? "Etwas leiser — so?" : "A bit quieter — like this?") : clamped > prev ? (g ? "Etwas lauter — so?" : "A bit louder — like this?") : (g ? "So?" : "Like this?");
-        return { patch: { volume: Math.round(clamped * 100) / 100 }, spoken };
-      }
-      return { patch: { speechRate: Math.round(clamped * 100) / 100 }, spoken: g ? "So spreche ich jetzt." : "This is how I speak now." };
+    if (patch.voiceGender === "female" || patch.voiceGender === "male") {
+      return { patch: { voiceGender: patch.voiceGender, voice: "" }, spoken: g ? "So klinge ich jetzt." : "This is how I sound now." };
     }
-    default:
-      return null;
+    return null;
   }
-}
-
-/** The wizard's closing line. */
-export function customizeDone(lang: Locale, persistent: boolean): string {
-  if (de(lang)) return persistent ? "Fertig — so bleibt es, auch beim nächsten Mal." : "Fertig — so bleibt es für diese Fahrt.";
-  return persistent ? "Done — it stays like this, next time too." : "Done — it stays like this for this ride.";
+  if (patch.voiceTone !== undefined) {
+    if (!(VOICE_TONES as readonly string[]).includes(patch.voiceTone)) return null;
+    const label = TONE_LABEL[patch.voiceTone]?.[g ? 0 : 1] ?? patch.voiceTone;
+    return { patch: { voiceTone: patch.voiceTone }, spoken: g ? `Eher ${label} — so?` : `More ${label} — like this?` };
+  }
+  return null;
 }

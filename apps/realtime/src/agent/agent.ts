@@ -35,7 +35,7 @@ import { cannedReply, errorReply } from "./canned.js";
 import type { TtsProvider } from "../speech/tts.js";
 import { logger } from "../log/logger.js";
 import { TurnSpeaker } from "../speech/speaker.js";
-import { CUSTOMIZE_STEPS, customizeCard, customizeDone, localAnswer } from "./cards.js";
+import { settingsSpoken } from "./cards.js";
 import { cabinTrigger, memoryTrigger, presentationTrigger } from "./memoryTriggers.js";
 
 export interface AgentTurnInput {
@@ -512,10 +512,10 @@ export class CosimoAgent {
     // ("Bestätigung nach jedem Schritt" is now a prompt matter — the model
     // always confirms in its own words; appending the template on top made
     // replies like "Das Thema ist Wald. Erledigt, ich habe das angepasst.")
-    // A local card put on screen this turn must be heard, whatever the model
-    // said ("Erledigt." happens): append its question deterministically.
+    // A card put on screen this turn must be heard, whatever the model said
+    // ("Erledigt." happens): append its question deterministically.
     const shownCard = this.hub.cardOf(sessionId);
-    if (!streamClosed && shownCard?.local && !assistantText.includes(shownCard.question) && !/[?？]\s*$/.test(assistantText.trim())) {
+    if (!streamClosed && shownCard && !assistantText.includes(shownCard.question) && !/[?？]\s*$/.test(assistantText.trim())) {
       const add = (assistantText.trim() ? " " : "") + shownCard.question;
       assistantText += add;
       if (!startedSpeaking) {
@@ -702,62 +702,36 @@ export class CosimoAgent {
   }
 
   /**
-   * A tap on a LOCAL card: the hub applies the setting itself (no LLM round)
-   * and CoSiMo still answers audio-visually — a short templated line, spoken
-   * in the NEW setting (the new voice, the new volume …). Wizard cards chain
-   * to the next step; the closing line says whether it persists.
+   * A tap in the settings menu: the hub applies the setting itself (no LLM
+   * round) and — when the menu asks for it — CoSiMo answers audio-visually
+   * with a short templated line spoken in the NEW setting (the new voice,
+   * the new volume …), which is how the rider judges the change.
    */
-  async handleCardAnswer(input: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey }): Promise<void> {
-    const { sessionId, deviceId, cardId, value, lang, persona } = input;
-    const card = this.hub.cardOf(sessionId);
-    if (!card || card.id !== cardId || !card.local) return;
+  async handleSettingsPatch(input: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; lang: Locale; persona: PersonaKey }): Promise<void> {
+    const { sessionId, deviceId, patch, speak, lang, persona } = input;
     const voices = this.operatorConfig.get().tts.voices;
     const before = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
+    const ans = settingsSpoken(patch, lang, voices, before);
+    if (!ans) {
+      logger.log("settings.patch", { applied: patch, speak }, { deviceId, sessionId, level: "warn" });
+      return;
+    }
+    const next = this.hub.patchSeatAccommodations(deviceId, ans.patch);
+    if (next) this.persistAccommodations(persona, next);
     const turnNo = this.hub.beginTurn(sessionId);
+    logger.log("settings.patch", { applied: ans.patch, speak }, { deviceId, sessionId, turn: turnNo });
+    const [setting, v] = Object.entries(ans.patch)[0] ?? [];
+    this.recorder.addTurn(sessionId, { role: "user", modality: "tap", lang, transcript: `[settings] ${setting} = ${String(v)}`, at: new Date().toISOString() });
+    if (!speak) {
+      this.persist(sessionId);
+      return;
+    }
     const startedAt = Date.now();
-    const lines: string[] = [];
-    let applied: Partial<Accommodations> | undefined;
-
-    if (value !== "__skip" && value !== "__done") {
-      const ans = localAnswer(card, value, lang, voices, before);
-      if (!ans) {
-        logger.log("card.answer", { kind: card.kind, value }, { deviceId, sessionId, turn: turnNo, level: "warn" });
-        return;
-      }
-      const next = this.hub.patchSeatAccommodations(deviceId, ans.patch);
-      if (next) this.persistAccommodations(persona, next);
-      applied = ans.patch;
-      lines.push(ans.spoken);
-    }
-    logger.log("card.answer", { kind: card.kind, value, ...(applied ? { applied } : {}) }, { deviceId, sessionId, turn: turnNo });
-    this.recorder.addTurn(sessionId, { role: "user", modality: "tap", lang, transcript: `[${card.kind}] ${value}`, at: new Date().toISOString() });
-
-    if (card.step) {
-      const nextIdx = card.step.index + 1;
-      if (value === "__done" || nextIdx >= CUSTOMIZE_STEPS.length) {
-        this.hub.setWizardStep(sessionId, undefined);
-        this.hub.showCard(sessionId, null, turnNo);
-        lines.push(customizeDone(lang, this.personas.isPersistable(persona)));
-      } else {
-        const acc = this.hub.accommodationsOf(sessionId) ?? before;
-        const nextCard = customizeCard(nextIdx, lang, voices, acc);
-        if (nextCard) {
-          this.hub.setWizardStep(sessionId, nextIdx);
-          lines.push(nextCard.question);
-          this.hub.showCard(sessionId, nextCard, turnNo);
-        }
-      }
-    } else {
-      this.hub.showCard(sessionId, null, turnNo);
-    }
-
-    const spoken = lines.join(" ");
-    this.emitFullReply(sessionId, spoken, turnNo);
+    this.emitFullReply(sessionId, ans.spoken, turnNo);
     this.hub.setEmotion("happy", sessionId, turnNo);
-    const ttsMs = await this.speak(sessionId, spoken, lang, persona, turnNo);
-    const [setting, v] = applied ? Object.entries(applied)[0] ?? [] : [];
+    const ttsMs = await this.speak(sessionId, ans.spoken, lang, persona, turnNo);
     this.recordCosimoTurn(
-      sessionId, lang, spoken,
+      sessionId, lang, ans.spoken,
       setting ? [{ tool: "set_presentation", args: { setting, value: v }, ok: true }] : [],
       "happy", startedAt, "tap", "ok", { ttsMs },
     );

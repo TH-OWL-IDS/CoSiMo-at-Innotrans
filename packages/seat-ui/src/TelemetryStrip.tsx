@@ -59,15 +59,15 @@ function slidesFor(t: MonoCabTelemetry | null, lang: Locale): Slide[] {
   return out;
 }
 
-function SlideView({ s, big }: { s: Slide; big: number }) {
+function SlideView({ s, big, textScale }: { s: Slide; big: number; textScale: number }) {
   return (
     <div style={{ position: "absolute", inset: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: "5cqh", padding: "6cqh var(--slit-inset, 7cqh)", whiteSpace: "nowrap", overflow: "hidden" }}>
-      {s.icon === "mic" && <Mic size="34cqh" strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />}
+      {s.icon === "mic" && <Mic size={`${(34 * textScale).toFixed(1)}cqh`} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />}
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: "3cqh" }}>
         {/* no overflow clipping on the lines themselves: line-height 1 + overflow:hidden
             cut the descenders (g, p); the font is shrunk to fit instead, and the slit clips */}
-        <span style={{ fontSize: `clamp(14px, ${big.toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.01em" }}>{s.big}</span>
-        <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.2, opacity: 0.62 }}>{s.small}</span>
+        <span style={{ fontSize: `clamp(14px, ${(big * textScale).toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.01em" }}>{s.big}</span>
+        <span style={{ fontSize: `clamp(11px, ${(17 * textScale).toFixed(1)}cqh, 36px)`, fontWeight: 500, lineHeight: 1.2, opacity: 0.62 }}>{s.small}</span>
       </div>
     </div>
   );
@@ -78,11 +78,14 @@ export default function TelemetryStrip({
   lang,
   reduceMotion = false,
   motion = DEFAULT_SLIT_MOTION,
+  textScale = 1,
 }: {
   telemetry: MonoCabTelemetry | null;
   lang: Locale;
   reduceMotion?: boolean;
   motion?: SlitMotion;
+  /** The rider's text size (1 = the slit's full size, smaller only). */
+  textScale?: number;
 }) {
   const CYCLE_MS = Math.max(1000, motion.stepSec * 1000);
   const SLIDE_MS = Math.max(0, Math.min(2000, motion.slideMs));
@@ -126,11 +129,11 @@ export default function TelemetryStrip({
 @keyframes slit-out-down { from { transform: none; opacity: 1 } to { transform: translateY(100%);  opacity: 0 } }`}</style>
       {leaving && (
         <div key={`out-${leaving.slide.key}-${index}`} style={{ position: "absolute", inset: 0, animation: anim(dir === 1 ? "slit-out-up" : "slit-out-down") }}>
-          <SlideView s={leaving.slide} big={bigSize(leaving.slide)} />
+          <SlideView s={leaving.slide} big={bigSize(leaving.slide)} textScale={textScale} />
         </div>
       )}
       <div key={`in-${curKey}-${index}`} style={{ position: "absolute", inset: 0, animation: leaving ? anim(dir === 1 ? "slit-in-up" : "slit-in-down") : "none" }}>
-        <SlideView s={cur} big={bigSize(cur)} />
+        <SlideView s={cur} big={bigSize(cur)} textScale={textScale} />
       </div>
     </div>
   );

@@ -70,8 +70,9 @@ export type LogEvent = Base &
     | { kind: "config.loaded"; data: { source: "cms" | "defaults"; llm: string; fallback: string | null; voices: number; lpu2Mapped: number; changed: string[] } }
     | { kind: "service.restart"; data: { id: string; ok: boolean; error?: string; durationMs: number } }
     | { kind: "session.start"; data: { persona: string; by: string; consent: boolean; /** the decision came from the rider's profile (else the operator default) */ stored: boolean; previousSessionId?: string } }
-    | { kind: "card.show"; data: { kind: string; question: string; options: string[]; local: boolean; step?: string } }
-    | { kind: "card.answer"; data: { kind: string; value: string; applied?: Record<string, unknown> } }
+    | { kind: "card.show"; data: { kind: string; question: string; options: string[] } }
+    | { kind: "settings.open"; data: { section?: string } }
+    | { kind: "settings.patch"; data: { applied: Record<string, unknown>; speak: boolean } }
     | {
         kind: "tts.done";
         data: {
@@ -123,7 +124,8 @@ export const LOG_KINDS: readonly LogKind[] = [
   "service.restart",
   "session.start",
   "card.show",
-  "card.answer",
+  "settings.open",
+  "settings.patch",
   "tts.done",
   "turn.end",
   "host.action",

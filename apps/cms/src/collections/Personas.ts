@@ -199,12 +199,12 @@ export const Personas: CollectionConfig = {
             {
               name: "textSize",
               type: "select",
-              defaultValue: "m",
+              defaultValue: "l",
+              admin: { description: "L ist die größte Schrift, die der Schlitz fasst (Standard); M und S sind kleiner." },
               options: [
                 { label: "S", value: "s" },
                 { label: "M", value: "m" },
                 { label: "L", value: "l" },
-                { label: "XL", value: "xl" },
               ],
             },
             {

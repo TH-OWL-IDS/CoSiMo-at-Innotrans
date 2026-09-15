@@ -11,6 +11,7 @@ import * as migration_20260831_064525_cabin_control_cues from './20260831_064525
 import * as migration_20260831_100805_voice_language from './20260831_100805_voice_language';
 import * as migration_20260903_172812_lpu2_rig_catalog from './20260903_172812_lpu2_rig_catalog';
 import * as migration_20260903_183344_session_modality_tap from './20260903_183344_session_modality_tap';
+import * as migration_20260915_125023_text_size_l from './20260915_125023_text_size_l';
 
 export const migrations = [
   {
@@ -76,6 +77,11 @@ export const migrations = [
   {
     up: migration_20260903_183344_session_modality_tap.up,
     down: migration_20260903_183344_session_modality_tap.down,
-    name: '20260903_183344_session_modality_tap'
+    name: '20260903_183344_session_modality_tap',
+  },
+  {
+    up: migration_20260915_125023_text_size_l.up,
+    down: migration_20260915_125023_text_size_l.down,
+    name: '20260915_125023_text_size_l'
   },
 ];

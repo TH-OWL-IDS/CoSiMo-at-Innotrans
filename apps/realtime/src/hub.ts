@@ -31,6 +31,9 @@ import {
   type PipelinePhase,
   type RiderContext,
   type SeatCard,
+  type SeatSettingsOpen,
+  type SettingsSection,
+  type VoiceCatalogEntry,
   type SeatInspection,
   type SeatSummary,
   type ServerToClientEvents,
@@ -117,7 +120,7 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 
 /** Composes the host inspector view for one seat (system prompt + turns). */
 export type InspectResolver = (deviceId: string) => SeatInspection | null;
-export type CardAnswerHandler = (payload: { sessionId: string; deviceId: string; cardId: string; value: string; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
+export type SettingsPatchHandler = (payload: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
 /** A session ended (persona switch / reset): the agent closes its records. */
 export type SessionEndHandler = (payload: { sessionId: string; deviceId: string; consent: boolean }) => void;
 /** A card-bound rider decided on consent: persist it on the profile. */
@@ -200,8 +203,6 @@ interface DeviceEntry {
   /** The card currently in the slit (+ its auto-dismiss timer). */
   card?: SeatCard;
   cardTimer?: ReturnType<typeof setTimeout>;
-  /** Customizer wizard progress (step index) while it runs. */
-  wizardStep?: number;
   /** Accumulates streamed reply text until the turn is done. */
   replyBuffer: string;
   /** Monotonically increasing turn number — stale turns are dropped client-side. */
@@ -264,7 +265,7 @@ export class Hub {
   private lastConfigJson = "";
   private memoriesResolver: MemoriesResolver | undefined;
   private inspectResolver: InspectResolver | undefined;
-  private cardAnswerHandler: CardAnswerHandler | undefined;
+  private settingsPatchHandler: SettingsPatchHandler | undefined;
   private repeatHandler: RepeatHandler | undefined;
   private llmTester: LlmTester | undefined;
   private speechTester: SpeechTester | undefined;
@@ -396,8 +397,8 @@ export class Hub {
   }
 
   /** Register how a seat's deep inspection (prompt + turns) is composed. */
-  onCardAnswer(handler: CardAnswerHandler): void {
-    this.cardAnswerHandler = handler;
+  onSettingsPatch(handler: SettingsPatchHandler): void {
+    this.settingsPatchHandler = handler;
   }
 
   onSessionEnd(handler: SessionEndHandler): void {
@@ -466,7 +467,6 @@ export class Hub {
     entry.lastReplyFull = "";
     entry.replyBuffer = "";
     entry.phase = "idle";
-    entry.wizardStep = undefined;
     if (entry.cardTimer) clearTimeout(entry.cardTimer);
     entry.cardTimer = undefined;
     entry.card = undefined;
@@ -817,15 +817,15 @@ export class Hub {
       );
     });
 
-    // A tapped card answer — starts the visible session if it had not.
-    socket.on("card:answer", ({ sessionId, cardId, value }) => {
+    // A tap in the settings menu — starts the visible session if it had not.
+    socket.on("settings:patch", ({ sessionId, patch, speak }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
-      if (!entry || !entry.card || entry.card.id !== cardId || !entry.card.local) return;
+      if (!entry || !patch || typeof patch !== "object") return;
       entry.lastActivity = Date.now();
       entry.active = true;
-      this.cardAnswerHandler?.({
-        sessionId, deviceId, cardId, value: String(value),
+      this.settingsPatchHandler?.({
+        sessionId, deviceId, patch, speak: Boolean(speak),
         lang: entry.persona.accommodations.language,
         persona: this.personaOf(deviceId),
         rider: this.riderOfEntry(entry, sessionId),
@@ -1350,7 +1350,6 @@ export class Hub {
     entry.cardTimer = undefined;
     if (!card && !entry.card) return; // nothing to clear — keep the wire quiet
     entry.card = card ?? undefined;
-    if (!card) entry.wizardStep = undefined;
     entry.socket.emit("seat:card", { sessionId, card, turn });
     if (card) {
       // auto-dismiss: a forgotten question must not stick in the slit
@@ -1360,10 +1359,7 @@ export class Hub {
       entry.cardTimer.unref?.();
       logger.log(
         "card.show",
-        {
-          kind: card.kind, question: card.question, options: card.options.map((o) => o.label),
-          local: card.local, ...(card.step ? { step: `${card.step.index + 1}/${card.step.total}` } : {}),
-        },
+        { kind: card.kind, question: card.question, options: card.options.map((o) => o.label) },
         { sessionId, turn },
       );
     }
@@ -1374,13 +1370,21 @@ export class Hub {
     return this.entryOf(sessionId)?.card;
   }
 
-  wizardStepOf(sessionId: string): number | undefined {
-    return this.entryOf(sessionId)?.wizardStep;
-  }
-
-  setWizardStep(sessionId: string, step: number | undefined): void {
+  /** Open the rider's settings menu in the slit (replaces any card). The
+   *  menu is client-side from here on: taps arrive as `settings:patch`,
+   *  closing is local (back button, 30 s idle, the next spoken turn). */
+  openSettings(sessionId: string, section: SettingsSection | undefined, voices: VoiceCatalogEntry[], turn: number): boolean {
     const entry = this.entryOf(sessionId);
-    if (entry) entry.wizardStep = step;
+    if (!entry) return false;
+    if (turn !== -1 && turn < entry.turn) return false;
+    this.showCard(sessionId, null, turn);
+    const payload: SeatSettingsOpen = {
+      sessionId, section, turn,
+      voices: voices.map((v) => ({ key: v.key, label: v.label, gender: v.gender, language: v.language })),
+    };
+    entry.socket.emit("seat:settings", payload);
+    logger.log("settings.open", section ? { section } : {}, { sessionId, turn });
+    return true;
   }
 
   /** The seat's last complete reply (for ↻). */

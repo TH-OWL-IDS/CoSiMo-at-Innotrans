@@ -64,8 +64,9 @@ export interface Accommodations {
   language: Locale;
   /** Appearance scheme id (see packages/face schemes). */
   theme: string;
-  /** On-screen text scale. */
-  textSize: "s" | "m" | "l" | "xl";
+  /** On-screen text scale — `l` is the largest the slit can hold (the
+   *  default look); `m` and `s` only go smaller. See TEXT_SCALE. */
+  textSize: TextSize;
   /** Speak replies aloud (server/browser TTS). */
   audioOutput: boolean;
   /** TTS rate multiplier (0.5–1.5). */
@@ -110,6 +111,16 @@ export interface VoiceCatalogEntry {
 }
 
 /** Voice character presets → ElevenLabs stability (low = expressive, high = even). */
+export const TEXT_SIZES = ["s", "m", "l"] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];
+/** Render scale per text size. The slit's type is sized so that 1.0 fills
+ *  it — there is no "larger than the slit", only smaller. */
+export const TEXT_SCALE: Record<TextSize, number> = { s: 0.7, m: 0.85, l: 1 };
+/** Old rows may still say "xl" (the former largest): it means "l" now. */
+export function normalizeTextSize(v: unknown): TextSize {
+  return v === "s" || v === "m" ? v : "l";
+}
+
 export const VOICE_TONES = ["neutral", "warm", "ruhig", "lebhaft"] as const;
 export type VoiceTone = (typeof VOICE_TONES)[number];
 export const VOICE_TONE_STABILITY: Record<VoiceTone, number> = {
@@ -136,7 +147,7 @@ export interface InteractionTraits {
   confirmation: "every-step" | "result-only";
   /** Does CoSiMo lead (offer the next step) or respond? */
   initiative: "leads" | "responds";
-  /** Basic functions only, or everything (customizer, voices, memory). */
+  /** Basic functions only, or everything (settings menu, voices, memory). */
   scope: "basics" | "full";
 }
 

@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
+import { SlitSettings } from "./SlitSettings.js";
 import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
 import SlitWave from "./SlitWave.js";
 import SlitCaption from "./SlitCaption.js";
@@ -119,7 +120,11 @@ export default function SeatView({
   const gazeEnd = () => {
     gazeRef.current = null;
   };
-  const gazeDrive = () => gazeRef.current;
+  // While the settings menu is open CoSiMo looks down at it — the slit sits
+  // below the face — unless a finger on the face asks for attention.
+  const settingsOpen = !show && Boolean(cosimo.settings);
+  const settingsGaze = { x: 0, y: 0.95 };
+  const gazeDrive = () => gazeRef.current ?? (settingsOpen ? settingsGaze : null);
 
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdStart = () => {
@@ -175,8 +180,8 @@ export default function SeatView({
   const captionText = show ? show.caption : showText ? cosimo.caption || cosimo.reply : "";
   const speakingNow = speaking && !listening && Boolean(captionText);
   const afterReply = !show && showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
-  const slitMode: "wave" | "calm" | "caption" | "card" | "idle" =
-    waveShown || (show && listening) ? "wave" : thinking ? "calm" : !show && cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
+  const slitMode: "wave" | "calm" | "settings" | "caption" | "card" | "idle" =
+    waveShown || (show && listening) ? "wave" : thinking ? "calm" : settingsOpen ? "settings" : !show && cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
   const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : speaking ? "speaking" : null;
   // The rim keeps its last colour while fading out, so the fade is not a colour jump.
@@ -468,16 +473,20 @@ export default function SeatView({
               textScale={textScale}
               aside={afterReply ? <RepeatAffordance lastReplyAt={cosimo.lastReplyAt} ink={scheme.ink} onRepeat={cosimo.repeatLast} lang={lang} /> : undefined}
             />
-          ) : slitMode === "card" ? (
-            <SlitCard
-              card={cosimo.card!}
+          ) : slitMode === "settings" ? (
+            <SlitSettings
+              open={cosimo.settings!}
+              acc={cosimo.persona?.accommodations}
               scheme={scheme}
               textScale={textScale}
-              onLocal={(value) => cosimo.answerCard(cosimo.card!.id, value)}
-              onModel={(label) => cosimo.send(label, lang, "tap")}
+              lang={lang}
+              onPatch={cosimo.patchSettings}
+              onClose={cosimo.closeSettings}
             />
+          ) : slitMode === "card" ? (
+            <SlitCard card={cosimo.card!} scheme={scheme} textScale={textScale} onPick={(label) => cosimo.send(label, lang, "tap")} />
           ) : (
-            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} reduceMotion={reduceMotion} motion={slitMotion} />
+            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} reduceMotion={reduceMotion} motion={slitMotion} textScale={textScale} />
           )}
         </div>
       </div>

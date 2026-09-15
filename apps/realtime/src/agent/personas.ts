@@ -9,7 +9,7 @@
  * large text — broadcast to the iPads as a PersonaBroadcast).
  */
 
-import { type Accommodations, type Persona, type PersonaBroadcast, type PersonaKey, type PersonaMemory, DEFAULT_TRAITS, TRAIT_OPTIONS, type InteractionTraits } from "@cosimo/shared";
+import { normalizeTextSize, type Accommodations, type Persona, type PersonaBroadcast, type PersonaKey, type PersonaMemory, DEFAULT_TRAITS, TRAIT_OPTIONS, type InteractionTraits } from "@cosimo/shared";
 import { config } from "../config.js";
 
 /** Sensible accommodation defaults; presets override only what differs. */
@@ -17,7 +17,7 @@ function accommodations(over: Partial<Accommodations> = {}): Accommodations {
   return {
     language: "de",
     theme: "weiss",
-    textSize: "m",
+    textSize: "l",
     audioOutput: true,
     speechRate: 1,
     showText: false,
@@ -91,7 +91,12 @@ function mergeDoc(base: Persona, doc: PayloadPersonaDoc): Persona {
     label: doc.label ?? doc.name ?? base.label,
     summary: doc.summary ?? base.summary,
     brief: doc.brief ?? base.brief,
-    accommodations: { ...base.accommodations, ...(doc.accommodations ?? {}) },
+    accommodations: {
+      ...base.accommodations,
+      ...(doc.accommodations ?? {}),
+      // "xl" (the former largest) may linger in old rows — it means "l" now
+      textSize: normalizeTextSize(doc.accommodations?.textSize ?? base.accommodations.textSize),
+    },
     traits: mergeTraits(base.traits, doc.traits),
     consent: doc.consent === true,
     memories: doc.memories

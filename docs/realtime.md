@@ -151,23 +151,28 @@ preferred language — reply in English anyway"). Gate: 31/32 (the rule
 alone scored 20/32 — the German journey line pulled replies back to
 German).
 
-## Slit cards (`src/agent/cards.ts`, hub `showCard`)
+## Slit cards and the settings menu (`src/agent/cards.ts`, hub `showCard` / `openSettings`)
 
 The slit is CoSiMo's control strip: one fixed grid (context left, actions
-right), a small kind vocabulary — `confirm` (✓ ✗), `themes` (swatches),
-`voices` (catalog chips), `scale` (slider for volume/speechRate, −/+ for
-textSize). There is deliberately no free-text list card: open choices
-(which lamp, which stop) are asked aloud only. **Model cards** (`confirm`)
-send the tapped label back as the rider's next message. **Local cards**
-(`themes`, `voices`, `scale`, every customizer step) are answered by the hub
-via `card:answer` — no LLM round: it patches the seat's accommodations,
-persists for card-bound riders, logs `card.answer`, records the exchange in
-the session history, and CoSiMo still answers audio-visually with a short
-templated line spoken in the NEW setting. `start_customizer` runs the wizard
-(colour → text size → voice → tempo) step by step the same way;
-the closing line says whether it persists (card-bound) or lasts the ride.
-Cards auto-dismiss (20 s, wizard 45 s), any turn clears them (a spoken answer
-during the wizard ends it — the model handles that setting instead).
+right). The only **card** left is `confirm` (✓ ✗) — `show_choices` puts
+Ja/Nein chips under a yes/no question the model asks; a tap sends the label
+back as the rider's next message. There is deliberately no free-text list
+card: open choices (which lamp, which stop) are asked aloud only. Cards
+auto-dismiss (20 s), any turn clears them.
+
+Everything the rider adjusts themselves is the **settings menu**
+(`open_settings`, optionally on a section): Textgröße · Lautstärke · Stimme
+(Tempo · Typ · Stimmung) · Farbe, icons only at the top level, sliders /
+chips / swatches on the leaves, one round button on the right (✓ after a
+change, ‹ back otherwise, × on the root). The hub emits `seat:settings`
+(section + the voice catalog); from there the menu is client-side. Every
+tap arrives as `settings:patch` — no LLM round: the hub validates and
+patches the seat's accommodations, persists for card-bound riders, logs
+`settings.patch`, records the exchange in the session history, and CoSiMo
+confirms with a short templated line spoken in the NEW setting. The menu
+closes after 30 s without a tap, on its back button, or on the next spoken
+turn. The former per-setting cards (themes/voices/scale) and the step
+wizard are gone; `set_presentation` stays for clear spoken requests.
 `reply:repeat` (the ↻ affordance, 8 s after each reply) re-speaks the last
 reply without an LLM round; the idle hint ("Taste halten und sprechen") is
 client-only after 30 s without activity.

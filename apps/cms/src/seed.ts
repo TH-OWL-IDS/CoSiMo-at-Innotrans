@@ -22,7 +22,7 @@ type ProfileSeed = {
   accommodations: {
     language: "de" | "en";
     theme: string;
-    textSize: "s" | "m" | "l" | "xl";
+    textSize: "s" | "m" | "l";
     input: "voice" | "text" | "both";
     volume?: number;
     voiceGender?: "female" | "male";
@@ -55,7 +55,7 @@ const personas: ProfileSeed[] = [
     summary: "Allgemeine Begleitung.",
     brief: "Speak naturally and warmly. Keep answers short and clear.",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "m", input: "both",
+      language: "de", theme: "weiss", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "neutral",
     },
@@ -135,7 +135,7 @@ const users: ProfileSeed[] = [
     summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
     brief: "",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "m", input: "both",
+      language: "de", theme: "weiss", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "female", voiceTone: "lebhaft",
     },

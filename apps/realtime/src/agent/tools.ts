@@ -21,12 +21,14 @@ import {
   type TurnAction,
   type VoiceCatalogEntry,
   type VoiceTone,
+  SETTINGS_SECTIONS,
+  type SettingsSection,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import type { PersonaProvider } from "./personas.js";
 import type { ProfileSink } from "./profileSink.js";
 import type { TelemetrySimulation } from "./telemetry.js";
-import { confirmCard, customizeCard, scaleCard, themesCard, voicesCard } from "./cards.js";
+import { confirmCard } from "./cards.js";
 
 export interface ToolResult {
   /** Text returned to Claude as the tool_result content. */
@@ -116,7 +118,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l|xl. input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
+            "New value. textSize: s|m|l (l is the largest the screen holds; m and s are smaller). input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
         },
       },
       required: ["setting", "value"],
@@ -126,23 +128,27 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "show_choices",
     description:
-      "Put tappable options in the rider's slit — ALWAYS also ask the question aloud in the same reply, then END your turn. Kinds: 'confirm' = Ja/Nein for any yes/no question you ask; 'themes' = colour palette; 'voices' = the voice catalog; 'scale' = a slider for volume/speechRate or −/+ for textSize. Free-text options do not exist — an open choice (e.g. which lamp) is asked aloud only. themes/voices/scale are applied by the system itself when tapped (it also confirms aloud) — do not call set_presentation for them. The rider may still answer by voice. Never use a card when the request is clear.",
+      "Put Ja/Nein chips in the rider's slit for a yes/no question you ask — ALWAYS also ask the question aloud in the same reply, then END your turn; the rider's answer (tap or voice) arrives as their next message. Free-text options do not exist — an open choice (e.g. which lamp) is asked aloud only. Never use it when the request is clear.",
     input_schema: {
       type: "object",
       properties: {
-        question: { type: "string", description: "The short question, exactly as you speak it." },
-        kind: { type: "string", enum: ["confirm", "themes", "voices", "scale"], description: "Default 'confirm'." },
-        setting: { type: "string", enum: ["volume", "speechRate", "textSize"], description: "For kind 'scale': which setting the slider changes." },
+        question: { type: "string", description: "The short yes/no question, exactly as you speak it." },
       },
       required: ["question"],
       additionalProperties: false,
     },
   },
   {
-    name: "start_customizer",
+    name: "open_settings",
     description:
-      "Start the step-by-step look-and-voice customizer when the rider wants to personalise you ('ich möchte dein Aussehen individualisieren', 'kann ich dich anpassen'). The system walks them through colour → text size → voice → tempo with tappable steps and confirms each aloud. You only say a short intro plus the first question, then END your turn.",
-    input_schema: { type: "object", properties: {}, additionalProperties: false },
+      "Open the rider's settings menu in the slit: Textgröße · Lautstärke · Stimme (Tempo, Typ, Stimmung) · Farbe. The rider taps through it alone; the system applies every tap and confirms aloud. Call it when they want to personalise you or adjust something themselves ('dich anpassen', 'einstellen', 'Einstellungen', 'welche Stimmen gibt es', 'zeig mir die Farben') — with `section` when one setting is meant. Say one short sentence ('Hier sind die Einstellungen.') and END your turn. A clear specific request ('stell auf grün') is done with set_presentation instead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        section: { type: "string", enum: ["textSize", "volume", "voice", "theme"], description: "Open straight on this section. Omit for the top level." },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "remember",
@@ -196,9 +202,9 @@ type PresPatch = { patch: Partial<Accommodations> } | { error: string };
 function presentationPatch(setting: string, value: unknown, voices: VoiceCatalogEntry[]): PresPatch {
   switch (setting) {
     case "textSize":
-      return ["s", "m", "l", "xl"].includes(String(value))
+      return ["s", "m", "l"].includes(String(value))
         ? { patch: { textSize: value as Accommodations["textSize"] } }
-        : { error: "textSize must be s|m|l|xl" };
+        : { error: "textSize must be s|m|l" };
     case "input":
       return ["voice", "text", "both"].includes(String(value))
         ? { patch: { input: value as Accommodations["input"] } }
@@ -381,45 +387,21 @@ export async function executeTool(
     case "show_choices": {
       const question = String(input.question ?? "").trim();
       if (!question) return { text: "error: question is required", action: { tool: name } };
-      const kind = String(input.kind ?? "confirm");
-      const acc = ctx.hub.accommodationsOf(ctx.sessionId) ?? ctx.personas.get(ctx.persona).accommodations;
-      let card;
-      switch (kind) {
-        case "confirm":
-          card = confirmCard(question, ctx.lang);
-          break;
-        case "themes":
-          card = themesCard(question, ctx.lang);
-          break;
-        case "voices":
-          card = voicesCard(question, ctx.lang, ctx.voices);
-          break;
-        case "scale": {
-          const setting = input.setting === "speechRate" || input.setting === "textSize" ? input.setting : "volume";
-          card = scaleCard(question, setting, acc, ctx.lang);
-          break;
-        }
-        default:
-          return { text: "error: kind must be confirm, themes, voices or scale — open choices are asked aloud only", action: { tool: name } };
-      }
+      const card = confirmCard(question, ctx.lang);
       ctx.hub.showCard(ctx.sessionId, card, ctx.turn);
       return {
-        text: card.local
-          ? "ok: on screen. The system applies the rider's tap itself and confirms aloud. Ask the question aloud now and END your turn."
-          : "ok: options are on screen. Ask the question aloud in this same reply and END your turn — the rider's choice arrives as their next message.",
+        text: "ok: Ja/Nein chips are on screen. Ask the question aloud in this same reply and END your turn — the rider's choice arrives as their next message.",
         action: { tool: name, args: { kind: card.kind, question, options: card.options.map((o) => o.label) } },
       };
     }
 
-    case "start_customizer": {
-      const acc = ctx.hub.accommodationsOf(ctx.sessionId) ?? ctx.personas.get(ctx.persona).accommodations;
-      const first = customizeCard(0, ctx.lang, ctx.voices, acc);
-      if (!first) return { text: "error: customizer unavailable", action: { tool: name } };
-      ctx.hub.setWizardStep(ctx.sessionId, 0);
-      ctx.hub.showCard(ctx.sessionId, first, ctx.turn);
+    case "open_settings": {
+      const section = (SETTINGS_SECTIONS as readonly string[]).includes(String(input.section)) ? (input.section as SettingsSection) : undefined;
+      const ok = ctx.hub.openSettings(ctx.sessionId, section, ctx.voices, ctx.turn);
+      if (!ok) return { text: "error: no active seat", action: { tool: name } };
       return {
-        text: `ok: the customizer is on screen (step 1: colour). Say a short friendly intro and then exactly this question aloud: "${first.question}" — then END your turn. The system handles every following step.`,
-        action: { tool: name },
+        text: `ok: the settings menu is on screen${section ? ` (${section})` : ""}. Say one short sentence and END your turn — the rider taps through it alone, the system confirms each change aloud.`,
+        action: { tool: name, args: section ? { section } : {} },
       };
     }
 

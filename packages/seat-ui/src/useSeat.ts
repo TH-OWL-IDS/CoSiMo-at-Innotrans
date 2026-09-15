@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "@cosimo/shared";
+import { TEXT_SCALE, normalizeTextSize, type Locale } from "@cosimo/shared";
 import { schemeById, type ColorScheme } from "@cosimo/face";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { usePushToTalk, type NativeDictation } from "./usePushToTalk.js";
@@ -54,7 +54,8 @@ export function useSeat(
   // all voice-mutable via CoSiMo (set_presentation).
   const acc = cosimo.persona?.accommodations;
   const scheme = schemeById(acc?.theme ?? "weiss");
-  const textScale = { s: 0.85, m: 1, l: 1.25, xl: 1.55 }[acc?.textSize ?? "m"];
+  // "l" (1.0) is the slit's full size — the setting only goes smaller.
+  const textScale = TEXT_SCALE[normalizeTextSize(acc?.textSize)];
   const showText = acc?.showText ?? false;
   const speakAloud = acc?.audioOutput ?? true;
   const speechRate = acc?.speechRate ?? 1;

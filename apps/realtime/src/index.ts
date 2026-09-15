@@ -127,10 +127,10 @@ hub.onChat((chat) => {
   void agent.handleUserTurn(chat);
 });
 
-// Slit cards answered by the hub (themes, voices, sliders, the customizer)
-// and the ↻ "say it again" affordance — no LLM round, but a spoken reply.
-hub.onCardAnswer((p) => {
-  void agent.handleCardAnswer(p);
+// The settings menu in the slit: every tap is applied by the hub itself —
+// no LLM round, but a short spoken confirmation in the new setting.
+hub.onSettingsPatch((p) => {
+  void agent.handleSettingsPatch(p);
 });
 hub.onLlmTest(() => agent.testLlm());
 // Console "Testen" on the speech cards. TTS: one sentence on the live route,

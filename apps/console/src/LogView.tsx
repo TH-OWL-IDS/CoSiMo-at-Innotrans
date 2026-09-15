@@ -62,7 +62,8 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "service.restart": RotateCw,
   "session.start": UserPlus,
   "card.show": ListTodo,
-  "card.answer": MousePointerClick,
+  "settings.open": SlidersHorizontal,
+  "settings.patch": MousePointerClick,
   "tts.done": Volume2,
   "turn.end": FlagTriangleRight,
   "host.action": Joystick,
@@ -110,9 +111,11 @@ export function summarize(e: LogEvent): string {
     case "session.start":
       return `neue Session · ${e.data.persona} (${e.data.by})${e.data.consent ? " · Aufzeichnung" : " · keine Aufzeichnung"}${e.data.stored ? " (Profil)" : ""}${e.data.previousSessionId ? ` · vorher ${e.data.previousSessionId}` : ""}`;
     case "card.show":
-      return `${e.data.kind}${e.data.step ? ` ${e.data.step}` : ""}${e.data.local ? " · lokal" : ""} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
-    case "card.answer":
-      return `${e.data.kind} → ${e.data.value}${e.data.applied ? ` · ${JSON.stringify(e.data.applied)}` : ""}`;
+      return `${e.data.kind} · “${e.data.question}”${e.data.options.length ? ` (${e.data.options.join(" | ")})` : ""}`;
+    case "settings.open":
+      return `Einstellungen geöffnet${e.data.section ? ` · ${e.data.section}` : ""}`;
+    case "settings.patch":
+      return `${JSON.stringify(e.data.applied)}${e.data.speak ? " · gesprochen" : ""}`;
     case "stt.result":
       return `${e.data.chars} chars in ${e.data.durationMs} ms (${Math.round(e.data.bytes / 1024)} kB ${e.data.mime})`;
     case "llm.step":

@@ -32,7 +32,7 @@ from on login, and the write-back target for card-bound riders only.
 `hub.beginSession()` is the one place a session starts: NFC login, host
 persona switch and host reset all go through it — it interrupts the running
 turn, hands the previous session to the agent (`endSession` → record closed,
-persisted if consented), mints a new id, resets turn numbering/cards/wizard,
+persisted if consented), mints a new id, resets turn numbering/cards/settings menu,
 tells the client (`session:reset {sessionId, consent}`) and greets. A stale
 client session id is bound to the seat's current session, never resurrected.
 **Consent is stored on the profile** for card-bound riders (CMS „Einwilligung
@@ -63,7 +63,8 @@ seeded as trait combinations.
 scheme — ids are German colour words `weiss|dunkel|blau|gruen|gelb|rosa|grau`;
 the tool exposes it as the setting `farbe`, so „stell auf grün" maps directly;
 the CMS labels it „Farbe"), `textSize`
-(s/m/l/xl), `audioOutput`, `speechRate`, `showText`,
+(s/m/l — `l` is the largest the slit holds and the default; old rows saying
+`xl` are read as `l`), `audioOutput`, `speechRate`, `showText`,
 `reduceMotion`, `input` (voice/text/both), plus the voice itself: `volume`
 (0–1, playback-side — „leiser bitte"), `voiceGender` (female/male — a second
 ElevenLabs voice id, `voiceIdMale` in operator-config), `voiceTone`

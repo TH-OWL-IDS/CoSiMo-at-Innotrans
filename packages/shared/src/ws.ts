@@ -17,6 +17,7 @@ import type {
 } from "./cabin.js";
 import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
 import type { Modality, Turn, SeatCard } from "./session.js";
+import type { SeatSettingsOpen, SettingsPatch } from "./settings.js";
 import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
@@ -262,8 +263,10 @@ export interface ServerToClientEvents {
    */
   "tts:chunk": (payload: TtsChunk) => void;
 
-  /** Show (or clear, card=null) the seat's option/info card. */
+  /** Show (or clear, card=null) the seat's yes/no card. */
   "seat:card": (payload: { sessionId: string; card: SeatCard | null; turn: number }) => void;
+  /** Open the rider's settings menu in the slit (see settings.ts). */
+  "seat:settings": (payload: SeatSettingsOpen) => void;
   /** Service/health status for the host console. */
   "status:update": (payload: ConnectionStatus) => void;
   /** Host forced a session reset on this device. */
@@ -333,8 +336,8 @@ export interface ClientToServerEvents {
     lang: Locale;
     modality?: Modality;
   }) => void;
-  /** Answer to a LOCAL card (hub-handled: themes, voices, scales, wizard). */
-  "card:answer": (payload: { sessionId: string; cardId: string; value: string }) => void;
+  /** One change from the settings menu (hub applies it, no LLM round). */
+  "settings:patch": (payload: SettingsPatch) => void;
   /** The ↻ affordance: say the last reply again (no LLM round). */
   "reply:repeat": (payload: { sessionId: string }) => void;
   /** Visitor consent decision for recording. */
