@@ -40,7 +40,9 @@ export default function TelemetryStrip({
         animation: "slit-in 300ms ease-out",
       }}
     >
-      <span style={{ fontSize: "clamp(14px, 34cqh, 72px)", fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>
+      {/* long names ("Barntrup Hauptstation") shrink to fit the width left between
+          the rounded ends (~386cqh of a 110×24 mm slit) instead of ellipsing */}
+      <span style={{ fontSize: `clamp(14px, ${Math.min(34, 380 / (Math.max(1, big.length) * 0.6)).toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>
         {big}
       </span>
       <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.1, opacity: hint ? 0.9 : 0.62, overflow: "hidden", textOverflow: "ellipsis", transition: "opacity 300ms" }}>
