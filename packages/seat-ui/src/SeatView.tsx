@@ -66,7 +66,8 @@ export default function SeatView({
    */
   fullscreen: boolean;
   /**
-   * What surrounds the cutouts. "cabin" (the iPad): white — and while
+   * What surrounds the cutouts. "cabin" (the iPad): black, so it vanishes
+   * behind the panel (the calibrated cutouts are unaffected) — and while
    * CoSiMo thinks or speaks, soft blobs in the scheme's state colour drift
    * across it, so whatever shows around the panel's cutouts breathes with
    * the conversation. "panel" (the emulator): an
@@ -207,7 +208,9 @@ export default function SeatView({
   const wabering = (!listening && phase === "thinking") || (speaking && !listening);
   // the THEME's colour (its ink — what the colour swatches show), not the
   // semantic state colours: the ground says which CoSiMo this is, the rim says what it does
-  const waberColor = scheme.ink;
+  // on the black cabin ground the theme's light tint glows (its ink would
+  // be invisible on black); on the emulator's off-white ground the ink
+  const waberColor = panel ? scheme.ink : scheme.bg;
   const waberRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = waberRef.current;
@@ -289,7 +292,7 @@ export default function SeatView({
         inset: 0,
         // Behind the panel: pitch black, so light bleed around cutouts is
         // invisible. The emulator shows the panel itself: off-white.
-        background: panel ? "#f4f3f0" : "#ffffff",
+        background: panel ? "#f4f3f0" : "#000000",
         color: scheme.ink,
         overflow: "hidden",
         // Kiosk surface: long-pressing must never select text or pop the
@@ -321,7 +324,7 @@ export default function SeatView({
                 maxHeight: "100%",
                 // The iPad's edge — only when the ground is black. On the
                 // panel surface the stage is invisible: same off-white.
-                outline: panel ? "none" : "1px solid rgba(0,0,0,0.08)",
+                outline: panel ? "none" : "1px solid rgba(255,255,255,0.12)",
               }),
         }}
       >
