@@ -445,6 +445,11 @@ export default function SeatView({
             // the SLIT (24 mm tall on the panel), not of the whole screen —
             // so type stays legible whatever the calibration says.
             containerType: "size",
+            // Safe inline inset for everything inside: the slit's rounded ends
+            // (a full pill: radius = half its height) must never cut text.
+            // At the text's top/bottom edge the curve sits ~0.3 r inside, so
+            // content keeps ~0.62 r + a margin from each end.
+            ["--slit-inset" as string]: `calc(min(50cqh, ${layout.slitR}px) * 0.62 + 5cqh)`,
             outline: guide,
             boxShadow: panel ? halo : undefined,
             transition: "background 300ms",

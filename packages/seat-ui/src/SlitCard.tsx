@@ -113,7 +113,7 @@ export function SlitCard({
       style={{
         width: "100%", height: "100%", boxSizing: "border-box",
         display: "flex", flexDirection: "column", justifyContent: "center", gap: "5cqh",
-        padding: "6cqh 5cqh",
+        padding: "6cqh var(--slit-inset, 5cqh)",
         overflow: "hidden", color: ink,
         // @ts-expect-error custom property for the pressed chip's text colour
         "--slit-bg": scheme.bg,

@@ -28,7 +28,7 @@ export default function SlitCaption({
       style={{
         width: "100%", height: "100%", boxSizing: "border-box",
         display: "flex", alignItems: "center", gap: "4cqh",
-        padding: "5cqh 7cqh",
+        padding: "5cqh var(--slit-inset, 7cqh)",
         overflow: "hidden",
         animation: "slit-in 220ms ease-out",
       }}

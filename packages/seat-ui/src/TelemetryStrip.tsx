@@ -35,7 +35,7 @@ export default function TelemetryStrip({
       style={{
         width: "100%", height: "100%", boxSizing: "border-box",
         display: "flex", flexDirection: "column", justifyContent: "center", gap: "3cqh",
-        padding: "6cqh 7cqh",
+        padding: "6cqh var(--slit-inset, 7cqh)",
         whiteSpace: "nowrap", overflow: "hidden",
         animation: "slit-in 300ms ease-out",
       }}
