@@ -139,14 +139,17 @@ export default function App() {
     <span className="inline-flex items-center gap-1.5"><Dot size="sm" state={ok ? "ok" : "down"} />{label}</span>
   );
 
+  const params = new URLSearchParams(window.location.search);
+  const panelLook = params.has("panel");
   return (
-    <div className="fixed inset-0 bg-[#f4f3f0] font-sans">
+    <div className={cn("fixed inset-0 font-sans", panelLook ? "bg-[#f4f3f0]" : "bg-black")}>
       {/* ── the seat, exactly as the iPad renders it — including the
              kiosk's system font, which SeatView inherits. It has the whole
              viewport on an off-white ground, the cutouts inset like holes in
              a real panel; the developer panel floats over it. ── */}
       {/* ?showcase=1 previews the silent endless performance of an unreachable seat */}
-      <SeatView seat={seat} layout={EMULATOR_LAYOUT} fullscreen={false} surface="panel" showcase={new URLSearchParams(window.location.search).has("showcase")} />
+      {/* the browser seat mirrors the iPad (black ground); ?panel=1 shows the off-white panel look, ?showcase=1 the silent performance */}
+      <SeatView seat={seat} layout={EMULATOR_LAYOUT} fullscreen={false} surface={panelLook ? "panel" : "cabin"} showcase={params.has("showcase")} />
 
       {/* ── the panel's handle: a small, almost invisible dot in the corner.
              Visitors don't find it; staff know it is there. ── */}
