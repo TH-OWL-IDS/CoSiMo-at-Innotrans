@@ -1,53 +1,125 @@
+import { useEffect, useRef, useState } from "react";
+import { Mic } from "lucide-react";
 import type { Locale, MonoCabTelemetry } from "@cosimo/shared";
 
 /**
- * The slit at rest — a destination board, one statement: the next stop
- * large, beneath it in small type how far and whether on time (a fault or
- * delay takes that line). No clock, no head count, no speed: nothing the
- * rider would not look for here. `hint` swaps the small line for the
- * talk-button invitation after a while without contact.
+ * The slit at rest: a small rotation of displays, each sliding in vertically
+ * (alternately from below and from above) every few seconds —
+ *   status      "Barntrup in 3 min"            (next stop + ETA; at a halt: departs in m:ss)
+ *   line        "Begatalbahn"
+ *   approaching "Nächste Station · Farmbeck"   (only on the last stretch of a leg)
+ *   mic         (icon) "Taste halten & sprechen"
+ * A fault or delay adds its own slide. Every display is two lines: the
+ * statement large, its context small. Reduced motion: a plain swap.
  */
+interface Slide {
+  key: string;
+  big: string;
+  small: string;
+  icon?: "mic";
+}
+
+const CYCLE_MS = 4200;
+const SLIDE_MS = 420;
+
+function slidesFor(t: MonoCabTelemetry | null, lang: Locale): Slide[] {
+  const de = lang === "de";
+  const out: Slide[] = [];
+  const next = t?.nextStops[0];
+  const fault = t?.faults?.[0];
+  const delay = t?.delayMinutes ?? 0;
+  const atHalt = t?.position.phase !== "drive" && t?.position.departsInSec != null;
+  const here = t ? t.stops[t.position.stopIndex] : undefined;
+
+  if (t && next) {
+    if (atHalt && here) {
+      const s = Math.max(0, t.position.departsInSec ?? 0);
+      out.push({ key: "status", big: here.name[lang], small: `${de ? "Abfahrt in" : "Departing in"} ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` });
+    } else {
+      const eta = next.etaMinutes;
+      out.push({
+        key: "status",
+        big: `${next.name[lang]} ${de ? "in" : "in"} ${eta === 0 ? (de ? "unter 1 min" : "under 1 min") : `${eta} min`}`,
+        small: `${de ? "Richtung" : "Towards"} ${t.destination[lang]}${delay ? ` · +${delay} min` : ""}`,
+      });
+    }
+  }
+  if (t?.line?.[lang]) out.push({ key: "line", big: t.line[lang], small: de ? "Linie" : "Line" });
+  if (t && next && !atHalt && (next.etaMinutes <= 1 || t.position.progress >= 0.75)) {
+    out.push({ key: "approaching", big: next.name[lang], small: de ? "Nächste Station" : "Next station" });
+  }
+  if (fault) out.push({ key: "fault", big: fault.cause[lang], small: de ? "Störung" : "Fault" });
+  out.push({ key: "mic", icon: "mic", big: de ? "Taste halten & sprechen" : "Hold the button & speak", small: de ? "Sprich mit CoSiMo" : "Talk to CoSiMo" });
+  return out;
+}
+
+function SlideView({ s, big }: { s: Slide; big: number }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: "5cqh", padding: "6cqh var(--slit-inset, 7cqh)", whiteSpace: "nowrap", overflow: "hidden" }}>
+      {s.icon === "mic" && <Mic size="34cqh" strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />}
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: "3cqh" }}>
+        <span style={{ fontSize: `clamp(14px, ${big.toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>{s.big}</span>
+        <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.1, opacity: 0.62, overflow: "hidden", textOverflow: "ellipsis" }}>{s.small}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function TelemetryStrip({
   telemetry,
   lang,
-  hint,
+  reduceMotion = false,
 }: {
   telemetry: MonoCabTelemetry | null;
   lang: Locale;
-  hint?: string | null;
+  reduceMotion?: boolean;
 }) {
-  const de = lang === "de";
-  const next = telemetry?.nextStops[0];
-  const fault = telemetry?.faults?.[0];
-  const delay = telemetry?.delayMinutes ?? 0;
-  const big = next ? next.name[lang] : telemetry ? telemetry.location[lang] : "MonoCab";
-  const small = hint
-    ? hint
-    : fault
-      ? `${fault.cause[lang]}${delay ? ` · +${delay} min` : ""}`
-      : next
-        ? `${de ? "nächster Halt" : "next stop"} · ${next.etaMinutes} min · ${delay ? `+${delay} min` : de ? "pünktlich" : "on time"}`
-        : de ? "unterwegs" : "en route";
+  const slides = slidesFor(telemetry, lang);
+  const [index, setIndex] = useState(0);
+  /** The slide leaving and which way the pair moves: +1 = new one comes from below. */
+  const [leaving, setLeaving] = useState<{ slide: Slide; dir: 1 | -1 } | null>(null);
+  const dirRef = useRef<1 | -1>(1);
+  const cur = slides[index % slides.length] ?? slides[0]!;
+  const curKey = cur.key;
+  const shownRef = useRef(cur);
+  shownRef.current = cur;
+
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const id = setInterval(() => {
+      dirRef.current = dirRef.current === 1 ? -1 : 1;
+      setLeaving({ slide: shownRef.current, dir: dirRef.current });
+      setIndex((i) => i + 1);
+    }, CYCLE_MS);
+    return () => clearInterval(id);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (!leaving) return;
+    const t = setTimeout(() => setLeaving(null), SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [leaving]);
+
+  // long statements ("Barntrup Hauptstation in 12 min") shrink to the room between the rounded ends
+  const bigSize = (s: Slide) => Math.min(34, 380 / (Math.max(1, s.big.length + (s.icon ? 4 : 0)) * 0.6));
+  const dir = leaving?.dir ?? dirRef.current;
+  const anim = (name: string) => (reduceMotion ? "none" : `${name} ${SLIDE_MS}ms cubic-bezier(0.2, 0.7, 0.2, 1) both`);
 
   return (
-    <div
-      aria-label={de ? "Fahrtinformation" : "Journey information"}
-      style={{
-        width: "100%", height: "100%", boxSizing: "border-box",
-        display: "flex", flexDirection: "column", justifyContent: "center", gap: "3cqh",
-        padding: "6cqh var(--slit-inset, 7cqh)",
-        whiteSpace: "nowrap", overflow: "hidden",
-        animation: "slit-in 300ms ease-out",
-      }}
-    >
-      {/* long names ("Barntrup Hauptstation") shrink to fit the width left between
-          the rounded ends (~386cqh of a 110×24 mm slit) instead of ellipsing */}
-      <span style={{ fontSize: `clamp(14px, ${Math.min(34, 380 / (Math.max(1, big.length) * 0.6)).toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {big}
-      </span>
-      <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.1, opacity: hint ? 0.9 : 0.62, overflow: "hidden", textOverflow: "ellipsis", transition: "opacity 300ms" }}>
-        {small}
-      </span>
+    <div aria-label={lang === "de" ? "Fahrtinformation" : "Journey information"} aria-live="polite" style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      <style>{`
+@keyframes slit-in-up   { from { transform: translateY(100%);  opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes slit-in-down { from { transform: translateY(-100%); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes slit-out-up   { from { transform: none; opacity: 1 } to { transform: translateY(-100%); opacity: 0 } }
+@keyframes slit-out-down { from { transform: none; opacity: 1 } to { transform: translateY(100%);  opacity: 0 } }`}</style>
+      {leaving && (
+        <div key={`out-${leaving.slide.key}-${index}`} style={{ position: "absolute", inset: 0, animation: anim(dir === 1 ? "slit-out-up" : "slit-out-down") }}>
+          <SlideView s={leaving.slide} big={bigSize(leaving.slide)} />
+        </div>
+      )}
+      <div key={`in-${curKey}-${index}`} style={{ position: "absolute", inset: 0, animation: leaving ? anim(dir === 1 ? "slit-in-up" : "slit-in-down") : "none" }}>
+        <SlideView s={cur} big={bigSize(cur)} />
+      </div>
     </div>
   );
 }

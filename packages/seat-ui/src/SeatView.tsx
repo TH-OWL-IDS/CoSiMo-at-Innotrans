@@ -172,8 +172,6 @@ export default function SeatView({
   const captionText = show ? show.caption : showText ? cosimo.caption || cosimo.reply : "";
   const speakingNow = speaking && !listening && Boolean(captionText);
   const afterReply = !show && showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
-  const idleFor = now - cosimo.lastActivityAt;
-  const idleHint = !show && idleFor > 30_000 && !cosimo.replying ? (lang === "de" ? "Taste halten und sprechen" : "Hold the button and speak") : null;
   const slitMode: "wave" | "calm" | "caption" | "card" | "idle" =
     waveShown || (show && listening) ? "wave" : thinking ? "calm" : !show && cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
   const showDot = useMinPresence(thinking, THINK_MIN_MS);
@@ -476,7 +474,7 @@ export default function SeatView({
               onModel={(label) => cosimo.send(label, lang, "tap")}
             />
           ) : (
-            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} hint={idleHint} />
+            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} reduceMotion={reduceMotion} />
           )}
         </div>
       </div>
