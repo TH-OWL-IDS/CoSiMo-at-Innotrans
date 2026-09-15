@@ -1,5 +1,5 @@
 export { default as SeatView } from "./SeatView.js";
-export { default as TelemetryStrip } from "./TelemetryStrip.js";
+export { default as TelemetryStrip, DEFAULT_SLIT_MOTION, type SlitMotion } from "./TelemetryStrip.js";
 export { useSeat, type Seat } from "./useSeat.js";
 export { usePushToTalk, type NativeDictation } from "./usePushToTalk.js";
 export { useHidInput } from "./useHidInput.js";

@@ -3,6 +3,7 @@ import { FlaskConical, Lightbulb, RotateCcw } from "lucide-react";
 import { LIGHT_SIGNALS, LIGHT_ZONES } from "@cosimo/shared";
 import { Brand, Button, Card, Eyebrow, Input } from "@cosimo/ui";
 import { DEFAULT_PANEL_LAYOUT, type PanelLayout } from "../config/panelLayout";
+import { DEFAULT_SLIT_MOTION, type SlitMotion } from "../config/slitMotion";
 
 /**
  * Operator-only screen: server URL + panel-cutout calibration. Shown on
@@ -41,6 +42,7 @@ export default function ServerSetup({
   layout,
   seat,
   showcase,
+  slitMotion,
   onSave,
   onCancel,
   onOpenTestChat,
@@ -52,7 +54,9 @@ export default function ServerSetup({
   seat: number;
   /** Showcase mode (silent endless performance) on/off. */
   showcase: boolean;
-  onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean) => void;
+  /** Timing of the slit's rest rotation. */
+  slitMotion: SlitMotion;
+  onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion) => void;
   /** Present when opened as an overlay over a running kiosk. */
   onCancel?: () => void;
   /** Testing aid: return to the kiosk with the text console open. */
@@ -64,6 +68,7 @@ export default function ServerSetup({
   const [geo, setGeo] = useState<PanelLayout>(layout);
   const [seatDraft, setSeatDraft] = useState(seat);
   const [showDraft, setShowDraft] = useState(showcase);
+  const [motionDraft, setMotionDraft] = useState<SlitMotion>(slitMotion);
   const [error, setError] = useState("");
 
   const submit = (e: React.FormEvent) => {
@@ -76,7 +81,7 @@ export default function ServerSetup({
       setError("Bitte eine vollständige URL angeben, z. B. https://cosimo.example.org");
       return;
     }
-    onSave(url, geo, seatDraft, showDraft);
+    onSave(url, geo, seatDraft, showDraft, motionDraft);
   };
 
   const num = (key: keyof PanelLayout, label: string) => (
@@ -180,6 +185,31 @@ export default function ServerSetup({
             </p>
           </Card>
         )}
+
+        <Card className="items-center">
+          <Eyebrow>Schlitz-Animation</Eyebrow>
+          {/* the rest rotation: how long each display stays, how long a slide takes */}
+          <div className="flex flex-wrap justify-center gap-3">
+            <label className="flex flex-col gap-1 text-sm text-mute">
+              Schritt (s)
+              <Input type="number" step={0.5} min={1} size="lg" className="w-[88px] select-text" value={motionDraft.stepSec}
+                onChange={(e) => setMotionDraft({ ...motionDraft, stepSec: Number(e.target.value) })} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-mute">
+              Animation (ms)
+              <Input type="number" step={20} min={0} max={2000} size="lg" className="w-[88px] select-text" value={motionDraft.slideMs}
+                onChange={(e) => setMotionDraft({ ...motionDraft, slideMs: Number(e.target.value) })} />
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="button" size="sm" onClick={() => setMotionDraft(DEFAULT_SLIT_MOTION)}>
+              <RotateCcw size={14} /> Standard ({DEFAULT_SLIT_MOTION.stepSec} s / {DEFAULT_SLIT_MOTION.slideMs} ms)
+            </Button>
+          </div>
+          <p className="m-0 max-w-[26rem] text-sm text-mute">
+            Schritt = wie lange jede Anzeige steht (Status, Linie, nächste Station, Mikro). Animation = Dauer des Hoch-/Runtergleitens.
+          </p>
+        </Card>
 
         <Card className="items-center">
           <Eyebrow>Panel-Kalibrierung (%)</Eyebrow>

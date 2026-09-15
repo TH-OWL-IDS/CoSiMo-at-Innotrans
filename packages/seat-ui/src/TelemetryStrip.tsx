@@ -19,8 +19,14 @@ interface Slide {
   icon?: "mic";
 }
 
-const CYCLE_MS = 4200;
-const SLIDE_MS = 420;
+/** Operator-tunable timing of the rotation (kiosk settings). */
+export interface SlitMotion {
+  /** Seconds each display stays. */
+  stepSec: number;
+  /** Milliseconds one vertical slide takes. */
+  slideMs: number;
+}
+export const DEFAULT_SLIT_MOTION: SlitMotion = { stepSec: 4.2, slideMs: 420 };
 
 function slidesFor(t: MonoCabTelemetry | null, lang: Locale): Slide[] {
   const de = lang === "de";
@@ -69,11 +75,15 @@ export default function TelemetryStrip({
   telemetry,
   lang,
   reduceMotion = false,
+  motion = DEFAULT_SLIT_MOTION,
 }: {
   telemetry: MonoCabTelemetry | null;
   lang: Locale;
   reduceMotion?: boolean;
+  motion?: SlitMotion;
 }) {
+  const CYCLE_MS = Math.max(1000, motion.stepSec * 1000);
+  const SLIDE_MS = Math.max(0, Math.min(2000, motion.slideMs));
   const slides = slidesFor(telemetry, lang);
   const [index, setIndex] = useState(0);
   /** The slide leaving and which way the pair moves: +1 = new one comes from below. */
@@ -92,13 +102,13 @@ export default function TelemetryStrip({
       setIndex((i) => i + 1);
     }, CYCLE_MS);
     return () => clearInterval(id);
-  }, [slides.length]);
+  }, [slides.length, CYCLE_MS]);
 
   useEffect(() => {
     if (!leaving) return;
     const t = setTimeout(() => setLeaving(null), SLIDE_MS);
     return () => clearTimeout(t);
-  }, [leaving]);
+  }, [leaving, SLIDE_MS]);
 
   // long statements ("Barntrup Hauptstation in 12 min") shrink to the room between the rounded ends
   const bigSize = (s: Slide) => Math.min(34, 380 / (Math.max(1, s.big.length + (s.icon ? 4 : 0)) * 0.6));

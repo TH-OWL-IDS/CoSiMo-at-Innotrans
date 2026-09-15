@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
-import { SeatView, useHidInput, useSeat, type NativeDictation, type PanelLayout } from "@cosimo/seat-ui";
+import { SeatView, useHidInput, useSeat, type NativeDictation, type PanelLayout, type SlitMotion } from "@cosimo/seat-ui";
 import { X } from "lucide-react";
 import { Button, Eyebrow, Input } from "@cosimo/ui";
 import { isNative } from "../config/serverUrl";
@@ -89,6 +89,7 @@ export default function CosimoKiosk({
   layout,
   seatNumber,
   showcase,
+  slitMotion,
   onOpenSetup,
   setup,
   testChat = false,
@@ -100,9 +101,11 @@ export default function CosimoKiosk({
   seatNumber: number;
   /** Showcase: silent endless performance; buttons ignored, only the menu ends it. */
   showcase: boolean;
+  /** Timing of the slit's rest rotation (operator setting). */
+  slitMotion: SlitMotion;
   onOpenSetup: () => void;
   /** The hidden operator setup, overlaid while non-null (the kiosk keeps running underneath). */
-  setup: { onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
+  setup: { onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
   /** Testing aid: show the hidden text console (opened via the setup screen). */
   testChat?: boolean;
   onCloseTestChat?: () => void;
@@ -138,13 +141,14 @@ export default function CosimoKiosk({
         layout={layout}
         seat={seatNumber}
         showcase={showcase}
+        slitMotion={slitMotion}
         onSave={setup.onSave}
         onCancel={setup.onCancel}
         onOpenTestChat={setup.onOpenTestChat}
         onLight={(key, on) => cosimo.cabinLight(key, on)}
       />
     )}
-    <SeatView seat={seat} layout={layout} fullscreen={isNative()} onSlitHold={onOpenSetup} showcase={showcase}>
+    <SeatView seat={seat} layout={layout} fullscreen={isNative()} onSlitHold={onOpenSetup} showcase={showcase} slitMotion={slitMotion}>
       {/* hidden testing console (via setup screen) — text chat with CoSiMo */}
       {testChat && onCloseTestChat && (
         <TestConsole

@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
-import TelemetryStrip from "./TelemetryStrip.js";
+import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
 import SlitWave from "./SlitWave.js";
 import SlitCaption from "./SlitCaption.js";
 import { useShowcase } from "./useShowcase.js";
@@ -55,6 +55,7 @@ export default function SeatView({
   surface = "cabin",
   onSlitHold,
   showcase = false,
+  slitMotion,
   children,
 }: {
   seat: Seat;
@@ -80,6 +81,8 @@ export default function SeatView({
   /** Showcase ("Schaustellung"): the seat performs silently, endlessly; the
    *  live conversation state is ignored until the operator turns it off. */
   showcase?: boolean;
+  /** Timing of the slit's rest rotation (kiosk operator setting). */
+  slitMotion?: SlitMotion;
   /** Overlays drawn on top of the stage (e.g. the hidden test console). */
   children?: ReactNode;
 }) {
@@ -474,7 +477,7 @@ export default function SeatView({
               onModel={(label) => cosimo.send(label, lang, "tap")}
             />
           ) : (
-            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} reduceMotion={reduceMotion} />
+            <TelemetryStrip telemetry={cosimo.telemetry} lang={lang} reduceMotion={reduceMotion} motion={slitMotion} />
           )}
         </div>
       </div>
