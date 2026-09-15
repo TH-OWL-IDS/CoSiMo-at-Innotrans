@@ -235,7 +235,7 @@ from the CMS `route-config` global end-to-end and back (ping-pong, forever)
 turnaround + battery top-up at the terminals. Speed, location, ETAs, doors,
 battery and occupancy are derived from the simulation clock; the hub
 broadcasts a snapshot every second (`telemetry:update`, global). Editing
-the route in the admin restarts the journey; the built-in Extertalbahn
+the route in the admin restarts the journey; the built-in Begatalbahn
 route keeps it alive with no CMS. Host overrides (pause/resume, battery,
 occupancy, **fault injection / clear**) are applied INTO the simulation, so
 they persist. Passengers board per stop demand (live CoSiMo seats count as

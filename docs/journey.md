@@ -16,7 +16,7 @@ horizontal diagram with the cab moving along it in real time — out and back.
 
 The route comes from the CMS `route-config` global (refreshed every 30 s;
 an edit restarts the journey at the new first stop) with the built-in
-Extertalbahn as the no-CMS fallback.
+Begatalbahn (Lemgo-Lüttfeld – Barntrup) as the no-CMS fallback.
 
 - **Journey:** dwell with open doors at each stop → cruise to the next with
   accel/decel ramps → dwell … → turn around at the terminals, forever.

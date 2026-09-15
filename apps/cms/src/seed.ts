@@ -151,17 +151,20 @@ const users: ProfileSeed[] = [
 // The route the journey simulation drives (mirrors the realtime service's
 // built-in DEFAULT_ROUTE, so CMS edits start from the same baseline).
 const route = {
-  lineDe: "Extertalbahn",
-  lineEn: "Extertal line",
+  lineDe: "Begatalbahn",
+  lineEn: "Bega valley line",
   cruiseSpeedKmh: 55,
   capacity: 4,
   notesDe: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
   notesEn: "Step-free boarding, wheelchair space available.",
   stops: [
-    { stopId: "lemgo", nameDe: "Lemgo", nameEn: "Lemgo", travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
-    { stopId: "doerentrup", nameDe: "Dörentrup", nameEn: "Dörentrup", travelSecondsFromPrev: 240, dwellSeconds: 45, demand: 1 },
-    { stopId: "barntrup", nameDe: "Barntrup", nameEn: "Barntrup", travelSecondsFromPrev: 420, dwellSeconds: 45, demand: 2 },
-    { stopId: "rinteln", nameDe: "Rinteln", nameEn: "Rinteln", travelSecondsFromPrev: 720, dwellSeconds: 90, demand: 3 },
+    { stopId: "lemgo-luettfeld", nameDe: "Lemgo-Lüttfeld", nameEn: "Lemgo-Lüttfeld", travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
+    { stopId: "schlossstrasse", nameDe: "Schlossstraße", nameEn: "Schlossstraße", travelSecondsFromPrev: 60, dwellSeconds: 45, demand: 1 },
+    { stopId: "blomberger-weg", nameDe: "Blomberger Weg", nameEn: "Blomberger Weg", travelSecondsFromPrev: 90, dwellSeconds: 45, demand: 1 },
+    { stopId: "doerentrup-mitte", nameDe: "Dörentrup Mitte", nameEn: "Dörentrup Mitte", travelSecondsFromPrev: 350, dwellSeconds: 45, demand: 2 },
+    { stopId: "farmbeck", nameDe: "Farmbeck", nameEn: "Farmbeck", travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
+    { stopId: "bega-friedhof", nameDe: "Bega Friedhof", nameEn: "Bega Friedhof", travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 2 },
+    { stopId: "barntrup-hauptstation", nameDe: "Barntrup Hauptstation", nameEn: "Barntrup main station", travelSecondsFromPrev: 330, dwellSeconds: 90, demand: 3 },
   ],
 };
 

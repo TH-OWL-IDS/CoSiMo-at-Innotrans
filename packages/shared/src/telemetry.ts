@@ -77,7 +77,7 @@ export interface MonoCabTelemetry {
   seats: { liveSessions: number; simulated: number };
   /** Human-readable current location per locale. */
   location: Record<Locale, string>;
-  /** Track/line identifier, e.g. "Extertalbahn". */
+  /** Track/line identifier, e.g. "Begatalbahn". */
   line: Record<Locale, string>;
   /** Final destination per locale. */
   destination: Record<Locale, string>;

@@ -10,7 +10,7 @@
  * passenger demand) is authored in Payload's
  * `route-config` global and refreshed on a TTL — an operator edit resets the
  * journey to the start of the new route. If Payload is unreachable the
- * built-in Extertalbahn route keeps the demo alive.
+ * built-in Begatalbahn route keeps the demo alive.
  *
  * Faults are first-class state: a signal hold parks the cab between
  * stations, a door fault extends the dwell, a slow order reduces cruise
@@ -54,12 +54,17 @@ export interface SimRoute {
 
 /** Built-in fallback route so the demo works standalone (no Payload, no DB). */
 export const DEFAULT_ROUTE: SimRoute = {
-  line: { de: "Extertalbahn", en: "Extertal line" },
+  // Begatalbahn Lemgo-Lüttfeld – Barntrup (the MonoCab stops of the OD study);
+  // travel times from the line's km posts at cruise speed
+  line: { de: "Begatalbahn", en: "Bega valley line" },
   stops: [
-    { id: "lemgo", name: { de: "Lemgo", en: "Lemgo" }, travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
-    { id: "doerentrup", name: { de: "Dörentrup", en: "Dörentrup" }, travelSecondsFromPrev: 240, dwellSeconds: 45, demand: 1 },
-    { id: "barntrup", name: { de: "Barntrup", en: "Barntrup" }, travelSecondsFromPrev: 420, dwellSeconds: 45, demand: 2 },
-    { id: "rinteln", name: { de: "Rinteln", en: "Rinteln" }, travelSecondsFromPrev: 720, dwellSeconds: 90, demand: 3 },
+    { id: "lemgo-luettfeld", name: { de: "Lemgo-Lüttfeld", en: "Lemgo-Lüttfeld" }, travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
+    { id: "schlossstrasse", name: { de: "Schlossstraße", en: "Schlossstraße" }, travelSecondsFromPrev: 60, dwellSeconds: 45, demand: 1 },
+    { id: "blomberger-weg", name: { de: "Blomberger Weg", en: "Blomberger Weg" }, travelSecondsFromPrev: 90, dwellSeconds: 45, demand: 1 },
+    { id: "doerentrup-mitte", name: { de: "Dörentrup Mitte", en: "Dörentrup Mitte" }, travelSecondsFromPrev: 350, dwellSeconds: 45, demand: 2 },
+    { id: "farmbeck", name: { de: "Farmbeck", en: "Farmbeck" }, travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
+    { id: "bega-friedhof", name: { de: "Bega Friedhof", en: "Bega Friedhof" }, travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 2 },
+    { id: "barntrup-hauptstation", name: { de: "Barntrup Hauptstation", en: "Barntrup main station" }, travelSecondsFromPrev: 330, dwellSeconds: 90, demand: 3 },
   ],
   cruiseSpeedKmh: 55,
   capacity: 4,
