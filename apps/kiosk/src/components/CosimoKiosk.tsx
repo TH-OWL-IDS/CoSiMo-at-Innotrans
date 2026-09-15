@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@cosimo/shared";
-import { SeatView, useSeat, type NativeDictation, type PanelLayout } from "@cosimo/seat-ui";
+import { SeatView, useHidInput, useSeat, type NativeDictation, type PanelLayout } from "@cosimo/seat-ui";
 import { X } from "lucide-react";
 import { Button, Eyebrow, Input } from "@cosimo/ui";
 import { isNative } from "../config/serverUrl";
-import { useHidInput } from "./useHidInput";
 import { useCabinActuator } from "./useCabinActuator";
 import { createNativeDictation } from "./nativeDictation";
 import ServerSetup from "./ServerSetup";

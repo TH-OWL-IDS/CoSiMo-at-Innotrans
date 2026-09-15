@@ -324,7 +324,8 @@ export default function SeatView({
                 maxHeight: "100%",
                 // The iPad's edge — only when the ground is black. On the
                 // panel surface the stage is invisible: same off-white.
-                outline: panel ? "none" : "1px solid rgba(255,255,255,0.12)",
+                // no device frame: on black the iPad simply disappears behind the panel
+                outline: "none",
               }),
         }}
       >

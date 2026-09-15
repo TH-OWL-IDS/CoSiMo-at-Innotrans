@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
-import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat } from "@cosimo/seat-ui";
+import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat, useHidInput } from "@cosimo/seat-ui";
 import { LockKeyhole, X } from "lucide-react";
 import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
 
@@ -44,6 +44,16 @@ function entry(at: string, a: CabinActuation, outcome: LogEntry["outcome"], erro
 export default function App() {
   const serverUrl = useMemo(resolveServerUrl, []);
   const seat = useSeat(serverUrl, "emulator");
+  // The same key bindings as the iPad's Bluetooth buttons/NFC reader: hold
+  // "s" to talk, "i" for info, "#<id>⏎" scans a card — the on-screen
+  // buttons stay as the visible alternative.
+  useHidInput({
+    enabled: true,
+    onTalkStart: () => seat.ptt.start(),
+    onTalkEnd: () => seat.ptt.stop(),
+    onInfo: () => seat.askInfo(),
+    onTag: (id) => seat.cosimo.registerNfc(id, seat.lang),
+  });
   const { cosimo, lang, ptt } = seat;
 
   const [nfc, setNfc] = useState("");

@@ -13,7 +13,9 @@ import { useEffect, useRef } from "react";
  *    frame resets after 2 s — generous enough to hand-type a scan in dev
  *    ("#ANNA1⏎"), still instant against a real reader.
  *
- * Testable without hardware: focus the app and type on a real keyboard.
+ * Shared by the iPad app and the browser seat, so a keyboard in the browser
+ * drives exactly what the stand's hardware sends: hold "s", press "i",
+ * type "#ANNA1⏎".
  */
 export function useHidInput({
   enabled,
