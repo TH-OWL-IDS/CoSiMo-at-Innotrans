@@ -22,8 +22,8 @@ import { Chip, SlitGrid, TAP } from "./SlitCard.js";
  *   Stimme    ○ Tempo  ○ Typ  ○ Stimmung
  *   leaves    a slider / the voices / the tones / the colour swatches
  *
- * The context line on the left names where you are. On the right, always
- * one round button: after a change the ✓ (keep it, go up one level),
+ * No words: icons and controls only (labels stay as aria-labels). On the
+ * right, always one round button: after a change the ✓ (keep it, go up one level),
  * otherwise ‹ back — from the root it closes the menu. Every change is
  * applied at once (`settings:patch`) and CoSiMo confirms it aloud in the
  * new setting. 30 s without a tap closes the menu; so does the next
@@ -227,7 +227,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
   }
 
   return (
-    <SlitGrid label={titleOf(path, lang)} scheme={scheme} textScale={textScale} aside={aside}>
+    <SlitGrid label={titleOf(path, lang)} scheme={scheme} textScale={textScale} aside={aside} hideLabel>
       {body}
     </SlitGrid>
   );

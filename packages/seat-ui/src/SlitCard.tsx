@@ -75,8 +75,10 @@ export function Chip({
   );
 }
 
-/** The strip's shell: question left, a scrolling row of actions beneath. */
-export function SlitGrid({ label, scheme, textScale, children, aside }: { label: string; scheme: ColorScheme; textScale: number; children: ReactNode; aside?: ReactNode }) {
+/** The strip's shell: question left, a scrolling row of actions beneath.
+ *  `hideLabel` keeps the label for assistive tech only (the settings menu
+ *  is icons and controls, no words). */
+export function SlitGrid({ label, scheme, textScale, children, aside, hideLabel = false }: { label: string; scheme: ColorScheme; textScale: number; children: ReactNode; aside?: ReactNode; hideLabel?: boolean }) {
   return (
     <div
       role="group"
@@ -94,12 +96,14 @@ export function SlitGrid({ label, scheme, textScale, children, aside }: { label:
       <style>{`@keyframes slit-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }`}</style>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: "5cqh" }}>
         {/* row 1: the context line */}
-        <span style={{
-          fontSize: TEXT_FONT(textScale), fontWeight: 600, lineHeight: 1.1,
-          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0,
-        }}>
-          {label}
-        </span>
+        {!hideLabel && (
+          <span style={{
+            fontSize: TEXT_FONT(textScale), fontWeight: 600, lineHeight: 1.1,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0,
+          }}>
+            {label}
+          </span>
+        )}
         {/* row 2: the actions — a horizontal strip that scrolls instead of clipping,
             with a soft fade on the right as the "there is more" cue */}
         <span style={{
