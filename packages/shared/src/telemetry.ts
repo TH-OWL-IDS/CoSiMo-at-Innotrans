@@ -65,6 +65,8 @@ export interface MonoCabTelemetry {
     /** outbound = first stop → last stop; return = back. */
     direction: "outbound" | "return";
     phase: "dwell" | "drive" | "hold";
+    /** At a station: seconds until the cab leaves (a door fault included); absent while under way. */
+    departsInSec?: number;
   };
   /** The whole line, in outbound order. */
   stops: LineStop[];

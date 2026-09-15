@@ -318,6 +318,7 @@ export class TelemetrySimulation {
     let msToNextArrival: number;
     let progress = 0;
     let phase: MonoCabTelemetry["position"]["phase"] = "dwell";
+    let departsInSec: number | undefined;
     const nextIdx = this.idx + this.direction;
     const legSec = this.legSeconds(this.idx, this.direction) / this.speedFactor(effectiveNow);
 
@@ -332,6 +333,7 @@ export class TelemetrySimulation {
         ? Math.max(0, dwellMs - elapsed) + (doorFault.endsAt - effectiveNow)
         : Math.max(0, dwellMs - elapsed);
       msToNextArrival = dwellLeft + legSec * 1000;
+      departsInSec = Math.ceil(dwellLeft / 1000);
       if (doorFault) phase = "hold";
     } else {
       const to = stops[nextIdx];
@@ -396,6 +398,7 @@ export class TelemetrySimulation {
         progress,
         direction: this.direction === 1 ? "outbound" : "return",
         phase,
+        ...(departsInSec !== undefined ? { departsInSec } : {}),
       },
       stops: stops.map((s) => ({
         id: s.id,

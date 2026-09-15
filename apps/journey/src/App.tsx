@@ -177,6 +177,52 @@ function MonoCab({ width, height }: { width: number; height: number }) {
   );
 }
 
+/**
+ * The departure board beside a halt: fades in when the cab arrives, counts
+ * down to departure and fades out as the cab pulls away. Stays mounted for
+ * every stop so the fade runs both ways; the countdown ticks locally between
+ * the hub's 1 Hz telemetry samples.
+ */
+function DepartSign({ visible, departsInSec, side, label, now }: {
+  visible: boolean;
+  departsInSec: number | null;
+  /** -1 = left of the halt, 1 = right (the side the cab arrived from). */
+  side: -1 | 1;
+  label: string;
+  now: string;
+}) {
+  const [left, setLeft] = useState<number | null>(departsInSec);
+  const shown = useRef<number | null>(departsInSec);
+  useEffect(() => {
+    if (departsInSec == null) return;
+    const base = departsInSec;
+    const at = performance.now();
+    shown.current = base;
+    setLeft(base);
+    const id = setInterval(() => setLeft(Math.max(0, base - (performance.now() - at) / 1000)), 250);
+    return () => clearInterval(id);
+  }, [departsInSec]);
+  const sec = Math.ceil(left ?? 0);
+  const text = sec <= 0 ? now : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  const x = side * (CAB_W / 2 + 96);
+  const W = 150;
+  const H = 62;
+  const top = -212;
+  return (
+    <g
+      transform={`translate(${x} 0)`}
+      style={{ opacity: visible ? 1 : 0, transition: "opacity 600ms ease", pointerEvents: "none" }}
+      aria-hidden={!visible}
+    >
+      <line x1={0} y1={0} x2={0} y2={top + H} stroke={INK} strokeWidth={3} strokeLinecap="round" />
+      <GroundShadow w={46} h={8} />
+      <rect x={-W / 2} y={top} width={W} height={H} rx={10} fill="var(--color-bg)" stroke={INK} strokeWidth={3} />
+      <text y={top + 23} textAnchor="middle" fill={MUTE} fontSize={15} fontWeight={500}>{label}</text>
+      <text y={top + 50} textAnchor="middle" fill={INK} fontSize={26} fontWeight={700} style={{ fontVariantNumeric: "tabular-nums" }}>{text}</text>
+    </g>
+  );
+}
+
 function fmt(n: number): string {
   return n.toLocaleString("de-DE");
 }
@@ -548,6 +594,14 @@ export default function App() {
                 <text y={-(TOWN_HEIGHT[i % 3]! * 2.25) - 26} textAnchor="middle" fill={INK} fontSize={22} fontWeight={here ? 700 : 500}>
                   {s.name[lang]}
                 </text>
+                {/* departure board: on the side the cab came from, so it pulls away from it */}
+                <DepartSign
+                  visible={here && t.position.departsInSec != null}
+                  departsInSec={here ? t.position.departsInSec ?? null : null}
+                  side={t.position.direction === "outbound" ? -1 : 1}
+                  label={L("Abfahrt in", "Departing in")}
+                  now={L("Abfahrt", "Departing")}
+                />
               </g>
             );
           })}
