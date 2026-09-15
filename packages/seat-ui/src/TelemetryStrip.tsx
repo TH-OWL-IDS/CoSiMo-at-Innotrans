@@ -64,8 +64,10 @@ function SlideView({ s, big }: { s: Slide; big: number }) {
     <div style={{ position: "absolute", inset: 0, boxSizing: "border-box", display: "flex", alignItems: "center", gap: "5cqh", padding: "6cqh var(--slit-inset, 7cqh)", whiteSpace: "nowrap", overflow: "hidden" }}>
       {s.icon === "mic" && <Mic size="34cqh" strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />}
       <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: "3cqh" }}>
-        <span style={{ fontSize: `clamp(14px, ${big.toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis" }}>{s.big}</span>
-        <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.1, opacity: 0.62, overflow: "hidden", textOverflow: "ellipsis" }}>{s.small}</span>
+        {/* no overflow clipping on the lines themselves: line-height 1 + overflow:hidden
+            cut the descenders (g, p); the font is shrunk to fit instead, and the slit clips */}
+        <span style={{ fontSize: `clamp(14px, ${big.toFixed(1)}cqh, 72px)`, fontWeight: 700, lineHeight: 1.15, letterSpacing: "-0.01em" }}>{s.big}</span>
+        <span style={{ fontSize: "clamp(11px, 17cqh, 36px)", fontWeight: 500, lineHeight: 1.2, opacity: 0.62 }}>{s.small}</span>
       </div>
     </div>
   );
