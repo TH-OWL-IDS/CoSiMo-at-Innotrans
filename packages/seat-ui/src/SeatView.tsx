@@ -459,7 +459,7 @@ export default function SeatView({
           <Inset radius={layout.slitR} />
           {slitMode === "wave" || slitMode === "calm" ? (
             /* hold-to-talk: the rider's voice as a line; thinking: the same line, settled */
-            <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} />
+            <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} transcript={!show && slitMode === "wave" ? ptt.partial : ""} />
           ) : slitMode === "caption" ? (
             <SlitCaption
               text={captionText}

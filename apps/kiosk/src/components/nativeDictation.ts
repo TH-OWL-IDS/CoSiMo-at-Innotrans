@@ -23,7 +23,7 @@ export async function createNativeDictation(): Promise<NativeDictation | null> {
 
   let last = "";
   return {
-    async start(lang, onError) {
+    async start(lang, onError, onPartial) {
       const perm = await SpeechRecognition.requestPermissions();
       if (perm.speechRecognition !== "granted") {
         onError("keine Erlaubnis (Einstellungen \u2192 CoSiMo \u2192 Mikrofon & Spracherkennung)");
@@ -32,7 +32,10 @@ export async function createNativeDictation(): Promise<NativeDictation | null> {
       last = "";
       await SpeechRecognition.removeAllListeners();
       await SpeechRecognition.addListener("partialResults", (d) => {
-        if (d.matches?.[0]) last = d.matches[0];
+        if (d.matches?.[0]) {
+          last = d.matches[0];
+          onPartial?.(last);
+        }
       });
       SpeechRecognition.start({ language: lang, partialResults: true, popup: false, maxResults: 1 }).catch(
         (err) => onError(err instanceof Error ? err.message : String(err)),

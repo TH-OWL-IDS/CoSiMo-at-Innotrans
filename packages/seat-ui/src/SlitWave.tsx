@@ -7,6 +7,10 @@ import { useEffect, useRef } from "react";
  * (server STT, browser dev). Under Apple dictation the mic belongs to the
  * recognizer and there are no samples; then the line breathes slowly and
  * evenly — an honest "listening", never a fake voice.
+ *
+ * Under the line, small: what the recognizer has understood so far. The
+ * text is anchored at its END, so a long sentence runs out of the slit to
+ * the left and the last words — the ones being spoken — stay in view.
  */
 export default function SlitWave({
   sample,
@@ -14,6 +18,7 @@ export default function SlitWave({
   ink,
   leaving = false,
   calm = false,
+  transcript = "",
 }: {
   sample: (out: Float32Array) => boolean;
   kind: () => "audio" | "native" | null;
@@ -23,6 +28,8 @@ export default function SlitWave({
   /** Thinking: the same line, settled to a quiet slow breath — "heard you,
    *  working on it". No progress, no promise of a duration. */
   calm?: boolean;
+  /** Live dictation so far (empty = nothing yet; the line stays centred). */
+  transcript?: string;
 }) {
   const leavingRef = useRef(leaving);
   leavingRef.current = leaving;
@@ -111,11 +118,33 @@ export default function SlitWave({
     };
   }, [sample, kind, ink]);
 
+  const hasText = transcript.trim().length > 0;
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
-    />
+    <>
+      {/* the line lifts a little once words appear, leaving the lower band to them */}
+      <canvas
+        ref={canvasRef}
+        aria-hidden
+        style={{
+          position: "absolute", left: 0, right: 0, top: 0, bottom: hasText ? "30cqh" : 0,
+          width: "100%", display: "block", transition: "bottom 220ms ease",
+        }}
+      />
+      <div
+        aria-live="off"
+        style={{
+          position: "absolute", left: "var(--slit-inset, 7cqh)", right: "var(--slit-inset, 7cqh)", bottom: "9cqh",
+          display: "flex", justifyContent: "flex-end", overflow: "hidden",
+          fontSize: "clamp(10px, 15cqh, 30px)", fontWeight: 500, lineHeight: 1.2, color: ink,
+          opacity: hasText ? 0.6 : 0, transition: "opacity 180ms ease",
+          // the start of an overlong sentence fades out at the left edge instead of being chopped
+          maskImage: "linear-gradient(to right, transparent, #000 14%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent, #000 14%)",
+          pointerEvents: "none",
+        }}
+      >
+        <span style={{ whiteSpace: "nowrap", flex: "0 0 auto" }}>{transcript}</span>
+      </div>
+    </>
   );
 }

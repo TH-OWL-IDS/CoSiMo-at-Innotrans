@@ -16,8 +16,10 @@ import type { Locale } from "@cosimo/shared";
  * Apple dictation). seat-ui stays pure web: it only calls this contract.
  */
 export interface NativeDictation {
-  /** Begin listening. Errors (permission, engine) surface via `onError`. */
-  start: (lang: "de-DE" | "en-US", onError: (message: string) => void) => Promise<void>;
+  /** Begin listening. Errors (permission, engine) surface via `onError`;
+   *  the growing transcript (what the engine has understood so far) via
+   *  `onPartial` — shown live under the wave. */
+  start: (lang: "de-DE" | "en-US", onError: (message: string) => void, onPartial?: (text: string) => void) => Promise<void>;
   /** Stop listening and resolve with the final transcript (null = nothing heard). */
   stop: () => Promise<string | null>;
 }
@@ -51,9 +53,14 @@ export function usePushToTalk({
   /** What went wrong on the last press, in words (mic denied, no speech,
    *  recognition service refused…). Cleared on the next press. */
   error: string | null;
+  /** The dictation so far while the button is held (native / Web Speech
+   *  interim results; server STT has none until the upload). Cleared on the
+   *  next press. */
+  partial: string;
 } {
   const [active, setActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [partial, setPartial] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   // Web Speech types aren't in lib.dom; keep it loose.
@@ -127,6 +134,7 @@ export function usePushToTalk({
     if (active || !supported) return;
     setActive(true);
     setError(null);
+    setPartial("");
     onStart();
 
     if (serverStt) {
@@ -158,7 +166,7 @@ export function usePushToTalk({
     if (nativeStt) {
       waveKindRef.current = "native";
       try {
-        await nativeStt.start(lang === "de" ? "de-DE" : "en-US", (msg) => setError(`dictation: ${msg}`));
+        await nativeStt.start(lang === "de" ? "de-DE" : "en-US", (msg) => setError(`dictation: ${msg}`), (text) => setPartial(text));
       } catch (err) {
         setError(`dictation: ${err instanceof Error ? err.message : String(err)}`);
         setActive(false);
@@ -177,15 +185,22 @@ export function usePushToTalk({
     }
     const rec = new SR();
     rec.lang = lang === "de" ? "de-DE" : "en-US";
-    rec.interimResults = false;
+    rec.interimResults = true; // interim text is shown live; only a final result is sent
     rec.maxAlternatives = 1;
     sentRef.current = false;
+    let heard = "";
     rec.onresult = (e: SpeechResultLike) => {
       if (sentRef.current) return; // guard against repeated onresult (WKWebView)
-      const t = e.results?.[0]?.[0]?.transcript?.trim();
-      if (t) {
+      const results = e.results ?? [];
+      const text = results.map((r) => r[0]?.transcript ?? "").join(" ").replace(/\s+/g, " ").trim();
+      if (text) {
+        heard = text;
+        setPartial(text);
+      }
+      const last = results[results.length - 1];
+      if (text && last?.isFinal) {
         sentRef.current = true;
-        onTranscript(t, lang);
+        onTranscript(text, lang);
       }
     };
     // Safari and Chrome report distinct codes: "not-allowed" (mic/permission),
@@ -199,8 +214,14 @@ export function usePushToTalk({
       console.warn("[cosimo-seat] speech recognition error:", code, e?.message ?? "");
     };
     rec.onend = () => {
-      // Ended without ever delivering a result and without an error: the
-      // engine heard nothing it could use (Safari does this quietly).
+      // An engine that never flags a result final still ends: send what it
+      // last understood. Ended with nothing at all and no error: it heard
+      // nothing it could use (Safari does this quietly).
+      if (!sentRef.current && heard) {
+        sentRef.current = true;
+        onTranscript(heard, lang);
+        return;
+      }
       if (!sentRef.current) setError((prev) => prev ?? "speech recognition: ended without a transcript (nothing recognised — check Dictation is on and the mic level)");
     };
     recognitionRef.current = rec;
@@ -251,7 +272,7 @@ export function usePushToTalk({
     }
   }
 
-  return { active, supported, start, stop, error, wave };
+  return { active, supported, start, stop, error, wave, partial };
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -263,7 +284,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 interface SpeechResultLike {
-  results?: Array<Array<{ transcript?: string }>>;
+  results?: Array<Array<{ transcript?: string }> & { isFinal?: boolean }>;
 }
 interface SpeechRecognitionLike {
   lang: string;

@@ -26,8 +26,11 @@ outside them renders pitch black (invisible, no light bleed):
   barge-in); touch does nothing by design. Text scale, speech
   rate, reduce-motion and the UI language all follow the active profile's
   accommodations, live.
-- **The slit** — the telemetry strip: clock · passengers · next stop |
-  speed, in bold monospace, styled after the MonoCab mockup.
+- **The slit** — at rest a rotating strip (status · line · next station ·
+  mic hint, `TelemetryStrip`); while the talk button is held the rider's
+  voice as a line (`SlitWave`) with the live dictation small underneath,
+  anchored at its end so a long sentence runs out to the left; then
+  subtitles (`showText`) or a card.
 
 ### Calibration
 
@@ -120,10 +123,13 @@ Set it once per iPad at build-up.
    seat-ui `NativeDictation` contract (`nativeDictation.ts`). Free,
    on-device, the fallback when the hub has no Deepgram key. Needs
    `NSSpeechRecognitionUsageDescription` (present) and one permission
-   prompt per device.
+   prompt per device. Partial results stream to the slit while holding.
 3. **Web Speech** (browser only): Chrome/Safari dev fallback —
    `webkitSpeechRecognition` does not exist in WKWebView, which is why the
-   native app is silent without modes 1 or 2.
+   native app is silent without modes 1 or 2. Interim results stream to the
+   slit; only a final result (or the last interim on `onend`) is sent.
+
+Mode 1 has no live text — the audio is transcribed after release.
 
 ## Build & run
 
