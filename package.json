@@ -15,5 +15,10 @@
     "up": "docker compose up --build",
     "up:d": "docker compose up --build -d",
     "down": "docker compose down"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@capacitor-community/speech-recognition@7.0.1": "patches/@capacitor-community__speech-recognition@7.0.1.patch"
+    }
   }
 }

@@ -64,7 +64,7 @@ export function usePushToTalk({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   // Web Speech types aren't in lib.dom; keep it loose.
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const recognitionRef = useRef<{ stop: () => void; heard?: string } | null>(null);
   /** One transcript per press — WKWebView's SpeechRecognition fires onresult
    *  continuously with the same text (observed at ~400/s), which flooded the
    *  server with identical turns until it OOM'd. */
@@ -75,7 +75,10 @@ export function usePushToTalk({
   const waveKindRef = useRef<"audio" | "native" | null>(null);
   /** Release grace: people let go of the button a beat before the last
    *  word is out. The capture keeps running this long after release. */
-  const RELEASE_GRACE_MS = 450;
+  const RELEASE_GRACE_MS = 320;
+  /** Web Speech: after stop() the engine's final result can take a while
+   *  (a server round trip); past this, the last interim text is sent. */
+  const FINAL_WAIT_MS = 250;
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function attachAnalyser(stream: MediaStream, own: MediaStream | null): void {
@@ -188,14 +191,14 @@ export function usePushToTalk({
     rec.interimResults = true; // interim text is shown live; only a final result is sent
     rec.maxAlternatives = 1;
     sentRef.current = false;
-    let heard = "";
+    rec.heard = "";
     rec.onresult = (e: SpeechResultLike) => {
       if (sentRef.current) return; // guard against repeated onresult (WKWebView)
       // SpeechRecognitionResultList / -Result are array-LIKE (indexed + length), not arrays
       const results = Array.from((e.results ?? []) as ArrayLike<SpeechResultItemLike>);
       const text = results.map((r) => r[0]?.transcript ?? "").join(" ").replace(/\s+/g, " ").trim();
       if (text) {
-        heard = text;
+        rec.heard = text;
         setPartial(text);
       }
       const last = results[results.length - 1];
@@ -218,9 +221,9 @@ export function usePushToTalk({
       // An engine that never flags a result final still ends: send what it
       // last understood. Ended with nothing at all and no error: it heard
       // nothing it could use (Safari does this quietly).
-      if (!sentRef.current && heard) {
+      if (!sentRef.current && rec.heard) {
         sentRef.current = true;
-        onTranscript(heard, lang);
+        onTranscript(rec.heard, lang);
         return;
       }
       if (!sentRef.current) setError((prev) => prev ?? "speech recognition: ended without a transcript (nothing recognised — check Dictation is on and the mic level)");
@@ -270,6 +273,13 @@ export function usePushToTalk({
       } catch {
         /* ignore */
       }
+      const rec = recognitionRef.current;
+      setTimeout(() => {
+        if (!sentRef.current && rec?.heard) {
+          sentRef.current = true;
+          onTranscript(rec.heard, lang);
+        }
+      }, FINAL_WAIT_MS);
     }
   }
 
@@ -292,6 +302,8 @@ interface SpeechResultLike {
   results?: ArrayLike<SpeechResultItemLike>;
 }
 interface SpeechRecognitionLike {
+  /** ours: the last interim text, so stop() can send it without a final */
+  heard?: string;
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;

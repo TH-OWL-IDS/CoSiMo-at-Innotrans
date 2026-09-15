@@ -1,0 +1,28 @@
+diff --git a/ios/Plugin/Plugin.swift b/ios/Plugin/Plugin.swift
+index 5d1b35b175de90e2aafbd75b8a20a791f068dc17..93908432237c65daade89af63d11a8b91136fb5d 100644
+--- a/ios/Plugin/Plugin.swift
++++ b/ios/Plugin/Plugin.swift
+@@ -79,6 +79,13 @@ public class SpeechRecognition: CAPPlugin {
+ 
+             self.recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+             self.recognitionRequest?.shouldReportPartialResults = partialResults
++            // CoSiMo patch: dictation hint + on-device recognition where the
++            // locale supports it (faster partials, no network). Falls back to
++            // Apple's server recognition otherwise.
++            self.recognitionRequest?.taskHint = .dictation
++            if #available(iOS 13, *), self.speechRecognizer?.supportsOnDeviceRecognition == true {
++                self.recognitionRequest?.requiresOnDeviceRecognition = true
++            }
+ 
+             let inputNode: AVAudioInputNode = self.audioEngine!.inputNode
+             let format: AVAudioFormat = inputNode.outputFormat(forBus: 0)
+@@ -96,7 +103,8 @@ public class SpeechRecognition: CAPPlugin {
+                     }
+ 
+                     if partialResults {
+-                        self.notifyListeners("partialResults", data: ["matches": resultArray])
++                        // CoSiMo patch: tell JS when a partial is the final one
++                        self.notifyListeners("partialResults", data: ["matches": resultArray, "isFinal": result!.isFinal])
+                     } else {
+                         call.resolve([
+                             "matches": resultArray

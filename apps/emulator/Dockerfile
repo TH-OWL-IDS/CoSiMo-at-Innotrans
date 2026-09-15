@@ -7,6 +7,8 @@ RUN corepack enable
 WORKDIR /app
 
 COPY pnpm-workspace.yaml package.json ./
+# pnpm patches (package.json → patchedDependencies) must exist at install time
+COPY patches patches
 COPY packages/shared/package.json packages/shared/
 COPY packages/face/package.json packages/face/
 COPY packages/client/package.json packages/client/

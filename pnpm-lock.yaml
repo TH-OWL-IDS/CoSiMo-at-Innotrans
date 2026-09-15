@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@capacitor-community/speech-recognition@7.0.1':
+    hash: ol3w5qpoiavqfszhbkadc3o2w4
+    path: patches/@capacitor-community__speech-recognition@7.0.1.patch
+
 importers:
 
   .: {}
@@ -193,7 +198,7 @@ importers:
     dependencies:
       '@capacitor-community/speech-recognition':
         specifier: ^7.0.1
-        version: 7.0.1(@capacitor/core@7.6.7)
+        version: 7.0.1(patch_hash=ol3w5qpoiavqfszhbkadc3o2w4)(@capacitor/core@7.6.7)
       '@capacitor/core':
         specifier: ^7.4.0
         version: 7.6.7
@@ -4177,7 +4182,7 @@ snapshots:
 
   '@borewit/text-codec@0.2.2': {}
 
-  '@capacitor-community/speech-recognition@7.0.1(@capacitor/core@7.6.7)':
+  '@capacitor-community/speech-recognition@7.0.1(patch_hash=ol3w5qpoiavqfszhbkadc3o2w4)(@capacitor/core@7.6.7)':
     dependencies:
       '@capacitor/core': 7.6.7
 

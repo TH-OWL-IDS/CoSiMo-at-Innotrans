@@ -26,7 +26,7 @@ export interface SlitMotion {
   /** Milliseconds one vertical slide takes. */
   slideMs: number;
 }
-export const DEFAULT_SLIT_MOTION: SlitMotion = { stepSec: 4.2, slideMs: 420 };
+export const DEFAULT_SLIT_MOTION: SlitMotion = { stepSec: 8, slideMs: 620 };
 
 function slidesFor(t: MonoCabTelemetry | null, lang: Locale): Slide[] {
   const de = lang === "de";

@@ -124,12 +124,22 @@ Set it once per iPad at build-up.
    on-device, the fallback when the hub has no Deepgram key. Needs
    `NSSpeechRecognitionUsageDescription` (present) and one permission
    prompt per device. Partial results stream to the slit while holding.
+   The plugin is patched (`patches/`, applied by pnpm on install): on-device
+   recognition where the locale supports it — load German as an offline
+   dictation language on each iPad (Settings → General → Keyboard →
+   Dictation languages) — the dictation task hint, and an `isFinal` flag on
+   partial results, so release sends the final transcript the moment it
+   lands (at most 300 ms after stop, then the last partial).
 3. **Web Speech** (browser only): Chrome/Safari dev fallback —
    `webkitSpeechRecognition` does not exist in WKWebView, which is why the
    native app is silent without modes 1 or 2. Interim results stream to the
-   slit; only a final result (or the last interim on `onend`) is sent.
+   slit; the final result is sent, or the last interim if none arrives
+   within 250 ms of stop (or on `onend`).
 
 Mode 1 has no live text — the audio is transcribed after release.
+
+All modes keep capturing for a 320 ms release grace (people let go a beat
+before the last word is out); the wave stays up meanwhile.
 
 ## Build & run
 

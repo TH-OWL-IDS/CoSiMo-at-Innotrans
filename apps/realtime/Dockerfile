@@ -5,6 +5,8 @@ WORKDIR /app
 
 # Install workspace deps (manifests first for layer caching).
 COPY pnpm-workspace.yaml package.json ./
+# pnpm patches (package.json → patchedDependencies) must exist at install time
+COPY patches patches
 COPY packages/shared/package.json packages/shared/
 COPY apps/realtime/package.json apps/realtime/
 RUN pnpm install --filter @cosimo/realtime... --no-frozen-lockfile
