@@ -91,26 +91,6 @@ export default function App() {
     return () => cosimo.setCabinActuator(null);
   }, [cosimo.setCabinActuator]);
 
-  // Space bar = the talk button (hold), like holding "s" on the iPad.
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || e.repeat) return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      e.preventDefault();
-      ptt.start();
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
-      ptt.stop();
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, [ptt]);
 
   const scanNfc = useCallback(() => {
     const id = nfc.trim();
@@ -279,7 +259,7 @@ export default function App() {
               onPointerCancel={ptt.stop}
               onContextMenu={(e) => e.preventDefault()}
             >
-              {ptt.active ? "● listening — release to send" : "hold to talk  (or hold Space)"}
+              {ptt.active ? "● listening — release to send" : "hold to talk  (or hold S)"}
             </Button>
             <Button size="lg" className="justify-start" onClick={seat.askInfo}>
               ⓘ info — canned intro question
