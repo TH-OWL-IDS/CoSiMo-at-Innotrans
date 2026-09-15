@@ -9,7 +9,7 @@ PODS:
 
 DEPENDENCIES:
   - "Capacitor (from `../../../../node_modules/.pnpm/@capacitor+ios@7.6.7_@capacitor+core@7.6.7/node_modules/@capacitor/ios`)"
-  - "CapacitorCommunitySpeechRecognition (from `../../../../node_modules/.pnpm/@capacitor-community+speech-recognition@7.0.1_@capacitor+core@7.6.7/node_modules/@capacitor-community/speech-recognition`)"
+  - "CapacitorCommunitySpeechRecognition (from `../../../../node_modules/.pnpm/@capacitor-community+speech-recognition@7.0.1_patch_hash=ol3w5qpoiavqfszhbkadc3o2w4_@capacitor+core@7.6.7/node_modules/@capacitor-community/speech-recognition`)"
   - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@7.6.7_@capacitor+core@7.6.7/node_modules/@capacitor/ios`)"
   - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@7.0.4_@capacitor+core@7.6.7/node_modules/@capacitor/preferences`)"
 
@@ -17,7 +17,7 @@ EXTERNAL SOURCES:
   Capacitor:
     :path: "../../../../node_modules/.pnpm/@capacitor+ios@7.6.7_@capacitor+core@7.6.7/node_modules/@capacitor/ios"
   CapacitorCommunitySpeechRecognition:
-    :path: "../../../../node_modules/.pnpm/@capacitor-community+speech-recognition@7.0.1_@capacitor+core@7.6.7/node_modules/@capacitor-community/speech-recognition"
+    :path: "../../../../node_modules/.pnpm/@capacitor-community+speech-recognition@7.0.1_patch_hash=ol3w5qpoiavqfszhbkadc3o2w4_@capacitor+core@7.6.7/node_modules/@capacitor-community/speech-recognition"
   CapacitorCordova:
     :path: "../../../../node_modules/.pnpm/@capacitor+ios@7.6.7_@capacitor+core@7.6.7/node_modules/@capacitor/ios"
   CapacitorPreferences:
@@ -29,6 +29,6 @@ SPEC CHECKSUMS:
   CapacitorCordova: 139e2ed3d91c54b5aeae7941135c9f9aefc6da1d
   CapacitorPreferences: 69d9991307507aeab8ef8019c10b9babfda0e9ca
 
-PODFILE CHECKSUM: 2286322ee3bc0418e22f3cb5cabba8aa46be1d5b
+PODFILE CHECKSUM: ecab883ac0d3f95a58b2947cb49d8cbaaaa4792f
 
 COCOAPODS: 1.16.2
