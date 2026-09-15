@@ -126,8 +126,11 @@ export default function SlitWave({
         ref={canvasRef}
         aria-hidden
         style={{
-          position: "absolute", left: 0, right: 0, top: 0, bottom: hasText ? "30cqh" : 0,
-          width: "100%", display: "block", transition: "bottom 220ms ease",
+          // explicit height: a canvas is a replaced element and would ignore
+          // `bottom`, falling back to its intrinsic pixel size
+          position: "absolute", left: 0, top: 0, width: "100%",
+          height: hasText ? "calc(100% - 30cqh)" : "100%",
+          display: "block", transition: "height 220ms ease",
         }}
       />
       <div
