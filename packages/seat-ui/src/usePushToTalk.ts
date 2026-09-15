@@ -191,7 +191,8 @@ export function usePushToTalk({
     let heard = "";
     rec.onresult = (e: SpeechResultLike) => {
       if (sentRef.current) return; // guard against repeated onresult (WKWebView)
-      const results = e.results ?? [];
+      // SpeechRecognitionResultList / -Result are array-LIKE (indexed + length), not arrays
+      const results = Array.from((e.results ?? []) as ArrayLike<SpeechResultItemLike>);
       const text = results.map((r) => r[0]?.transcript ?? "").join(" ").replace(/\s+/g, " ").trim();
       if (text) {
         heard = text;
@@ -283,8 +284,12 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+interface SpeechResultItemLike {
+  0?: { transcript?: string };
+  isFinal?: boolean;
+}
 interface SpeechResultLike {
-  results?: Array<Array<{ transcript?: string }> & { isFinal?: boolean }>;
+  results?: ArrayLike<SpeechResultItemLike>;
 }
 interface SpeechRecognitionLike {
   lang: string;
