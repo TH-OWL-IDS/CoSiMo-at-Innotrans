@@ -1,4 +1,4 @@
-import type { LightScene } from "@cosimo/shared";
+import { sceneToRow, type LightScene } from "@cosimo/shared";
 import { config } from "../config.js";
 
 /**
@@ -22,7 +22,7 @@ export class ConfigSink {
       // only the scenes array: a global update merges top-level fields, so
       // the address and the playback map stay as they are
       const body = {
-        lightScenes: scenes.map((s) => ({ key: s.key, label: s.label, roofline: s.groups.roofline, rooflight: s.groups.rooflight, floor: s.groups.floor })),
+        lightScenes: scenes.map(sceneToRow),
       };
       const put = await fetch(`${this.base}/api/globals/cabin-config`, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(4000) });
       return put.ok;

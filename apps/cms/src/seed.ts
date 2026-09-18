@@ -9,7 +9,7 @@
  */
 
 import { getPayload } from "payload";
-import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES } from "@cosimo/shared";
+import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES, sceneToRow } from "@cosimo/shared";
 import config from "./payload.config.js";
 
 /** Shape of a seeded profile (the default clean plate + mockup riders). */
@@ -329,7 +329,7 @@ async function seed(): Promise<void> {
   } else {
     await payload.updateGlobal({
       slug: "cabin-config",
-      data: { lightScenes: DEFAULT_LIGHT_SCENES.map((sc) => ({ key: sc.key, label: sc.label, roofline: sc.groups.roofline, rooflight: sc.groups.rooflight, floor: sc.groups.floor })) },
+      data: { lightScenes: DEFAULT_LIGHT_SCENES.map(sceneToRow) as never },
     });
     console.log(`[seed] light scenes seeded (${DEFAULT_LIGHT_SCENES.map((s) => s.label).join(", ")})`);
   }

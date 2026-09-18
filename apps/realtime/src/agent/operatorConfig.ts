@@ -11,10 +11,9 @@ import { logger } from "../log/logger.js";
 import { buildHostLight, type Lpu2Mapping } from "../cabin/lpu2.js";
 import { CABIN_CONTROLS, LPU2_KEYS, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
   DEFAULT_LIGHT_SCENES,
-  LIGHT_GROUPS,
-  normalizeGroupLevel,
-  type LightGroup,
+  rowToScene,
   type LightScene,
+  type SceneRow,
 } from "@cosimo/shared";
 
 /** Today's effective values (Qwen generation_config + our max_tokens). */
@@ -76,19 +75,13 @@ function envDefaults(): ResolvedOperatorConfig {
   };
 }
 
-type SceneRow = { key?: string | null; label?: string | null } & Partial<Record<LightGroup, { on?: boolean | null; intensity?: number | null; bias?: number | null } | null>>;
-
 /** The CMS scene rows → scenes; empty/junk → the built-in three. */
 function toScenes(rows: SceneRow[]): LightScene[] {
   const out: LightScene[] = [];
   for (const r of rows) {
-    const key = str(r.key, "").toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (!key || out.some((s) => s.key === key)) continue;
-    const base = DEFAULT_LIGHT_SCENES.find((s) => s.key === key) ?? DEFAULT_LIGHT_SCENES[0]!;
-    const groups = Object.fromEntries(
-      LIGHT_GROUPS.map((g) => [g, normalizeGroupLevel({ on: r[g]?.on ?? undefined, intensity: r[g]?.intensity ?? undefined, bias: r[g]?.bias ?? undefined }, base.groups[g])]),
-    ) as LightScene["groups"];
-    out.push({ key, label: str(r.label, key), groups });
+    const base = DEFAULT_LIGHT_SCENES.find((s) => s.key === String(r.key ?? "").trim().toLowerCase()) ?? DEFAULT_LIGHT_SCENES[0]!;
+    const sc = rowToScene(r, base);
+    if (sc && !out.some((s) => s.key === sc.key)) out.push(sc);
   }
   return out.length ? out : DEFAULT_LIGHT_SCENES;
 }

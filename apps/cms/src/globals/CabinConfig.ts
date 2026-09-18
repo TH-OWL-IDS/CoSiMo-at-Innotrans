@@ -69,16 +69,54 @@ export const CabinConfig: GlobalConfig = {
       fields: [
         { name: "key", type: "text", required: true, label: "Schlüssel", admin: { description: "z. B. standard, gemuetlich, hell — CoSiMo und die Taste referenzieren ihn." } },
         { name: "label", type: "text", required: true, label: "Name" },
-        ...(["roofline", "rooflight", "floor"] as const).map((g) => ({
+        // the interior groups (rider-reachable) …
+        ...(["roofline", "rooflight", "floor", "outer", "headrests"] as const).map((g) => ({
           name: g,
           type: "group" as const,
-          label: g === "roofline" ? "Lichtlinien" : g === "rooflight" ? "Deckenpaneel" : "Boden",
+          label: g === "roofline" ? "Lichtlinien" : g === "rooflight" ? "Deckenpaneel" : g === "floor" ? "Boden" : g === "outer" ? "Außenlicht" : "Kopfstützen",
           fields: [
-            { name: "on", type: "checkbox" as const, defaultValue: true, label: "an" },
+            { name: "on", type: "checkbox" as const, defaultValue: g === "roofline" || g === "rooflight" || g === "floor", label: "an" },
             { name: "intensity", type: "number" as const, min: 0, max: 100, defaultValue: 100, label: "Helligkeit (0–100)" },
             { name: "bias", type: "number" as const, min: -100, max: 100, defaultValue: -100, label: "Kalt/Warm (−100 warm … 100 kalt)" },
           ],
         })),
+        // … the reading lamps (single channel) …
+        ...(["reading1", "reading2", "reading3", "reading4"] as const).map((g, i) => ({
+          name: g,
+          type: "group" as const,
+          label: `Leselampe ${i + 1}`,
+          fields: [
+            { name: "on", type: "checkbox" as const, defaultValue: false, label: "an" },
+            { name: "intensity", type: "number" as const, min: 0, max: 100, defaultValue: 100, label: "Helligkeit (0–100)" },
+          ],
+        })),
+        // … and the signal light (white pair + RGB + one exclusive red mode) — staff-only, but part of the scene
+        {
+          name: "signals",
+          type: "group" as const,
+          label: "Signallicht",
+          fields: [
+            { name: "on", type: "checkbox" as const, defaultValue: false, label: "an" },
+            { name: "intensity", type: "number" as const, min: 0, max: 100, defaultValue: 100, label: "Helligkeit (0–100)" },
+            { name: "bias", type: "number" as const, min: -100, max: 100, defaultValue: 0, label: "Kalt/Warm (−100 warm … 100 kalt)" },
+            { name: "red", type: "number" as const, min: 0, max: 100, defaultValue: 0, label: "Rot (0–100)" },
+            { name: "green", type: "number" as const, min: 0, max: 100, defaultValue: 0, label: "Grün (0–100)" },
+            { name: "blue", type: "number" as const, min: 0, max: 100, defaultValue: 0, label: "Blau (0–100)" },
+            {
+              name: "mode",
+              type: "select" as const,
+              defaultValue: "none",
+              label: "Roter Modus",
+              options: [
+                { label: "keiner", value: "none" },
+                { label: "vorn rot", value: "signals-front-red" },
+                { label: "hinten rot", value: "signals-rear-red" },
+                { label: "vorn blinkend", value: "signals-front-flash" },
+                { label: "hinten blinkend", value: "signals-rear-flash" },
+              ],
+            },
+          ],
+        },
       ],
     },
   

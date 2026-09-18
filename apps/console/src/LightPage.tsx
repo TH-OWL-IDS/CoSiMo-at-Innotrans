@@ -9,6 +9,7 @@ import {
   RIG_FIXTURES,
   rigDefaultState,
   sameLevels,
+  sceneLevels,
   splitBias,
   type CabinLightState,
   type HostConfigBroadcast,
@@ -73,7 +74,7 @@ function ScenePreview({ groups, onDark }: { groups: LightScene["groups"]; onDark
   return (
     <span className="flex w-full flex-col gap-1" aria-hidden>
       {LIGHT_GROUPS.map((g) => {
-        const lv = groups[g];
+        const lv = groups[g] ?? { on: false, intensity: 0, bias: 0 };
         return (
           <span key={g} className="flex items-center gap-1.5">
             <span className={cn("w-3 shrink-0 text-2xs", onDark ? "text-white/60" : "text-mute")}>{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
@@ -213,7 +214,7 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
   useEffect(() => { if (light?.scene && light.scene !== "off") setOpen(light.scene); else if (light?.scene === "off") setOpen(null); }, [light?.scene]);
   const openScene = scenes.find((s) => s.key === open) ?? null;
   const free = light?.scene === null;
-  const dirty = Boolean(openScene && light && free && !sameLevels(light.groups, openScene.groups));
+  const dirty = Boolean(openScene && light && free && !sameLevels(light.groups, sceneLevels(openScene)));
   const [extra, setExtra] = useState<string | null>(null);
   const routes = cfg?.cabin.routes ?? [];
   const playback = (key: string) => routes.find((r) => r.key === key)?.playback ?? null;
@@ -303,18 +304,18 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
           </div>
           <div className="flex flex-col gap-3">
             {LIGHT_GROUPS.map((g) => (
-              <GroupRow key={g} id={g} level={light.groups[g]} disabled={disabled} onSet={(patch) => c.setLight({ group: { id: g, ...patch } })} />
+              <GroupRow key={g} id={g} level={light.groups[g] ?? { on: false, intensity: 0, bias: 0 }} disabled={disabled} onSet={(patch) => c.setLight({ group: { id: g, ...patch } })} />
             ))}
           </div>
           <span className="text-xs text-mute">
-            Jede Änderung geht sofort in die Kabine. {dirty ? "Die Kabine weicht von der gespeicherten Szene ab — speichern übernimmt die Werte, verwerfen stellt die Szene wieder her." : "Die Kabine zeigt die gespeicherte Szene."}
+            Jede Änderung geht sofort in die Kabine — auch an den weiteren Leuchten unten, sie gehören zur Szene. {dirty ? "Die Kabine weicht von der gespeicherten Szene ab — speichern übernimmt alle Werte, verwerfen stellt die Szene wieder her." : "Die Kabine zeigt die gespeicherte Szene."}
           </span>
         </section>
       )}
 
       {/* the lights outside the scenes */}
       <section className="flex flex-col gap-3">
-        <span className="text-2xs uppercase tracking-caps text-mute">Weitere Leuchten · nicht Teil der Szenen</span>
+        <span className="text-2xs uppercase tracking-caps text-mute">Weitere Leuchten · Teil der Szene, nur fürs Personal (nicht über CoSiMo)</span>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {EXTRA_CARDS.map((card) => {
             const states = card.fixtures.map(rigState);

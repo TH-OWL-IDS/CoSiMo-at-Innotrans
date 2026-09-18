@@ -83,7 +83,7 @@ setInterval(() => void operatorConfig.refresh().then(() => { hub.broadcastConfig
 const configSink = new ConfigSink();
 hub.onSceneSave(async (req, groups, scenes) => {
   const next = scenes.map((s) => (s.key === req.key
-    ? { ...s, label: req.label?.trim() || s.label, groups: req.keepLevels ? s.groups : { roofline: { ...groups.roofline }, rooflight: { ...groups.rooflight }, floor: { ...groups.floor } } }
+    ? { ...s, label: req.label?.trim() || s.label, groups: req.keepLevels ? s.groups : Object.fromEntries(Object.entries(groups).map(([id, lv]) => [id, { ...lv, ...(lv.rgb ? { rgb: { ...lv.rgb } } : {}) }])) }
     : s));
   if (!next.some((s) => s.key === req.key)) return null;
   const ok = await configSink.saveScenes(next);

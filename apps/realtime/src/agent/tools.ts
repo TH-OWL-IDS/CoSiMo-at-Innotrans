@@ -319,7 +319,7 @@ export async function executeTool(
         if (!key) return { text: `error: unknown scene "${sceneWord}" — valid: ${scenes.map((s) => s.key).join(", ")}, aus, heller, dunkler`, action: { tool: name } };
         req = { scene: key };
       } else if (group) {
-        const cur = light.groups[group];
+        const cur = light.groups[group] ?? { on: false, intensity: 0, bias: 0 };
         const g: NonNullable<LightSetRequest["group"]> = { id: group };
         if (typeof input.on === "boolean") g.on = input.on;
         if (typeof input.level === "number") { g.intensity = Math.max(0, Math.min(100, Math.round(input.level))); g.on = g.intensity > 0; }
@@ -332,7 +332,7 @@ export async function executeTool(
       const state = ctx.hub.applyLight(req, ctx.deviceId);
       if (!state) return { text: "error: could not apply", action: { tool: name } };
       const sceneLabel = state.scene === "off" ? "aus" : state.scene ? scenes.find((s) => s.key === state.scene)?.label ?? state.scene : "frei (einzelne Gruppe geändert)";
-      const groupsNow = LIGHT_GROUPS.map((g) => `${g}: ${state.groups[g].on ? `${state.groups[g].intensity}%` : "aus"}`).join(", ");
+      const groupsNow = LIGHT_GROUPS.map((g) => `${g}: ${state.groups[g]?.on ? `${state.groups[g]!.intensity}%` : "aus"}`).join(", ");
       const caveat = state.confirmed ? "" : " — the controller has not confirmed yet";
       return {
         text: `ok: light is now "${sceneLabel}" (${groupsNow}) — shared by all seats${caveat}`,

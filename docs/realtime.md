@@ -31,10 +31,14 @@ cannot reach the light controller. The iPads are the only dual-homed devices
 (Wi-Fi → hub, USB-C Ethernet → cabin LAN), which makes them the actuators:
 
 1. **The light is scenes** (shared `light.ts`): three CMS-defined scenes
-   (Standard · Gemütlich · Hell, each = brightness + cold/warm bias for the
-   three wired groups Lichtlinien / Deckenpaneel / Boden) plus "off"; the
-   hub holds ONE `CabinLightState` (active scene, or `null` = free after a
-   group was moved by hand, + the groups' levels + the scene list) and
+   (Standard · Gemütlich · Hell) plus "off". A scene has a row for EVERY
+   fixture of the rig (on/off, brightness, cold/warm; the signal light with
+   RGB + red mode) — the rider / CoSiMo may only set the three interior
+   groups (LIGHT_GROUPS: Lichtlinien / Deckenpaneel / Boden), outer light,
+   headrests, reading lamps and signals are staff-only but part of the
+   scene. The hub holds ONE `CabinLightState` (active scene, or `null` =
+   free after a fixture was moved by hand, + every fixture's level — the
+   same objects the console's rig actions edit — + the scene list) and
    broadcasts it as `light:state` to every seat and console. `light:set`
    (a scene key / off / next / brighter / darker, or one group) comes from
    the panel button "l", the slit menu, the console, and CoSiMo's

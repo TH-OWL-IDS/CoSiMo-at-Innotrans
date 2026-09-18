@@ -327,7 +327,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
     case "light.rooflight":
     case "light.floor": {
       const g = path.slice(6) as LightGroup;
-      const lv = light?.groups[g] ?? { on: false, intensity: 0, bias: 0 };
+      const lv: { on: boolean; intensity: number; bias: number } = light?.groups[g] ?? { on: false, intensity: 0, bias: 0 };
       body = (
         <>
           <Chip label={de ? (lv.on ? "An" : "Aus") : lv.on ? "On" : "Off"} ink={ink} textScale={textScale} active={lv.on} onTap={() => lightChange({ group: { id: g, on: !lv.on } })} />

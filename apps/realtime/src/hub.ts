@@ -37,13 +37,13 @@ import {
   rigDefaultState,
   rigOps,
   LIGHT_GROUPS,
-  OFF_GROUPS,
   DEFAULT_LIGHT_SCENES,
   normalizeGroupLevel,
+  offFixtures,
   sceneBrightness,
+  sceneLevels,
   type CabinLightState,
-  type GroupLevel,
-  type LightGroup,
+  type FixtureLevels,
   type LightScene,
   type LightSetRequest,
   type SceneSaveRequest,
@@ -270,20 +270,21 @@ export class Hub {
   private lightFailed = false;
   /** The console's rig page: every fixture as the operator last set it,
    *  plus the last LPU-2 outcome per fixture. Cabin state, one copy. */
-  private readonly rig: HostRigState = {
-    fixtures: Object.fromEntries(RIG_FIXTURES.map((f) => [f.id, rigDefaultState(f)])),
-    results: {},
-  };
   /** THE cabin light: the active scene (or off / free) and the three groups'
    *  levels — every seat, CoSiMo, the panel button and the console set the
    *  same state and see the same state. Scenes come from the CMS. */
   private readonly light: CabinLightState = {
     scene: null,
-    groups: { ...DEFAULT_LIGHT_SCENES[0]!.groups },
+    // ONE object for every fixture's level: the rig page (host:rig) and the
+    // scenes edit the same levels — see the constructor, where rig.fixtures
+    // is pointed at it.
+    groups: sceneLevels(DEFAULT_LIGHT_SCENES[0]!),
     scenes: DEFAULT_LIGHT_SCENES,
     confirmed: false,
   };
-  private sceneSaver: ((req: SceneSaveRequest, groups: Record<LightGroup, GroupLevel>, scenes: LightScene[]) => Promise<LightScene[] | null>) | undefined;
+  private sceneSaver: ((req: SceneSaveRequest, groups: FixtureLevels, scenes: LightScene[]) => Promise<LightScene[] | null>) | undefined;
+  /** The console's rig page: the SAME level objects as the scenes (one truth), plus the last LPU-2 outcome per fixture. */
+  private readonly rig: HostRigState = { fixtures: this.light.groups, results: {} };
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
@@ -434,7 +435,7 @@ export class Hub {
   }
 
   /** Register the scene write-back (console "als Szene speichern"). */
-  onSceneSave(handler: (req: SceneSaveRequest, groups: Record<LightGroup, GroupLevel>, scenes: LightScene[]) => Promise<LightScene[] | null>): void {
+  onSceneSave(handler: (req: SceneSaveRequest, groups: FixtureLevels, scenes: LightScene[]) => Promise<LightScene[] | null>): void {
     this.sceneSaver = handler;
   }
 
@@ -826,12 +827,9 @@ export class Hub {
                 }
               : {}),
           };
-          this.rig.fixtures[fixture] = next;
-          if ((LIGHT_GROUPS as readonly string[]).includes(fixture)) {
-            this.light.groups[fixture as LightGroup] = { on: next.on, intensity: next.intensity, bias: next.bias };
-            this.light.scene = null;
-            this.pushLight();
-          }
+          this.rig.fixtures[fixture] = next; // rig.fixtures IS light.groups (one object)
+          this.light.scene = null;
+          this.pushLight();
           const control = `rig:${fixture}`;
           const cfg = this.lpu2Config?.();
           const actuation = cfg ? buildRigOps(control, rigOps(def, next, action), cfg) : null;
@@ -1354,9 +1352,8 @@ export class Hub {
    */
   applyLight(req: LightSetRequest, by: string): CabinLightState | null {
     const scenes = this.light.scenes;
-    let groups: Record<LightGroup, GroupLevel> | null = null;
     let scene: string | "off" | null = this.light.scene;
-    let touched: LightGroup[] = [...LIGHT_GROUPS];
+    let touched: string[];
     if (req.scene) {
       const byBrightness = [...scenes].sort((a, b) => sceneBrightness(a) - sceneBrightness(b));
       const cur = scenes.find((s) => s.key === this.light.scene);
@@ -1370,34 +1367,33 @@ export class Hub {
         target = req.scene === "brighter" ? byBrightness[Math.min(byBrightness.length - 1, i + 1)] : i <= 0 ? "off" : byBrightness[i - 1];
       } else target = scenes.find((s) => s.key === req.scene);
       if (!target) return null;
-      if (target === "off") { groups = { ...OFF_GROUPS }; scene = "off"; }
-      else { groups = { roofline: { ...target.groups.roofline }, rooflight: { ...target.groups.rooflight }, floor: { ...target.groups.floor } }; scene = target.key; }
-    } else if (req.group && (LIGHT_GROUPS as readonly string[]).includes(req.group.id)) {
+      const levels = target === "off" ? offFixtures() : sceneLevels(target);
+      // in place: rig.fixtures shares this object
+      for (const id of Object.keys(levels)) this.light.groups[id] = levels[id]!;
+      scene = target === "off" ? "off" : target.key;
+      touched = Object.keys(levels);
+    } else if (req.group && RIG_FIXTURES.some((f) => f.id === req.group!.id)) {
       const id = req.group.id;
-      const next = normalizeGroupLevel(req.group, this.light.groups[id]);
-      groups = { ...this.light.groups, [id]: next };
+      const base = this.light.groups[id] ?? rigDefaultState(RIG_FIXTURES.find((f) => f.id === id)!);
+      this.light.groups[id] = normalizeGroupLevel(req.group, base);
       scene = null;
       touched = [id];
     } else return null;
-
-    this.light.groups = groups;
     this.light.scene = scene;
-    // the rig page shows the same levels
-    for (const g of touched) this.rig.fixtures[g] = { on: groups[g].on, intensity: groups[g].intensity, bias: groups[g].bias };
 
     const control = scene ? `light:scene:${scene}` : `light:group:${touched[0]}`;
     const cfg = this.lpu2Config?.();
     if (cfg?.baseUrl) {
-      const ops = touched.flatMap((g) => {
-        const def = RIG_FIXTURES.find((f) => f.id === g)!;
-        const st: RigFixtureState = { on: groups![g].on, intensity: groups![g].intensity, bias: groups![g].bias };
+      const ops = touched.flatMap((id) => {
+        const def = RIG_FIXTURES.find((f) => f.id === id)!;
+        const st = this.light.groups[id]!;
         return rigOps(def, st, st.on ? "on" : "off");
       });
       const actuation = buildRigOps(control, ops, cfg);
       const actor = actuation ? this.pickActuator(this.devices.get(by)?.kind === "kiosk" ? by : undefined) : null;
       if (actuation && actor) {
         this.pendingActuation.set(control, { requestedBy: by, at: Date.now() });
-        logger.log("cabin.actuate", { control, scope: "host", urls: actuation.urls, change: { scene, groups: Object.fromEntries(touched.map((g) => [g, groups![g]])) }, ...(actor.id !== by ? { actuator: actor.id } : {}) }, { deviceId: by });
+        logger.log("cabin.actuate", { control, scope: "host", urls: actuation.urls, change: { scene, groups: Object.fromEntries(touched.map((g) => [g, this.light.groups[g]])) }, ...(actor.id !== by ? { actuator: actor.id } : {}) }, { deviceId: by });
         actor.entry.socket.emit("cabin:actuate", actuation);
       } else {
         this.light.confirmed = false;
