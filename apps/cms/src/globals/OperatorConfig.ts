@@ -1,5 +1,13 @@
 import type { GlobalConfig } from "payload";
 import { LPU2_KEYS } from "@cosimo/shared";
+import type { PayloadRequest } from "payload";
+
+/** The realtime service authenticates with the shared internal key (like personas/sessions). */
+function isInternal(req: PayloadRequest): boolean {
+  const expected = process.env.PAYLOAD_INTERNAL_KEY;
+  if (!expected) return false;
+  return req.headers?.get("x-internal-key") === expected;
+}
 
 /**
  * Operator config — the AI endpoints CoSiMo talks to, editable live in the
@@ -19,7 +27,8 @@ export const OperatorConfig: GlobalConfig = {
   access: {
     // Non-sensitive endpoint routing — the realtime service reads it anonymously.
     read: () => true,
-    update: ({ req }) => Boolean(req.user),
+    // an admin in the UI, or the realtime service (the console's "als Szene speichern")
+    update: ({ req }) => Boolean(req.user) || isInternal(req),
   },
   fields: [
     {
@@ -275,6 +284,29 @@ export const OperatorConfig: GlobalConfig = {
               max: 64,
               label: "Playback (1–64)",
             },
+          ],
+        },
+        {
+          name: "lightScenes",
+          type: "array",
+          label: "Lichtszenen",
+          admin: {
+            description:
+              "Die drei Szenen, zwischen denen Fahrgast, CoSiMo, Panel-Taste und Konsole umschalten. Pro Gruppe (Lichtlinien, Deckenpaneel, Boden) Helligkeit 0–100 und Kalt/Warm −100…100 (negativ = wärmer, positiv = kälter, 0 = beide Weißtöne voll). Am einfachsten über die Konsole pflegen: Regler stellen, „als Szene speichern“.",
+          },
+          fields: [
+            { name: "key", type: "text", required: true, label: "Schlüssel", admin: { description: "z. B. standard, gemuetlich, hell — CoSiMo und die Taste referenzieren ihn." } },
+            { name: "label", type: "text", required: true, label: "Name" },
+            ...(["roofline", "rooflight", "floor"] as const).map((g) => ({
+              name: g,
+              type: "group" as const,
+              label: g === "roofline" ? "Lichtlinien" : g === "rooflight" ? "Deckenpaneel" : "Boden",
+              fields: [
+                { name: "on", type: "checkbox" as const, defaultValue: true, label: "an" },
+                { name: "intensity", type: "number" as const, min: 0, max: 100, defaultValue: 100, label: "Helligkeit (0–100)" },
+                { name: "bias", type: "number" as const, min: -100, max: 100, defaultValue: -100, label: "Kalt/Warm (−100 warm … 100 kalt)" },
+              ],
+            })),
           ],
         },
       ],

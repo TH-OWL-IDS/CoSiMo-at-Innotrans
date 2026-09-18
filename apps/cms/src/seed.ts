@@ -9,7 +9,7 @@
  */
 
 import { getPayload } from "payload";
-import { DEFAULT_CORE_PROMPT } from "@cosimo/shared";
+import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES } from "@cosimo/shared";
 import config from "./payload.config.js";
 
 /** Shape of a seeded profile (the default clean plate + mockup riders). */
@@ -334,6 +334,24 @@ async function seed(): Promise<void> {
       },
     });
     console.log(`[seed] LPU-2 playback map seeded (${PLAYBACKS.length} playbacks)`);
+  }
+
+  // The three light scenes (packages/shared light.ts DEFAULT_LIGHT_SCENES):
+  // only when none exist — the console saves tuned scenes into these rows.
+  const opConfig4 = await payload.findGlobal({ slug: "operator-config" });
+  if (opConfig4?.cabin?.lightScenes?.length) {
+    console.log("[seed] light scenes exist: keeping the operator's scenes");
+  } else {
+    await payload.updateGlobal({
+      slug: "operator-config",
+      data: {
+        cabin: {
+          ...(opConfig4?.cabin ?? {}),
+          lightScenes: DEFAULT_LIGHT_SCENES.map((sc) => ({ key: sc.key, label: sc.label, roofline: sc.groups.roofline, rooflight: sc.groups.rooflight, floor: sc.groups.floor })),
+        },
+      },
+    });
+    console.log(`[seed] light scenes seeded (${DEFAULT_LIGHT_SCENES.map((s) => s.label).join(", ")})`);
   }
 
   process.exit(0);

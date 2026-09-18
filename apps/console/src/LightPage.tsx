@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import LogView from "./LogView";
-import { CircleCheckBig, FlaskConical, Lightbulb, Power, TriangleAlert } from "lucide-react";
+import { CircleCheckBig, FlaskConical, Lightbulb, Pencil, Power, Save, TriangleAlert, Undo2 } from "lucide-react";
 import { Button, cn } from "@cosimo/ui";
 import type { CosimoState } from "@cosimo/client";
 import {
+  LIGHT_GROUPS,
+  LIGHT_GROUP_LABEL,
   RIG_FIXTURES,
   rigDefaultState,
+  sameLevels,
   splitBias,
+  type CabinLightState,
+  type LightScene,
   type HostConfigBroadcast,
   type LogEvent,
   type RigFixture,
@@ -141,13 +146,105 @@ function FixtureRow({ f, state, result, playback, mapped, disabled, onAction }: 
   );
 }
 
-export default function LightPage({ c, cfg, lightOk, riderSection, onClearLogs, onReplayLogs }: {
+/** One scene's three groups as bars: length = brightness, tint = warm … cold. */
+function ScenePreview({ groups }: { groups: LightScene["groups"] }) {
+  const tint = (bias: number) => (bias < -30 ? "#e8b96a" : bias > 30 ? "#a9c8f0" : "#d9d9d4");
+  return (
+    <span className="flex w-full flex-col gap-1" aria-hidden>
+      {LIGHT_GROUPS.map((g) => {
+        const lv = groups[g];
+        return (
+          <span key={g} className="flex items-center gap-1.5">
+            <span className="w-3 shrink-0 text-2xs text-mute">{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
+            <span className="h-1.5 flex-1 rounded-full bg-well-deep">
+              <span className="block h-full rounded-full" style={{ width: `${lv.on ? lv.intensity : 0}%`, background: tint(lv.bias) }} />
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/**
+ * The scene bar: the three scenes + off. A tile switches the cabin; the
+ * fixture rows below always show what is lit. Turning a slider takes the
+ * cabin out of the scene ("frei") — the last scene's tile then offers
+ * "speichern" (the cabin's levels become the scene, in the CMS) and
+ * "verwerfen" (the stored scene is re-applied). Rename via the pencil.
+ */
+function SceneBar({ light, disabled, onSet, onSave }: {
+  light: CabinLightState | null;
+  disabled: boolean;
+  onSet: (scene: string) => void;
+  onSave: (key: string, label?: string, keepLevels?: boolean) => void;
+}) {
+  const scenes = light?.scenes ?? [];
+  // the scene the cabin last stood on — the target of "speichern" once it is free
+  const [last, setLast] = useState<string | null>(null);
+  useEffect(() => { if (light?.scene && light.scene !== "off") setLast(light.scene); }, [light?.scene]);
+  const free = light?.scene === null;
+  const rename = (sc: LightScene) => {
+    const label = window.prompt("Name der Szene", sc.label);
+    if (label && label.trim() && label.trim() !== sc.label) onSave(sc.key, label.trim(), true);
+  };
+  return (
+    <section className="flex flex-col gap-2">
+      <span className="text-2xs uppercase tracking-caps text-mute">
+        Szenen · {light ? (light.scene === "off" ? "aus" : light.scene ? `aktiv: ${scenes.find((s) => s.key === light.scene)?.label ?? light.scene}` : "frei — die Regler wurden bewegt") : "—"}
+        {light && !light.confirmed && light.scene !== null ? " · nicht bestätigt" : ""}
+      </span>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {scenes.map((sc) => {
+          const active = light?.scene === sc.key;
+          const dirtyHere = free && last === sc.key;
+          const stored = light ? sameLevels(light.groups, sc.groups) : false;
+          return (
+            <div key={sc.key} className={cn("flex flex-col gap-2 rounded-lg border p-3", active ? "border-ink bg-ink text-white" : "border-line bg-white")}>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onSet(sc.key)}
+                  className={cn("min-w-0 flex-1 truncate text-left text-base font-semibold disabled:opacity-45", active ? "text-white" : "text-ink")}
+                >
+                  {sc.label}
+                </button>
+                <button type="button" aria-label="umbenennen" title="umbenennen" onClick={() => rename(sc)} className={cn("shrink-0 opacity-60 hover:opacity-100", active ? "text-white" : "text-ink")}>
+                  <Pencil size={13} />
+                </button>
+              </div>
+              <ScenePreview groups={sc.groups} />
+              {dirtyHere && (
+                <div className="flex gap-1.5">
+                  <Button size="xs" variant="primary" onClick={() => onSave(sc.key)} title="die aktuellen Werte der Kabine in diese Szene schreiben (CMS)"><Save size={12} /> speichern</Button>
+                  <Button size="xs" variant="secondary" onClick={() => onSet(sc.key)} title="die gespeicherte Szene wieder einspielen"><Undo2 size={12} /> verwerfen</Button>
+                </div>
+              )}
+              {free && !dirtyHere && !stored && (
+                <button type="button" onClick={() => onSave(sc.key)} className="self-start text-2xs text-mute hover:text-ink" title="die aktuellen Werte der Kabine in diese Szene schreiben (CMS)">
+                  <Save size={11} className="-mb-px inline" /> aktuelle Werte hierhin
+                </button>
+              )}
+            </div>
+          );
+        })}
+        <div className={cn("flex flex-col gap-2 rounded-lg border p-3", light?.scene === "off" ? "border-ink bg-ink text-white" : "border-line bg-white")}>
+          <button type="button" disabled={disabled} onClick={() => onSet("off")} className={cn("text-left text-base font-semibold disabled:opacity-45", light?.scene === "off" ? "text-white" : "text-ink")}>
+            Aus
+          </button>
+          <span className={cn("text-2xs", light?.scene === "off" ? "text-white/70" : "text-mute")}>Lichtlinien, Deckenpaneel und Boden aus · Taste am Panel: nächste Szene</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }: {
   c: CosimoState;
   cfg: HostConfigBroadcast | null;
   /** status.light: address known and the last physical switch confirmed. */
   lightOk: boolean | undefined;
-  /** The rider-facing controls (Kabine / Sitze), rendered above the rig. */
-  riderSection?: ReactNode;
   onClearLogs: () => void;
   onReplayLogs: () => void;
 }) {
@@ -194,15 +291,15 @@ export default function LightPage({ c, cfg, lightOk, riderSection, onClearLogs, 
         <Button size="xs" variant="secondary" tone="accent" disabled={disabled} onClick={() => { if (window.confirm("Alle Playbacks releasen? Die Standalone-Szene übernimmt.")) c.hostLight("release-all"); }}>Alles releasen</Button>
       </div>
 
-      {riderSection && (
-        <section className="flex flex-col gap-2 rounded-lg border border-line bg-white p-3">
-          <span className="text-2xs uppercase tracking-caps text-mute">Fahrgast-Steuerung (Zustand, wie CoSiMo ihn sieht)</span>
-          {riderSection}
-        </section>
-      )}
+      <SceneBar
+        light={c.light}
+        disabled={!cfg}
+        onSet={(scene) => c.setLight({ scene })}
+        onSave={(key, label, keepLevels) => c.saveScene({ key, ...(label ? { label } : {}), ...(keepLevels ? { keepLevels: true } : {}) })}
+      />
 
       <section className="flex flex-col gap-3">
-        <span className="text-2xs uppercase tracking-caps text-mute">Rig · Adresse und Playbacks aus dem CMS · Intensität 0–100 % → 0–255 am Gerät</span>
+        <span className="text-2xs uppercase tracking-caps text-mute">Leuchten · Adresse und Playbacks aus dem CMS · Intensität 0–100 % → 0–255 am Gerät · Lichtlinien, Deckenpaneel und Boden gehören zur Szene</span>
         {RIG_FIXTURES.map((f) => (
           <FixtureRow
             key={f.id}
@@ -216,7 +313,7 @@ export default function LightPage({ c, cfg, lightOk, riderSection, onClearLogs, 
           />
         ))}
         <span className="text-xs text-mute">
-          Ein heißt „go“ auf allen Playbacks der Leuchte plus die Pegel, Aus heißt „re“ (die Standalone-Szene übernimmt). Pegel wirken nur auf laufende Playbacks. Die roten Modi schließen sich aus. Was der Fahrgast über CoSiMo erreicht, steht oben; Signale, Außen und Blackout nur hier.
+          Ein heißt „go“ auf allen Playbacks der Leuchte plus die Pegel, Aus heißt „re“ (die Standalone-Szene übernimmt). Pegel wirken nur auf laufende Playbacks. Die roten Modi schließen sich aus. Fahrgast, CoSiMo und die Panel-Taste erreichen nur die Szenen und die drei Szenen-Gruppen; Kopfstützen, Außen, Signale und Blackout nur hier.
         </span>
       </section>
 

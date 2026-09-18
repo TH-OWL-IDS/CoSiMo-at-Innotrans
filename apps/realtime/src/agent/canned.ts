@@ -9,7 +9,6 @@
  */
 
 import type {
-  CabinControlId,
   ExpressiveEmotion,
   Locale,
   MonoCabTelemetry,
@@ -18,8 +17,8 @@ import type {
 export interface CannedResult {
   text: string;
   emotion: ExpressiveEmotion;
-  /** A cabin action to perform (e.g. the interior light). */
-  cabin?: { control: CabinControlId; on: boolean };
+  /** A cabin light action to perform: a scene key or "off". */
+  cabin?: { scene: string };
   /** Whether this came from a real script match (vs. the not-understood fallback). */
   matched: boolean;
 }
@@ -72,7 +71,7 @@ export function cannedReply(
     return {
       matched: true,
       emotion: "neutral",
-      cabin: { control: "interior-light", on: false },
+      cabin: { scene: "off" },
       text: de ? "Ich schalte das Licht aus." : "Turning the light off.",
     };
   }
@@ -80,7 +79,7 @@ export function cannedReply(
     return {
       matched: true,
       emotion: "happy",
-      cabin: { control: "interior-light", on: true },
+      cabin: { scene: "standard" },
       text: de ? "Ich schalte das Licht an." : "Turning the light on.",
     };
   }

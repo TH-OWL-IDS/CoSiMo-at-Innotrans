@@ -19,6 +19,7 @@ import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js"
 import type { Modality, Turn, SeatCard } from "./session.js";
 import type { SeatSettingsOpen, SettingsPatch } from "./settings.js";
 import type { HostRigAction, HostRigState } from "./rig.js";
+import type { CabinLightState, LightSetRequest, SceneSaveRequest } from "./light.js";
 import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
@@ -309,6 +310,9 @@ export interface ServerToClientEvents {
   "host:config": (payload: HostConfigBroadcast) => void;
   /** The rig page's state (every fixture + last outcomes), on connect and after every action. */
   "host:rig-state": (payload: HostRigState) => void;
+  /** The cabin light (scene + the three groups + the scene list) — to every
+   *  seat and console, on connect and after every change. */
+  "light:state": (payload: CabinLightState) => void;
   /** Reply to host:inspect — sent only to the requesting host socket. */
   "host:inspect:result": (payload: SeatInspection) => void;
   /** The structured debug log (host consoles only): a replay batch on
@@ -382,6 +386,11 @@ export interface ClientToServerEvents {
    *  one fixture action with the state the operator set; the hub keeps the
    *  state, builds the URLs (levels 0–100 → 0–255) and routes them. */
   "host:rig": (payload: HostRigAction) => void;
+  /** The cabin light from a seat (the panel button, the slit menu, CoSiMo)
+   *  or a console: a scene step or one group. The hub applies it. */
+  "light:set": (payload: LightSetRequest) => void;
+  /** Console: write the cabin's current levels into a scene (CMS). */
+  "host:scene-save": (payload: SceneSaveRequest) => void;
   /** The same rig actions from a kiosk's hidden operator menu — that iPad fires them itself. */
   "cabin:light": (payload: { key: string; on?: boolean }) => void;
   "host:llm-test": (payload: Record<string, never>) => void;

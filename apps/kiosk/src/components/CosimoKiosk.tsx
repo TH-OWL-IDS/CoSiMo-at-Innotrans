@@ -131,6 +131,7 @@ export default function CosimoKiosk({
     onTalkEnd: ptt.stop,
     onInfo: seat.askInfo,
     onTag: (tagId) => cosimo.registerNfc(tagId, lang),
+    onLight: () => cosimo.setLight({ scene: "next" }),
   });
 
   return (

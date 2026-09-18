@@ -9,7 +9,13 @@
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
 import { buildHostLight, type Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, LPU2_KEYS, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry } from "@cosimo/shared";
+import { CABIN_CONTROLS, LPU2_KEYS, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
+  DEFAULT_LIGHT_SCENES,
+  LIGHT_GROUPS,
+  normalizeGroupLevel,
+  type LightGroup,
+  type LightScene,
+} from "@cosimo/shared";
 
 /** Today's effective values (Qwen generation_config + our max_tokens). */
 export const DEFAULT_GENERATION: LlmGeneration = { temperature: 0.7, topP: 0.8, maxTokens: 1024, repetitionPenalty: 1.0, thinking: false };
@@ -37,7 +43,7 @@ export interface ResolvedOperatorConfig {
   tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] };
   /** Cabin lighting: where the LPU-2 lives on the cabin LAN and which
    *  playback drives which control. Unmapped controls stay simulated. */
-  cabin: { lpu2BaseUrl: string; lpu2Mapping: Lpu2Mapping; lpu2TimeoutMs: number };
+  cabin: { lpu2BaseUrl: string; lpu2Mapping: Lpu2Mapping; lpu2TimeoutMs: number; scenes: LightScene[] };
 }
 
 function envDefaults(): ResolvedOperatorConfig {
@@ -65,8 +71,26 @@ function envDefaults(): ResolvedOperatorConfig {
       lpu2BaseUrl: config.lpu2.baseUrl,
       lpu2Mapping: {},
       lpu2TimeoutMs: config.lpu2.timeoutMs,
+      scenes: DEFAULT_LIGHT_SCENES,
     },
   };
+}
+
+type SceneRow = { key?: string | null; label?: string | null } & Partial<Record<LightGroup, { on?: boolean | null; intensity?: number | null; bias?: number | null } | null>>;
+
+/** The CMS scene rows → scenes; empty/junk → the built-in three. */
+function toScenes(rows: SceneRow[]): LightScene[] {
+  const out: LightScene[] = [];
+  for (const r of rows) {
+    const key = str(r.key, "").toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (!key || out.some((s) => s.key === key)) continue;
+    const base = DEFAULT_LIGHT_SCENES.find((s) => s.key === key) ?? DEFAULT_LIGHT_SCENES[0]!;
+    const groups = Object.fromEntries(
+      LIGHT_GROUPS.map((g) => [g, normalizeGroupLevel({ on: r[g]?.on ?? undefined, intensity: r[g]?.intensity ?? undefined, bias: r[g]?.bias ?? undefined }, base.groups[g])]),
+    ) as LightScene["groups"];
+    out.push({ key, label: str(r.label, key), groups });
+  }
+  return out.length ? out : DEFAULT_LIGHT_SCENES;
 }
 
 const MAPPING_KEYS = new Set<string>(LPU2_KEYS.map((k) => k.key));
@@ -108,6 +132,7 @@ interface PayloadOperatorConfigDoc {
   cabin?: {
     lpu2BaseUrl?: string | null;
     lpu2Playbacks?: { control?: string | null; playback?: number | null; cues?: { scene?: string | null; cue?: number | null }[] | null }[] | null;
+    lightScenes?: SceneRow[] | null;
   };
 }
 
@@ -124,6 +149,11 @@ export class OperatorConfigProvider {
   /** Current resolved config (cached, env defaults applied). Never throws. */
   get(): ResolvedOperatorConfig {
     return this.cache;
+  }
+
+  /** Forget the TTL so the next refresh() really fetches (after a write-back). */
+  invalidate(): void {
+    this.lastFetch = 0;
   }
 
   /** Fingerprint of what the hub routes to; a change is a system event. */
@@ -246,6 +276,7 @@ export class OperatorConfigProvider {
           lpu2BaseUrl: str(doc.cabin?.lpu2BaseUrl, base.cabin.lpu2BaseUrl),
           lpu2Mapping: toMapping(doc.cabin?.lpu2Playbacks ?? []),
           lpu2TimeoutMs: base.cabin.lpu2TimeoutMs,
+          scenes: toScenes(doc.cabin?.lightScenes ?? []),
         },
       };
       this.loadedAt = new Date().toISOString();

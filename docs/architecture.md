@@ -73,7 +73,7 @@ per *active* seat (see [realtime.md](realtime.md#host-console-support)).
 2. Realtime pipes it to Deepgram (STT) → text.
 3. Agent loop calls the LLM (Claude, or an OpenAI-compatible endpoint) with
    the seat's persona in the system prompt and tools like `get_telemetry`
-   and `set_cabin_control`.
+   and `set_light` (the cabin's light scenes).
 4. Tool calls resolve against CMS-backed providers (telemetry) or the hub
    (cabin, scoped to the calling seat).
 5. Reply text streams to the seat as it is generated (latency masking);

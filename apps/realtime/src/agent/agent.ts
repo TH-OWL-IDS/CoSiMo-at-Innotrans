@@ -12,7 +12,8 @@ import {
   type RiderContext,
   type LlmTestResult,
   type Accommodations,
-  CABIN_CONTROLS,
+  LIGHT_GROUP_LABEL,
+  type LightGroup,
   type ExpressiveEmotion,
   type Locale,
   type Modality,
@@ -95,7 +96,7 @@ const DEGENERATE_CHARS = 4;
  * still gets the extra round so the model can correct itself.
  */
 const SPEAK_WHILE_ACTING = new Set([
-  "set_cabin_control",
+  "set_light",
   "set_presentation",
   "set_emotion",
   "request_stop",
@@ -110,40 +111,27 @@ const SPEAK_WHILE_ACTING = new Set([
  * generation just to hear "das Licht ist an" — a sentence the server already
  * knows. Model text is preferred whenever the model does produce it.
  */
-/** German articles per control — "die Leselampe", not "das Leselampe". */
-const DE_ARTICLE: Record<string, string> = {
-  "interior-light": "das",
-  "reading-lamp": "die",
-};
-
 function templatedConfirmation(actions: TurnAction[], lang: Locale, terse = false): string {
   const de = lang === "de";
   // a terse rider gets the bare word, whatever was done
-  if (terse && actions.some((a) => ["set_cabin_control", "set_presentation", "request_stop", "remember", "forget"].includes(a.tool))) {
+  if (terse && actions.some((a) => ["set_light", "set_presentation", "request_stop", "remember", "forget"].includes(a.tool))) {
     return de ? "Erledigt." : "Done.";
   }
   const parts: string[] = [];
-  const cabin = actions.filter((a) => a.tool === "set_cabin_control" && a.control);
-  if (cabin.length) {
-    const bits = cabin.map((a) => {
-      const def = CABIN_CONTROLS.find((c) => c.id === a.control);
-      const label = def?.label[lang] ?? a.control!;
-      const args = a.args ?? {};
-      if (typeof args.level === "number") {
-        return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} auf ${args.level} Prozent` : `the ${label.toLowerCase()} at ${args.level} percent`;
-      }
-      if (typeof args.scene === "string") {
-        const sc = def?.scenes?.find((x) => x.key === args.scene);
-        return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} auf „${sc?.label.de ?? args.scene}"` : `the ${label.toLowerCase()} to "${sc?.label.en ?? args.scene}"`;
-      }
-      if (args.flash === true) {
-        return de ? `einmal ${DE_ARTICLE[a.control!] ?? "das"} ${label} geblitzt` : `flashed the ${label.toLowerCase()}`;
-      }
-      const on = args.on !== false;
-      return de ? `${DE_ARTICLE[a.control!] ?? "das"} ${label} ${on ? "an" : "aus"}` : `the ${label.toLowerCase()} ${on ? "on" : "off"}`;
-    });
-    const list = bits.length > 1 ? bits.slice(0, -1).join(", ") + (de ? " und " : " and ") + bits[bits.length - 1] : bits[0]!;
-    parts.push(de ? `Gern, ${list}.` : `Sure, ${list}.`);
+  const lights = actions.filter((a) => a.tool === "set_light");
+  if (lights.length) {
+    const last = lights[lights.length - 1]!;
+    const args = (last.args ?? {}) as { scene?: string; sceneLabel?: string; group?: { id?: string; on?: boolean; intensity?: number } };
+    if (args.scene === "off") parts.push(de ? "Gern, das Licht ist aus." : "Sure, the light is off.");
+    else if (args.scene) parts.push(de ? `Gern, das Licht steht jetzt auf „${args.sceneLabel ?? args.scene}".` : `Sure, the light is now "${args.sceneLabel ?? args.scene}".`);
+    else if (args.group) {
+      const g = args.group;
+      const label = LIGHT_GROUP_LABEL[(g.id ?? "rooflight") as LightGroup]?.[lang] ?? g.id;
+      const de_art = g.id === "rooflight" ? "das" : g.id === "floor" ? "der" : "die";
+      if (g.on === false || g.intensity === 0) parts.push(de ? `Gern, ${de_art} ${label} ${g.id === "roofline" ? "sind" : "ist"} aus.` : `Sure, the ${label.toLowerCase()} is off.`);
+      else if (typeof g.intensity === "number") parts.push(de ? `Gern, ${de_art} ${label} auf ${g.intensity} Prozent.` : `Sure, the ${label.toLowerCase()} at ${g.intensity} percent.`);
+      else parts.push(de ? `Gern, ${de_art} ${label} ${g.id === "roofline" ? "sind" : "ist"} an.` : `Sure, the ${label.toLowerCase()} is on.`);
+    }
   }
   // One sentence per KIND, not per call — "leiser UND langsamer" is two
   // set_presentation actions but must confirm once, not twice.
@@ -213,6 +201,8 @@ export class CosimoAgent {
         this.operatorConfig.get().agent.systemPrompt,
         this.operatorConfig.get().tts.voices,
         journeyLine(this.telemetry.get(), this.hub.riderOf(sessionId)?.accommodations.language ?? "de"),
+        undefined,
+        this.hub.currentLight().scenes,
       ),
       turns: this.recorder.get(sessionId)?.turns ?? [],
     };
@@ -307,6 +297,7 @@ export class CosimoAgent {
       this.operatorConfig.get().tts.voices,
       journeyLine(this.telemetry.get(), lang),
       lang,
+      this.hub.currentLight().scenes,
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or
@@ -458,19 +449,8 @@ export class CosimoAgent {
           // If the canned answer claims a cabin action ("Ich schalte das
           // Licht an"), actually perform it — same as offline mode does.
           if (fallback.cabin) {
-            try {
-              await this.hub.applyCabinControl(deviceId, fallback.cabin.control, {
-                on: fallback.cabin.on,
-              });
-              actions.push({
-                tool: "set_cabin_control",
-                control: fallback.cabin.control,
-                args: { on: fallback.cabin.on },
-                ok: true,
-              });
-            } catch {
-              // light unreachable — still answer
-            }
+            const st = this.hub.applyLight({ scene: fallback.cabin.scene }, deviceId);
+            if (st) actions.push({ tool: "set_light", args: { scene: fallback.cabin.scene }, ok: true });
           }
           this.emitFullReply(sessionId, fallback.text, turnNo);
           speaker.push(fallback.text);
@@ -599,12 +579,8 @@ export class CosimoAgent {
 
     const actions: TurnAction[] = [];
     if (reply.cabin) {
-      try {
-        await this.hub.applyCabinControl(deviceId, reply.cabin.control, { on: reply.cabin.on });
-        actions.push({ tool: "set_cabin_control", control: reply.cabin.control, args: { on: reply.cabin.on }, ok: true });
-      } catch {
-        // light unreachable — still answer
-      }
+      const st = this.hub.applyLight({ scene: reply.cabin.scene }, deviceId);
+      if (st) actions.push({ tool: "set_light", args: { scene: reply.cabin.scene }, ok: true });
     }
 
     this.hub.emitPhase("speaking", sessionId, turnNo);
@@ -746,6 +722,8 @@ export class CosimoAgent {
       this.operatorConfig.get().agent.systemPrompt,
       this.operatorConfig.get().tts.voices,
       journeyLine(this.telemetry.get(), "de"),
+      undefined,
+      this.hub.currentLight().scenes,
     );
   }
 

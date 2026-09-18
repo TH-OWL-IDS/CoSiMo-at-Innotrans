@@ -36,6 +36,17 @@ import {
   RIG_FIXTURES,
   rigDefaultState,
   rigOps,
+  LIGHT_GROUPS,
+  OFF_GROUPS,
+  DEFAULT_LIGHT_SCENES,
+  normalizeGroupLevel,
+  sceneBrightness,
+  type CabinLightState,
+  type GroupLevel,
+  type LightGroup,
+  type LightScene,
+  type LightSetRequest,
+  type SceneSaveRequest,
   type SeatSettingsOpen,
   type SettingsSection,
   type VoiceCatalogEntry,
@@ -263,6 +274,16 @@ export class Hub {
     fixtures: Object.fromEntries(RIG_FIXTURES.map((f) => [f.id, rigDefaultState(f)])),
     results: {},
   };
+  /** THE cabin light: the active scene (or off / free) and the three groups'
+   *  levels — every seat, CoSiMo, the panel button and the console set the
+   *  same state and see the same state. Scenes come from the CMS. */
+  private readonly light: CabinLightState = {
+    scene: null,
+    groups: { ...DEFAULT_LIGHT_SCENES[0]!.groups },
+    scenes: DEFAULT_LIGHT_SCENES,
+    confirmed: false,
+  };
+  private sceneSaver: ((req: SceneSaveRequest, groups: Record<LightGroup, GroupLevel>, scenes: LightScene[]) => Promise<LightScene[] | null>) | undefined;
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
@@ -410,6 +431,22 @@ export class Hub {
   /** Register how a seat's deep inspection (prompt + turns) is composed. */
   onSettingsPatch(handler: SettingsPatchHandler): void {
     this.settingsPatchHandler = handler;
+  }
+
+  /** Register the scene write-back (console "als Szene speichern"). */
+  onSceneSave(handler: (req: SceneSaveRequest, groups: Record<LightGroup, GroupLevel>, scenes: LightScene[]) => Promise<LightScene[] | null>): void {
+    this.sceneSaver = handler;
+  }
+
+  /** The scene list as the CMS has it (after every config refresh). */
+  setLightScenes(scenes: LightScene[]): void {
+    if (JSON.stringify(scenes) === JSON.stringify(this.light.scenes)) return;
+    this.light.scenes = scenes;
+    this.pushLight();
+  }
+
+  currentLight(): CabinLightState {
+    return this.light;
   }
 
   onSessionEnd(handler: SessionEndHandler): void {
@@ -739,6 +776,7 @@ export class Hub {
         socket.emit("host:services", { services: this.servicesLister() });
       }
       if (role === "host") socket.emit("host:rig-state", this.rig);
+      socket.emit("light:state", this.light);
       if (role === "host") {
         socket.on("host:probe", () => {
           logger.log("host.action", { action: "probe", args: {} }, { deviceId });
@@ -789,6 +827,11 @@ export class Hub {
               : {}),
           };
           this.rig.fixtures[fixture] = next;
+          if ((LIGHT_GROUPS as readonly string[]).includes(fixture)) {
+            this.light.groups[fixture as LightGroup] = { on: next.on, intensity: next.intensity, bias: next.bias };
+            this.light.scene = null;
+            this.pushLight();
+          }
           const control = `rig:${fixture}`;
           const cfg = this.lpu2Config?.();
           const actuation = cfg ? buildRigOps(control, rigOps(def, next, action), cfg) : null;
@@ -811,6 +854,17 @@ export class Hub {
           logger.log("cabin.actuate", { control, scope: "host", urls: actuation.urls, change: { action, ...next }, actuator: actor.id }, { deviceId });
           actor.entry.socket.emit("cabin:actuate", actuation);
           this.pushRig();
+        });
+        // "als Szene speichern": the cabin's current levels become the scene
+        socket.on("host:scene-save", (req) => {
+          if (!req || typeof req.key !== "string") return;
+          logger.log("host.action", { action: "scene-save", args: { key: req.key, ...(req.label ? { label: req.label } : {}), ...(req.keepLevels ? { keepLevels: true } : {}) } }, { deviceId });
+          void this.sceneSaver?.(req, this.light.groups, this.light.scenes).then((scenes) => {
+            if (!scenes) return;
+            this.light.scenes = scenes;
+            if (this.light.scene === null || this.light.scene === req.key) this.light.scene = req.key;
+            this.pushLight();
+          });
         });
         socket.on("host:llm-test", () => {
           logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
@@ -844,6 +898,9 @@ export class Hub {
           }
           this.lost.clear();
           this.broadcastDevices();
+          // the cabin light back to scene 1 (only when a rig is configured)
+          const first = this.light.scenes[0];
+          if (first && this.lpu2Config?.().baseUrl) this.applyLight({ scene: first.key }, deviceId);
         });
       }
       // Hosts get the debug log: the buffer now, then live. A re-subscribe
@@ -882,6 +939,16 @@ export class Hub {
         persona: this.personaOf(deviceId),
         rider: this.riderOfEntry(entry, sessionId),
       });
+    });
+
+    // The cabin light from a seat (panel button "l", the slit menu, CoSiMo's
+    // tool goes through applyLight directly) or a console: one shared state.
+    socket.on("light:set", (req) => {
+      const deviceId = (socket.data.deviceId as string | undefined) ?? "unknown";
+      if (!req || typeof req !== "object") return;
+      const entry = this.devices.get(deviceId);
+      if (entry) entry.lastActivity = Date.now();
+      this.applyLight(req, deviceId);
     });
 
     socket.on("reply:repeat", ({ sessionId }) => {
@@ -992,6 +1059,10 @@ export class Hub {
           const prev = this.rig.results[fixture];
           this.rig.results[fixture] = { ok, ...(error ? { error } : {}), at: Date.now(), urls: prev?.urls ?? [] };
           this.pushRig();
+        }
+        if (control.startsWith("light:")) {
+          this.light.confirmed = ok;
+          this.pushLight();
         }
         return;
       }
@@ -1269,6 +1340,77 @@ export class Hub {
   }
 
   /** Push per-seat summaries to every connected host console. */
+  /** The cabin light to every seat and console. */
+  private pushLight(): void {
+    for (const e of this.devices.values()) e.socket.emit("light:state", this.light);
+  }
+
+  /**
+   * Apply one light change — a scene (key, "off", "next", "brighter",
+   * "darker") or one group — build the LPU-2 commands exactly as the
+   * installer's page would (rig.ts), fire them through an iPad, mirror the
+   * levels into the rig page, and tell everyone. Returns the new state, or
+   * null when the request made no sense.
+   */
+  applyLight(req: LightSetRequest, by: string): CabinLightState | null {
+    const scenes = this.light.scenes;
+    let groups: Record<LightGroup, GroupLevel> | null = null;
+    let scene: string | "off" | null = this.light.scene;
+    let touched: LightGroup[] = [...LIGHT_GROUPS];
+    if (req.scene) {
+      const byBrightness = [...scenes].sort((a, b) => sceneBrightness(a) - sceneBrightness(b));
+      const cur = scenes.find((s) => s.key === this.light.scene);
+      let target: LightScene | "off" | undefined;
+      if (req.scene === "off") target = "off";
+      else if (req.scene === "next") {
+        const i = scenes.findIndex((s) => s.key === this.light.scene);
+        target = scenes[(i + 1) % scenes.length];
+      } else if (req.scene === "brighter" || req.scene === "darker") {
+        const i = cur ? byBrightness.findIndex((s) => s.key === cur.key) : this.light.scene === "off" ? -1 : Math.floor(byBrightness.length / 2);
+        target = req.scene === "brighter" ? byBrightness[Math.min(byBrightness.length - 1, i + 1)] : i <= 0 ? "off" : byBrightness[i - 1];
+      } else target = scenes.find((s) => s.key === req.scene);
+      if (!target) return null;
+      if (target === "off") { groups = { ...OFF_GROUPS }; scene = "off"; }
+      else { groups = { roofline: { ...target.groups.roofline }, rooflight: { ...target.groups.rooflight }, floor: { ...target.groups.floor } }; scene = target.key; }
+    } else if (req.group && (LIGHT_GROUPS as readonly string[]).includes(req.group.id)) {
+      const id = req.group.id;
+      const next = normalizeGroupLevel(req.group, this.light.groups[id]);
+      groups = { ...this.light.groups, [id]: next };
+      scene = null;
+      touched = [id];
+    } else return null;
+
+    this.light.groups = groups;
+    this.light.scene = scene;
+    // the rig page shows the same levels
+    for (const g of touched) this.rig.fixtures[g] = { on: groups[g].on, intensity: groups[g].intensity, bias: groups[g].bias };
+
+    const control = scene ? `light:scene:${scene}` : `light:group:${touched[0]}`;
+    const cfg = this.lpu2Config?.();
+    if (cfg?.baseUrl) {
+      const ops = touched.flatMap((g) => {
+        const def = RIG_FIXTURES.find((f) => f.id === g)!;
+        const st: RigFixtureState = { on: groups![g].on, intensity: groups![g].intensity, bias: groups![g].bias };
+        return rigOps(def, st, st.on ? "on" : "off");
+      });
+      const actuation = buildRigOps(control, ops, cfg);
+      const actor = actuation ? this.pickActuator(this.devices.get(by)?.kind === "kiosk" ? by : undefined) : null;
+      if (actuation && actor) {
+        this.pendingActuation.set(control, { requestedBy: by, at: Date.now() });
+        logger.log("cabin.actuate", { control, scope: "host", urls: actuation.urls, change: { scene, groups: Object.fromEntries(touched.map((g) => [g, groups![g]])) }, ...(actor.id !== by ? { actuator: actor.id } : {}) }, { deviceId: by });
+        actor.entry.socket.emit("cabin:actuate", actuation);
+      } else {
+        this.light.confirmed = false;
+        logger.log("cabin.result", { control, scope: "host", ok: false, error: !actuation ? "nicht zugeordnet" : "no actuator" }, { deviceId: by, level: "warn" });
+      }
+    } else {
+      logger.log("cabin.actuate", { control, scope: "host", urls: [], change: { scene, simulated: true } }, { deviceId: by });
+    }
+    this.pushLight();
+    this.pushRig();
+    return this.light;
+  }
+
   /** The rig page's state to every console. */
   private pushRig(): void {
     for (const e of this.devices.values()) if (e.role === "host") e.socket.emit("host:rig-state", this.rig);

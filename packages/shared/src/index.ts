@@ -6,6 +6,7 @@ export * from "./telemetry.js";
 export * from "./persona.js";
 export * from "./cabin.js";
 export * from "./rig.js";
+export * from "./light.js";
 export * from "./session.js";
 export * from "./settings.js";
 export * from "./log.js";

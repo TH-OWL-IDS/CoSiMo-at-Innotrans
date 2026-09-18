@@ -53,6 +53,7 @@ export default function App() {
     onTalkEnd: () => seat.ptt.stop(),
     onInfo: () => seat.askInfo(),
     onTag: (id) => seat.cosimo.registerNfc(id, seat.lang),
+    onLight: () => seat.cosimo.setLight({ scene: "next" }),
   });
   const { cosimo, lang, ptt } = seat;
 

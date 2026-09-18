@@ -8,14 +8,15 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  CABIN_CONTROLS,
   EXPRESSIVE_EMOTIONS,
   SCHEME_IDS,
   VOICE_TONES,
   isFaceEmotion,
   type Accommodations,
-  type CabinControlId,
   type ExpressiveEmotion,
+  LIGHT_GROUPS,
+  type LightGroup,
+  type LightSetRequest,
   type Locale,
   type PersonaKey,
   type TurnAction,
@@ -39,20 +40,7 @@ export interface ToolResult {
   emotion?: ExpressiveEmotion;
 }
 
-const CONTROL_IDS = CABIN_CONTROLS.map((c) => c.id);
-const SCENE_KEYS = [...new Set(CABIN_CONTROLS.flatMap((c) => c.scenes?.map((s) => s.key) ?? []))];
 
-/** The catalogue as the model reads it — generated so a new light in
- *  CABIN_CONTROLS needs no prompt edit. */
-const CONTROL_CATALOG = CABIN_CONTROLS.map((c) => {
-  const scope = c.scope === "cabin" ? "shared by ALL seats — changing it changes it for everyone" : "this seat only";
-  const kind =
-    c.kind === "toggle" ? "on/off" :
-    c.kind === "level" ? "dimmable, level 0-100" :
-    c.kind === "scene" ? `scene: ${(c.scenes ?? []).map((s) => `'${s.key}'`).join(", ")}` :
-    "momentary flash";
-  return `'${c.id}' (${c.label.de} / ${c.label.en}; ${kind}; ${scope})`;
-}).join("; ");
 
 export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
@@ -62,19 +50,18 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
-    name: "set_cabin_control",
+    name: "set_light",
     description:
-      `Change a cabin light. Use this when the rider asks to change the lighting. Controls: ${CONTROL_CATALOG}. Pass exactly the field matching the control's kind: on for on/off, level for dimming, scene for a scene, flash:true for a flash.`,
+      "The cabin light. It has SCENES the rider switches between — the scene keys and names are listed in your instructions — plus 'aus' (off), 'heller' (the next brighter scene) and 'dunkler' (the next darker one). Use `scene` for anything about the light as a whole ('mach es gemütlich', 'Licht aus', 'heller bitte', 'mach das Licht an' → the standard scene). Use `group` only when the rider names one part of the light — Lichtlinien (the light lines along the roof), Deckenpaneel (the ceiling panel), Boden (the floor light) — with `on`, or `level` 0–100, or `step` heller/dunkler. One light, shared by all seats: a change is for everyone.",
     input_schema: {
       type: "object",
       properties: {
-        control: { type: "string", enum: CONTROL_IDS, description: "Which cabin control to change." },
-        on: { type: "boolean", description: "On/off (toggle controls)." },
-        level: { type: "number", minimum: 0, maximum: 100, description: "Brightness 0-100 (level controls)." },
-        ...(SCENE_KEYS.length ? { scene: { type: "string", enum: SCENE_KEYS, description: "Scene key (scene controls)." } } : {}),
-        flash: { type: "boolean", description: "true for a momentary flash (flash controls)." },
+        scene: { type: "string", description: "A scene key from your instructions, or aus | heller | dunkler." },
+        group: { type: "string", enum: ["roofline", "rooflight", "floor"], description: "One part of the light: roofline = Lichtlinien, rooflight = Deckenpaneel, floor = Boden." },
+        on: { type: "boolean", description: "For a group: on / off." },
+        level: { type: "number", minimum: 0, maximum: 100, description: "For a group: brightness 0–100." },
+        step: { type: "string", enum: ["heller", "dunkler"], description: "For a group: a bit brighter / darker (±20)." },
       },
-      required: ["control"],
       additionalProperties: false,
     },
   },
@@ -320,37 +307,36 @@ export async function executeTool(
       return { text: JSON.stringify(compact), action: { tool: name } };
     }
 
-    case "set_cabin_control": {
-      const control = input.control as CabinControlId;
-      const def = CABIN_CONTROLS.find((c) => c.id === control);
-      if (!def) {
-        return { text: `error: unknown control "${String(input.control)}"`, action: { tool: name } };
+    case "set_light": {
+      const light = ctx.hub.currentLight();
+      const scenes = light.scenes;
+      const sceneWord = typeof input.scene === "string" ? input.scene.trim().toLowerCase() : "";
+      const group = typeof input.group === "string" && (LIGHT_GROUPS as readonly string[]).includes(input.group) ? (input.group as LightGroup) : null;
+      let req: LightSetRequest | null = null;
+      if (sceneWord) {
+        const map: Record<string, string> = { aus: "off", off: "off", heller: "brighter", brighter: "brighter", dunkler: "darker", darker: "darker", an: scenes[0]?.key ?? "", on: scenes[0]?.key ?? "" };
+        const key = map[sceneWord] ?? scenes.find((s) => s.key === sceneWord || s.label.toLowerCase() === sceneWord)?.key;
+        if (!key) return { text: `error: unknown scene "${sceneWord}" — valid: ${scenes.map((s) => s.key).join(", ")}, aus, heller, dunkler`, action: { tool: name } };
+        req = { scene: key };
+      } else if (group) {
+        const cur = light.groups[group];
+        const g: NonNullable<LightSetRequest["group"]> = { id: group };
+        if (typeof input.on === "boolean") g.on = input.on;
+        if (typeof input.level === "number") { g.intensity = Math.max(0, Math.min(100, Math.round(input.level))); g.on = g.intensity > 0; }
+        if (input.step === "heller" || input.step === "dunkler") { g.intensity = Math.max(0, Math.min(100, (cur.on ? cur.intensity : 0) + (input.step === "heller" ? 20 : -20))); g.on = g.intensity > 0; }
+        if (g.on === undefined && g.intensity === undefined) return { text: "error: for a group pass on, level or step", action: { tool: name } };
+        req = { group: g };
+      } else {
+        return { text: "error: pass scene (a key, aus, heller, dunkler) or group (+ on/level/step)", action: { tool: name } };
       }
-      // Accept only what the control's kind understands — a level on a
-      // toggle is a model mistake the result should teach, not a throw.
-      const change: { on?: boolean; level?: number; scene?: string; flash?: true } = {};
-      if (def.kind === "toggle" && typeof input.on === "boolean") change.on = input.on;
-      if (def.kind === "level") {
-        if (typeof input.level === "number") change.level = Math.max(0, Math.min(100, Math.round(input.level)));
-        else if (typeof input.on === "boolean") change.on = input.on; // "aus"/"an" on a dimmer is fine
-      }
-      if (def.kind === "scene" && typeof input.scene === "string") {
-        if (!def.scenes?.some((sc) => sc.key === input.scene)) {
-          return { text: `error: unknown scene "${String(input.scene)}" for ${control} — valid: ${(def.scenes ?? []).map((sc) => sc.key).join(", ")}`, action: { tool: name } };
-        }
-        change.scene = input.scene;
-      }
-      if (def.kind === "flash" && input.flash === true) change.flash = true;
-      if (Object.keys(change).length === 0) {
-        return { text: `error: ${control} is a ${def.kind} control — pass ${def.kind === "toggle" ? "on" : def.kind === "flash" ? "flash:true" : def.kind}`, action: { tool: name } };
-      }
-      const state = await ctx.hub.applyCabinControl(ctx.deviceId, control, change);
-      const shared = def.scope === "cabin" ? " (shared cabin light — changed for all seats)" : "";
-      const now = def.kind === "flash" ? "flashed" : `now ${JSON.stringify({ on: state.on, level: state.level, scene: state.scene })}`;
-      const caveat = state.degraded ? " — but the controller did not confirm; the screens show the intent" : "";
+      const state = ctx.hub.applyLight(req, ctx.deviceId);
+      if (!state) return { text: "error: could not apply", action: { tool: name } };
+      const sceneLabel = state.scene === "off" ? "aus" : state.scene ? scenes.find((s) => s.key === state.scene)?.label ?? state.scene : "frei (einzelne Gruppe geändert)";
+      const groupsNow = LIGHT_GROUPS.map((g) => `${g}: ${state.groups[g].on ? `${state.groups[g].intensity}%` : "aus"}`).join(", ");
+      const caveat = state.confirmed ? "" : " — the controller has not confirmed yet";
       return {
-        text: `ok: ${control}${shared} ${now}${caveat}`,
-        action: { tool: name, control, args: change },
+        text: `ok: light is now "${sceneLabel}" (${groupsNow}) — shared by all seats${caveat}`,
+        action: { tool: name, args: { ...(req as unknown as Record<string, unknown>), ...(state.scene && state.scene !== "off" ? { sceneLabel } : {}) } },
       };
     }
 

@@ -20,6 +20,7 @@ import { Hub } from "./hub.js";
 import { CosimoAgent } from "./agent/agent.js";
 import { LlmRouter } from "./agent/llm.js";
 import { OperatorConfigProvider } from "./agent/operatorConfig.js";
+import { ConfigSink } from "./agent/configSink.js";
 import { PersonaProvider } from "./agent/personas.js";
 import { TelemetrySimulation } from "./agent/telemetry.js";
 import { createSttProvider } from "./speech/stt.js";
@@ -72,10 +73,27 @@ hub.setConfigLister(() => ({
 // Load personas + operator config from the CMS (best-effort; env/built-in
 // defaults otherwise), then re-resolve the active persona for the clients and
 // push the authored persona set to any connected host consoles.
-void operatorConfig.refresh().then(() => hub.broadcastConfig());
+void operatorConfig.refresh().then(() => { hub.broadcastConfig(); hub.setLightScenes(operatorConfig.get().cabin.scenes); });
 // Keep the console's routing view honest: re-read on the provider's TTL
 // even when no turn is running, and push only if something changed.
-setInterval(() => void operatorConfig.refresh().then(() => hub.broadcastConfig()), 15_000);
+setInterval(() => void operatorConfig.refresh().then(() => { hub.broadcastConfig(); hub.setLightScenes(operatorConfig.get().cabin.scenes); }), 15_000);
+
+// "als Szene speichern" from the console: the cabin's current levels become
+// the scene, written back to the CMS and re-read so every seat gets the list.
+const configSink = new ConfigSink();
+hub.onSceneSave(async (req, groups, scenes) => {
+  const next = scenes.map((s) => (s.key === req.key
+    ? { ...s, label: req.label?.trim() || s.label, groups: req.keepLevels ? s.groups : { roofline: { ...groups.roofline }, rooflight: { ...groups.rooflight }, floor: { ...groups.floor } } }
+    : s));
+  if (!next.some((s) => s.key === req.key)) return null;
+  const ok = await configSink.saveScenes(next);
+  if (ok) {
+    operatorConfig.invalidate();
+    await operatorConfig.refresh();
+    return operatorConfig.get().cabin.scenes;
+  }
+  return next; // CMS unreachable: keep it in memory for this run
+});
 // The link check: ping every device socket every 2 s, classify, push
 // changes to the consoles only (hub.probeDevices logs transitions).
 setInterval(() => void hub.probeDevices(), 2_000);

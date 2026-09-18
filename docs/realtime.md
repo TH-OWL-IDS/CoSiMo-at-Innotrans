@@ -30,9 +30,20 @@ The cabin LAN is air-gapped and will never get an uplink, so a hub on the VPS
 cannot reach the light controller. The iPads are the only dual-homed devices
 (Wi-Fi → hub, USB-C Ethernet → cabin LAN), which makes them the actuators:
 
-1. `set_cabin_control` (or a host override) lands in `applyCabinControl` —
-   the hub owns the decision and the state. Cabin-scoped state is mutated
-   once and broadcast everywhere; seat-scoped state stays on that seat.
+1. **The light is scenes** (shared `light.ts`): three CMS-defined scenes
+   (Standard · Gemütlich · Hell, each = brightness + cold/warm bias for the
+   three wired groups Lichtlinien / Deckenpaneel / Boden) plus "off"; the
+   hub holds ONE `CabinLightState` (active scene, or `null` = free after a
+   group was moved by hand, + the groups' levels + the scene list) and
+   broadcasts it as `light:state` to every seat and console. `light:set`
+   (a scene key / off / next / brighter / darker, or one group) comes from
+   the panel button "l", the slit menu, the console, and CoSiMo's
+   `set_light` tool (all through `applyLight`). The console's
+   `host:scene-save` writes the cabin's current levels into a scene
+   (`ConfigSink` → the CMS global; `keepLevels` = rename only). The old
+   `interior-light` / `reading-lamp` controls (`applyCabinControl`) remain
+   only for the kiosk operator menu / legacy host overrides — there is no
+   reading lamp in the cabin.
 2. `cabin/lpu2.ts` turns the change into ready-made URLs for the Cuety LPU-2
    (`pbXX/go` on, `pbXX/re` off so the standalone scene resumes,
    `pbXX/in=<0..255>` dim — our controls speak 0–100, the device 0–255, the

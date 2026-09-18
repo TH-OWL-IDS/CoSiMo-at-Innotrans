@@ -39,17 +39,17 @@ export function presentationTrigger(text: string): "set_presentation" | null {
  * Cabin-light requests, same trap: prod 2026-09-03 bake test — "Mach bitte
  * meine Leselampe an" → "Die Leselampe ist jetzt an." with zero tool calls
  * (Qwen3.6-35B). Only clear switch/dim imperatives about a light force
- * set_cabin_control; questions ("ist das Licht an?") don't.
+ * set_light; questions ("ist das Licht an?") don't.
  */
 const CABIN = [
   /\b(licht\w*|lampe\w*|leselampe\w*|beleuchtung|innenlicht|deckenlicht|light\w*|lamp\w*|lighting)\b.{0,40}\b(an|aus|ein|einschalten|ausschalten|anmachen|ausmachen|dimmen|dunkler|heller|on|off|dim|brighter|darker)\b/i,
   /\b(mach|schalt\w*|stell\w*|dreh\w*|turn|switch|dim)\b.{0,40}\b(licht\w*|lampe\w*|leselampe\w*|beleuchtung|innenlicht|light\w*|lamp\w*)/i,
 ];
 
-export function cabinTrigger(text: string): "set_cabin_control" | null {
+export function cabinTrigger(text: string): "set_light" | null {
   const t = text.trim();
   if (!t || /\?\s*$/.test(t)) return null;
-  return CABIN.some((r) => r.test(t)) ? "set_cabin_control" : null;
+  return CABIN.some((r) => r.test(t)) ? "set_light" : null;
 }
 
 export function memoryTrigger(text: string): MemoryTool | null {

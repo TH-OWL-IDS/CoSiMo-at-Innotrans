@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ALargeSmall, AudioLines, Check, ChevronLeft, Gauge, Palette, Sparkles, UserRound, Volume2, X } from "lucide-react";
+import { ALargeSmall, AudioLines, Check, ChevronLeft, Gauge, Lightbulb, Palette, Sparkles, UserRound, Volume2, X } from "lucide-react";
 import {
   SETTINGS_DEFAULTS,
   SETTINGS_IDLE_MS,
@@ -7,6 +7,11 @@ import {
   VOICE_TONES,
   normalizeTextSize,
   type Accommodations,
+  type CabinLightState,
+  type LightGroup,
+  type LightSetRequest,
+  LIGHT_GROUPS,
+  LIGHT_GROUP_LABEL,
   type Locale,
   type SeatSettingsOpen,
   type SettingsSection,
@@ -47,6 +52,7 @@ function defaultsFor(path: Path): Partial<Accommodations> {
     case "voice": return { speechRate: d.speechRate, voice: d.voice, voiceGender: d.voiceGender, voiceTone: d.voiceTone };
     case "theme": return { theme: d.theme };
     case "root": return { ...d };
+    default: return {}; // the light paths reset through the scene (see `reset`)
   }
 }
 
@@ -107,13 +113,14 @@ function HoldButton({ label, ink, bg, filled, onTap, onHold, children }: {
   );
 }
 
-type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme";
+type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme" | "light" | `light.${LightGroup}`;
 
 const ROOT: { path: Path; icon: typeof ALargeSmall; de: string; en: string }[] = [
   { path: "textSize", icon: ALargeSmall, de: "Textgröße", en: "Text size" },
   { path: "volume", icon: Volume2, de: "Lautstärke", en: "Volume" },
   { path: "voice", icon: AudioLines, de: "Stimme", en: "Voice" },
   { path: "theme", icon: Palette, de: "Farbe", en: "Colour" },
+  { path: "light", icon: Lightbulb, de: "Licht", en: "Light" },
 ];
 const VOICE: { path: Path; icon: typeof ALargeSmall; de: string; en: string }[] = [
   { path: "voice.tempo", icon: Gauge, de: "Tempo", en: "Tempo" },
@@ -127,12 +134,13 @@ const TONE_LABEL: Record<VoiceTone, [string, string]> = {
 function titleOf(path: Path, lang: Locale): string {
   const de = lang === "de";
   if (path === "root") return de ? "Einstellungen" : "Settings";
+  if (path.startsWith("light.")) return LIGHT_GROUP_LABEL[path.slice(6) as LightGroup][lang];
   const item = [...ROOT, ...VOICE].find((i) => i.path === path);
   return item ? (de ? item.de : item.en) : "";
 }
 function parentOf(path: Path): Path | null {
   if (path === "root") return null;
-  return path.startsWith("voice.") ? "voice" : "root";
+  return path.startsWith("voice.") ? "voice" : path.startsWith("light.") ? "light" : "root";
 }
 function sectionPath(section?: SettingsSection): Path {
   return section ?? "root";
@@ -176,7 +184,7 @@ function Slider({ min, max, step, value, label, ink, onCommit, ends }: {
   );
 }
 
-export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onClose }: {
+export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onClose, light, onLight }: {
   open: SeatSettingsOpen;
   /** The seat's live accommodations (the current values). */
   acc: Accommodations | undefined;
@@ -185,6 +193,10 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
   lang: Locale;
   onPatch: (patch: Partial<Accommodations>, speak: boolean, reset?: boolean) => void;
   onClose: () => void;
+  /** THE cabin light (scene + groups + the scene list), hub-held. */
+  light: CabinLightState | null;
+  /** A scene or one group — the same request the panel button and the console send. */
+  onLight: (req: LightSetRequest) => void;
 }) {
   const ink = scheme.ink;
   const de = lang === "de";
@@ -212,7 +224,18 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
 
   const RightIcon = dirty ? Check : path === "root" ? X : ChevronLeft;
   const rightLabel = (dirty ? (de ? "Übernehmen" : "Keep") : path === "root" ? (de ? "Schließen" : "Close") : (de ? "Zurück" : "Back")) + (de ? " · lange drücken: zurücksetzen" : " · hold: reset");
-  const reset = () => { touch(); setDirty(true); onPatch(defaultsFor(path), true, true); };
+  const reset = () => {
+    touch();
+    setDirty(true);
+    if (path === "light" || path.startsWith("light.")) {
+      // the light's default is scene 1
+      const first = light?.scenes[0];
+      if (first) onLight({ scene: first.key });
+      return;
+    }
+    onPatch(defaultsFor(path), true, true);
+  };
+  const lightChange = (req: LightSetRequest) => { touch(); setDirty(true); onLight(req); };
   const aside = (
     <HoldButton
       label={rightLabel}
@@ -281,6 +304,46 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
         <Chip key={t} label={TONE_LABEL[t][de ? 0 : 1]} ink={ink} textScale={textScale} active={(acc?.voiceTone ?? "neutral") === t} onTap={() => change({ voiceTone: t })} />
       ));
       break;
+    case "light": {
+      const scenes = light?.scenes ?? [];
+      const groupIcons = LIGHT_GROUPS.map((g) => (
+        <Chip key={g} label={LIGHT_GROUP_LABEL[g][lang]} ink={ink} textScale={textScale} onTap={() => go(`light.${g}`)}>
+          <span aria-hidden style={{ fontWeight: 700, fontSize: "0.8em", letterSpacing: "0.02em" }}>{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
+        </Chip>
+      ));
+      body = (
+        <>
+          {scenes.map((sc) => (
+            <Chip key={sc.key} label={sc.label} ink={ink} textScale={textScale} active={light?.scene === sc.key} onTap={() => lightChange({ scene: sc.key })} />
+          ))}
+          <Chip label={de ? "Aus" : "Off"} ink={ink} textScale={textScale} active={light?.scene === "off"} onTap={() => lightChange({ scene: "off" })} />
+          <span aria-hidden style={{ width: "max(1px, 0.6cqh)", alignSelf: "stretch", background: ink, opacity: 0.35, flexShrink: 0, margin: "0 2cqh" }} />
+          {groupIcons}
+        </>
+      );
+      break;
+    }
+    case "light.roofline":
+    case "light.rooflight":
+    case "light.floor": {
+      const g = path.slice(6) as LightGroup;
+      const lv = light?.groups[g] ?? { on: false, intensity: 0, bias: 0 };
+      body = (
+        <>
+          <Chip label={de ? (lv.on ? "An" : "Aus") : lv.on ? "On" : "Off"} ink={ink} textScale={textScale} active={lv.on} onTap={() => lightChange({ group: { id: g, on: !lv.on } })} />
+          <Slider min={0} max={100} step={5} value={lv.on ? lv.intensity : 0} label={de ? "Helligkeit" : "Brightness"} ink={ink} onCommit={(v) => lightChange({ group: { id: g, intensity: v, on: v > 0 } })} />
+          <Slider
+            min={-100} max={100} step={10} value={lv.bias} label={de ? "Kalt / Warm" : "Cold / Warm"} ink={ink}
+            onCommit={(v) => lightChange({ group: { id: g, bias: v } })}
+            ends={[
+              <span key="w" aria-hidden style={{ fontWeight: 600, fontSize: "clamp(10px, 14cqh, 30px)", opacity: 0.7 }}>{de ? "warm" : "warm"}</span>,
+              <span key="c" aria-hidden style={{ fontWeight: 600, fontSize: "clamp(10px, 14cqh, 30px)", opacity: 0.7 }}>{de ? "kalt" : "cold"}</span>,
+            ]}
+          />
+        </>
+      );
+      break;
+    }
     case "theme":
       body = SCHEMES.map((sch) => (
         <button

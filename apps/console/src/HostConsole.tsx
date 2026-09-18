@@ -286,84 +286,7 @@ function ServiceCard({ state, name, detail, icon: Icon, facts, children, action 
   );
 }
 
-type CabinChange = { on?: boolean; level?: number; scene?: string; flash?: true };
 
-/** The controls of one light, rendered per kind: toggle button, level
- *  slider, scene chips, or a momentary flash button. */
-function ControlWidget({ def, state, onChange }: {
-  def: (typeof CABIN_CONTROLS)[number];
-  state: CabinControlState | undefined;
-  onChange: (change: CabinChange) => void;
-}) {
-  const warn = state?.degraded ? `${def.label.de}: letzter Schaltversuch nicht bestätigt` : null;
-  if (def.kind === "level") {
-    return (
-      <Tip tip={warn} className="flex items-center gap-2">
-        <span className={cn("text-xs tabular-nums", state?.degraded ? "text-warn" : "text-mute")}>{state?.level ?? 0} %</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={state?.level ?? 0}
-          aria-label={def.label.de}
-          className="w-28 accent-ink"
-          onChange={(e) => onChange({ level: Number(e.target.value) })}
-        />
-      </Tip>
-    );
-  }
-  if (def.kind === "scene") {
-    return (
-      <Tip tip={warn} className="flex items-center gap-1">
-        {(def.scenes ?? []).map((sc) => (
-          <Button key={sc.key} size="xs" variant={state?.scene === sc.key ? "on" : "secondary"} aria-pressed={state?.scene === sc.key} onClick={() => onChange({ scene: sc.key })}>
-            {sc.label.de}
-          </Button>
-        ))}
-      </Tip>
-    );
-  }
-  if (def.kind === "flash") {
-    return (
-      <Button size="sm" variant="secondary" onClick={() => onChange({ flash: true })}>
-        {def.label.de}
-      </Button>
-    );
-  }
-  return (
-    <Tip tip={warn}>
-      <Button
-        size="sm"
-        variant={state?.on ? "on" : "secondary"}
-        aria-pressed={Boolean(state?.on)}
-        tone={state?.degraded ? "warn" : undefined}
-        onClick={() => onChange({ on: !state?.on })}
-      >
-        {def.label.de} {state?.on ? "an" : "aus"}
-      </Button>
-    </Tip>
-  );
-}
-
-/** One row of the light panel: the cabin, a seat, or all seats. */
-function LightRow({ label, hint, controls, onSet }: {
-  label: string;
-  hint: string;
-  controls: { def: (typeof CABIN_CONTROLS)[number]; state: CabinControlState | undefined }[];
-  onSet: (id: CabinControlId, change: CabinChange) => void;
-}) {
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3 border-t border-line-soft pt-2 first:border-t-0 first:pt-0">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold">{label}</span>
-        <span className="truncate text-xs text-mute">{hint}</span>
-      </div>
-      {controls.map(({ def, state }) => (
-        <ControlWidget key={def.id} def={def} state={state} onChange={(change) => onSet(def.id, change)} />
-      ))}
-    </div>
-  );
-}
 
 const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
 const ms = (v: number | null | undefined) => (v == null ? "—" : `${(v / 1000).toFixed(1)} s`);
@@ -471,49 +394,6 @@ function SpeechTest({ kind, result, onTest, disabled, hint, voices = [], onTestV
           <div className="mt-1 whitespace-pre-wrap break-words">{r.ok ? `„${r.text}“` : r.error}</div>
         </div>
       )}
-    </>
-  );
-}
-
-/** The rider-facing light state (Kabine / alle Sitze / per seat), for the Licht view. */
-function RiderLightRows({ c }: { c: CosimoState }) {
-  const seatControl = (s: SeatSummary, id: CabinControlId) => s.controls.find((x) => x.id === id);
-  const control = (id: CabinControlId): CabinControlState | undefined => {
-    if (CABIN_CONTROLS.find((d) => d.id === id)?.scope === "cabin") return c.hostCabin.find((x) => x.id === id);
-    const xs = c.seats.map((s) => seatControl(s, id)).filter(Boolean) as CabinControlState[];
-    if (!xs.length) return undefined;
-    return { id, on: xs.some((x) => x.on), degraded: xs.some((x) => x.degraded) };
-  };
-  const CABIN_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "cabin");
-  const SEAT_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "seat");
-  return (
-    <>
-      <LightRow
-        label="Kabine"
-        hint={`gilt für alle Sitze${c.seats.length === 0 ? " · kein Sitz verbunden, der schalten könnte" : ""}`}
-        controls={CABIN_DEFS.map((d) => ({ def: d, state: c.hostCabin.find((x) => x.id === d.id) }))}
-        onSet={(id, change) => c.setCabinControl(c.seats[0]?.deviceId ?? c.deviceId, id, change)}
-      />
-      {SEAT_DEFS.length > 0 && c.seats.length > 1 && (
-        <LightRow
-          label="alle Sitze"
-          hint={`${c.seats.length} Sitze`}
-          controls={SEAT_DEFS.map((d) => ({ def: d, state: control(d.id) }))}
-          onSet={(id, change) => c.seats.forEach((s) => c.setCabinControl(s.deviceId, id, change))}
-        />
-      )}
-      {c.seats.map((s) => {
-        const kind = c.devices.find((d) => d.deviceId === s.deviceId)?.kind;
-        return (
-          <LightRow
-            key={s.deviceId}
-            label={s.deviceId}
-            hint={[kind === "emulator" ? "Emulator" : "iPad", s.active ? `${s.personaLabel} · aktiv` : "frei"].join(" · ")}
-            controls={SEAT_DEFS.map((d) => ({ def: d, state: seatControl(s, d.id) }))}
-            onSet={(id, change) => c.setCabinControl(s.deviceId, id, change)}
-          />
-        );
-      })}
     </>
   );
 }
@@ -1277,7 +1157,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
           on both sides, air between the sections */}
       <div className="mx-auto w-full max-w-[1200px] px-6 py-8 sm:px-10 lg:px-16">
         {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor} onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} onOpenLight={() => switchTab("licht")} />}
-        {tab === "licht" && <LightPage c={c} cfg={c.hostConfig} lightOk={st?.light} riderSection={<RiderLightRows c={c} />} onClearLogs={c.clearLogs} onReplayLogs={() => c.replayLogs()} />}
+        {tab === "licht" && <LightPage c={c} cfg={c.hostConfig} lightOk={st?.light} onClearLogs={c.clearLogs} onReplayLogs={() => c.replayLogs()} />}
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>

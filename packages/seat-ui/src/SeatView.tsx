@@ -482,6 +482,8 @@ export default function SeatView({
               lang={lang}
               onPatch={cosimo.patchSettings}
               onClose={cosimo.closeSettings}
+              light={cosimo.light}
+              onLight={cosimo.setLight}
             />
           ) : slitMode === "card" ? (
             <SlitCard card={cosimo.card!} scheme={scheme} textScale={textScale} onPick={(label) => cosimo.send(label, lang, "tap")} />

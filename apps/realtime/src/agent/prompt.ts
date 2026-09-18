@@ -203,7 +203,9 @@ function memoriesBlock(memories: PersonaMemory[]): string {
 // The built-in core lives in @cosimo/shared so the CMS seed can write the
 // same text into the operator-config field (the admin then always shows the
 // actual prompt in use). Re-exported here for existing imports.
-import { DEFAULT_CORE_PROMPT } from "@cosimo/shared";
+import { DEFAULT_CORE_PROMPT,
+  type LightScene,
+} from "@cosimo/shared";
 export { DEFAULT_CORE_PROMPT };
 
 /**
@@ -211,7 +213,7 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale): string {
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale, scenes: LightScene[] = []): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
@@ -235,11 +237,24 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
       ]
     : [];
 
+  // The light scenes are CMS data too (renamed and re-tuned at the stand),
+  // so they ride the prompt: set_light scene=<key>.
+  const scenesBlock = scenes.length
+    ? [
+        "",
+        "## Lichtszenen",
+        "Für set_light scene=<key> (Reihenfolge = die Taste am Panel):",
+        ...scenes.map((s) => `- ${s.key}: „${s.label}"`),
+        "Dazu immer: aus, heller, dunkler.",
+      ]
+    : [];
+
   const traitLines = traitsPrelude(profile.traits);
   return [
     core.trim() || DEFAULT_CORE_PROMPT,
     ...(journey ? journeyBlock(journey) : []),
     ...voicesBlock,
+    ...scenesBlock,
     "",
     "## This rider",
     who,
