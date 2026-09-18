@@ -44,6 +44,10 @@ export function presentationTrigger(text: string): "set_presentation" | null {
 const CABIN = [
   /\b(licht\w*|lampe\w*|leselampe\w*|beleuchtung|innenlicht|deckenlicht|light\w*|lamp\w*|lighting)\b.{0,40}\b(an|aus|ein|einschalten|ausschalten|anmachen|ausmachen|dimmen|dunkler|heller|on|off|dim|brighter|darker)\b/i,
   /\b(mach|schalt\w*|stell\w*|dreh\w*|turn|switch|dim)\b.{0,40}\b(licht\w*|lampe\w*|leselampe\w*|beleuchtung|innenlicht|light\w*|lamp\w*)/i,
+  // scene and dim words on their own — "und etwas dunkler", "noch dunkler",
+  // "mach es gemütlich", "heller bitte" (prod 2026-09-18: three "dunkler"
+  // turns in a row were answered "ist jetzt dunkler" with zero tool calls)
+  /^(?=.{0,60}$)(?!.*\b(stimme|sprich|sprech|text|schrift|farbe|voice|speak|font|colou?r)\b).*\b(dunkler|heller|gem[üu]tlich\w*|brighter|darker|dimm\w*|cozy|cosier|cozier)\b/i,
 ];
 
 export function cabinTrigger(text: string): "set_light" | null {
