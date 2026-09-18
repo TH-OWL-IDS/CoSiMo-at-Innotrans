@@ -283,6 +283,8 @@ export class Hub {
     confirmed: false,
   };
   private sceneSaver: ((req: SceneSaveRequest, groups: FixtureLevels, scenes: LightScene[]) => Promise<LightScene[] | null>) | undefined;
+  /** Scene 1 has been applied once at boot (first iPad + a configured rig). */
+  private lightBooted = false;
   /** The console's rig page: the SAME level objects as the scenes (one truth), plus the last LPU-2 outcome per fixture. */
   private readonly rig: HostRigState = { fixtures: this.light.groups, results: {} };
   private personaResolver: PersonaResolver | undefined;
@@ -778,6 +780,14 @@ export class Hub {
       }
       if (role === "host") socket.emit("host:rig-state", this.rig);
       socket.emit("light:state", this.light);
+      // The cabin starts in scene 1: once, when the first real iPad (the
+      // actuator) is here and a rig is configured — so the cabin is never
+      // left in whatever the standalone show happens to be.
+      if (resolvedKind === "kiosk" && role === "kiosk" && !this.lightBooted && this.lpu2Config?.().baseUrl) {
+        this.lightBooted = true;
+        const first = this.light.scenes[0];
+        if (first) setTimeout(() => this.applyLight({ scene: first.key }, deviceId), 500);
+      }
       if (role === "host") {
         socket.on("host:probe", () => {
           logger.log("host.action", { action: "probe", args: {} }, { deviceId });
