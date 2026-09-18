@@ -12,6 +12,7 @@ import * as migration_20260831_100805_voice_language from './20260831_100805_voi
 import * as migration_20260903_172812_lpu2_rig_catalog from './20260903_172812_lpu2_rig_catalog';
 import * as migration_20260903_183344_session_modality_tap from './20260903_183344_session_modality_tap';
 import * as migration_20260915_125023_text_size_l from './20260915_125023_text_size_l';
+import * as migration_20260918_130000_signal_rgb_playbacks from './20260918_130000_signal_rgb_playbacks';
 
 export const migrations = [
   {
@@ -83,5 +84,10 @@ export const migrations = [
     up: migration_20260915_125023_text_size_l.up,
     down: migration_20260915_125023_text_size_l.down,
     name: '20260915_125023_text_size_l'
+  },
+  {
+    up: migration_20260918_130000_signal_rgb_playbacks.up,
+    down: migration_20260918_130000_signal_rgb_playbacks.down,
+    name: '20260918_130000_signal_rgb_playbacks'
   },
 ];
