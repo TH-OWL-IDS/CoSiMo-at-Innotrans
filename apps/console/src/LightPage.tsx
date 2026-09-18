@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import LogView from "./LogView";
 import { CircleCheckBig, FlaskConical, Lightbulb, Power, TriangleAlert } from "lucide-react";
-import { Button, Tip, cn } from "@cosimo/ui";
+import { Button, cn } from "@cosimo/ui";
 import type { CosimoState } from "@cosimo/client";
 import {
   RIG_FIXTURES,
@@ -98,12 +98,11 @@ function FixtureRow({ f, state, result, playback, mapped, disabled, onAction }: 
         </Button>
         <span className="text-2xs tabular-nums text-mute">{mapped ? channels : <span className="text-warn">nicht im CMS</span>}</span>
         {result && (
-          <Tip tip={result.urls.length ? result.urls.map((u) => u.replace(/^https?:\/\/[^/]+/, "")).join("\n") : result.error ?? ""}>
-            <span className={cn("flex items-center gap-1 text-2xs", result.ok ? "text-ok" : "text-warn")}>
-              {result.ok ? <CircleCheckBig size={11} /> : <TriangleAlert size={11} />}
-              {result.ok ? "gesendet" : result.error ?? "fehlgeschlagen"} · {new Date(result.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-            </span>
-          </Tip>
+          /* no tooltip here: the URL list would pop over the next row's button — the light log below has them */
+          <span className={cn("flex items-center gap-1 text-2xs", result.ok ? "text-ok" : "text-warn")}>
+            {result.ok ? <CircleCheckBig size={11} /> : <TriangleAlert size={11} />}
+            {result.ok ? `gesendet · ${result.urls.length} Aufrufe` : result.error ?? "fehlgeschlagen"} · {new Date(result.at).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
         )}
       </div>
       <Slider label="Intensität" value={local.intensity} min={0} max={100} disabled={dead} format={(v) => `${v} %`} onChange={(v) => set({ intensity: v })} onCommit={commitLevels} />
