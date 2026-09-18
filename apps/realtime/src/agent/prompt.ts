@@ -258,8 +258,7 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
   // prompt copy in the CMS can never drop it.
   const truthBlock = [
     "",
-    "## Words never switch anything",
-    "You cannot change the light, a setting or a memory by saying so — only a tool call does it. Never write a sentence like \"Das Licht ist jetzt …\" or \"Ich stelle das Licht …\" without the matching tool call in the same message. First the call; the words come after the result. A request you cannot fulfil gets an honest \"das kann ich nicht\", never a pretended action.",
+    "Reminder: words never switch anything — a light, a setting or a memory changes only through a tool call in the same message; call first, speak after the result.",
   ];
 
   const traitLines = traitsPrelude(profile.traits);

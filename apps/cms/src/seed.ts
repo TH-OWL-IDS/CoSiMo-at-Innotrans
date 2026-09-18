@@ -228,7 +228,8 @@ async function seed(): Promise<void> {
   // A stored prompt that still names a tool which no longer exists is a
   // stale copy of an older default, not an operator's edit — replace it
   // (2026-09-18: prod kept explaining set_cabin_control after set_light).
-  const RETIRED_TOOLS = ["set_cabin_control", "start_customizer"];
+  // retired tool names, plus the heading of the previous default's tool section
+  const RETIRED_TOOLS = ["set_cabin_control", "start_customizer", "## Truth and tools"];
   const stale = RETIRED_TOOLS.some((t) => stored.includes(t));
   if (stored && !stale) {
     console.log("[seed] core prompt exists: keeping the operator's text");
