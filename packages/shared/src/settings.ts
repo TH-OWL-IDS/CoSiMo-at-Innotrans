@@ -34,12 +34,26 @@ export interface SeatSettingsOpen {
   turn: number;
 }
 
-/** Seat → hub: one change from the menu. `speak` = CoSiMo confirms aloud. */
+/** Seat → hub: one change from the menu. `speak` = CoSiMo confirms aloud;
+ *  `reset` = the patch restores defaults (several fields at once allowed,
+ *  one "back to default" line spoken). */
 export interface SettingsPatch {
   sessionId: string;
   patch: Partial<Accommodations>;
   speak: boolean;
+  reset?: boolean;
 }
+
+/** What a long press on the menu's round button restores. */
+export const SETTINGS_DEFAULTS: Pick<Accommodations, "theme" | "textSize" | "volume" | "speechRate" | "voice" | "voiceGender" | "voiceTone"> = {
+  theme: "weiss",
+  textSize: "l",
+  volume: 1,
+  speechRate: 1,
+  voice: "",
+  voiceGender: "female",
+  voiceTone: "neutral",
+};
 
 /** How long the menu stays without a tap. */
 export const SETTINGS_IDLE_MS = 30_000;

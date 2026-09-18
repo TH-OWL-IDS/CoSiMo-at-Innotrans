@@ -120,7 +120,7 @@ export type InterruptHandler = (payload: { deviceId: string; sessionId: string }
 
 /** Composes the host inspector view for one seat (system prompt + turns). */
 export type InspectResolver = (deviceId: string) => SeatInspection | null;
-export type SettingsPatchHandler = (payload: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
+export type SettingsPatchHandler = (payload: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; reset: boolean; lang: Locale; persona: PersonaKey; rider: RiderContext }) => void;
 /** A session ended (persona switch / reset): the agent closes its records. */
 export type SessionEndHandler = (payload: { sessionId: string; deviceId: string; consent: boolean }) => void;
 /** A card-bound rider decided on consent: persist it on the profile. */
@@ -818,14 +818,14 @@ export class Hub {
     });
 
     // A tap in the settings menu — starts the visible session if it had not.
-    socket.on("settings:patch", ({ sessionId, patch, speak }) => {
+    socket.on("settings:patch", ({ sessionId, patch, speak, reset }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
       if (!entry || !patch || typeof patch !== "object") return;
       entry.lastActivity = Date.now();
       entry.active = true;
       this.settingsPatchHandler?.({
-        sessionId, deviceId, patch, speak: Boolean(speak),
+        sessionId, deviceId, patch, speak: Boolean(speak), reset: Boolean(reset),
         lang: entry.persona.accommodations.language,
         persona: this.personaOf(deviceId),
         rider: this.riderOfEntry(entry, sessionId),

@@ -101,7 +101,7 @@ export interface CosimoState {
   closeSettings: () => void;
   /** One change from the menu: the hub applies it (no LLM round) and, with
    *  `speak`, confirms aloud in the new setting. */
-  patchSettings: (patch: Partial<Accommodations>, speak: boolean) => void;
+  patchSettings: (patch: Partial<Accommodations>, speak: boolean, reset?: boolean) => void;
   /** ↻ — have CoSiMo say the last reply again. */
   repeatLast: () => void;
   /** When the last reply finished (ms epoch) — drives the ↻ affordance. */
@@ -605,9 +605,9 @@ export function useCosimoSocket(
 
   const closeSettings = () => setSettings(null);
 
-  const patchSettings = (patch: Partial<Accommodations>, speak: boolean) => {
+  const patchSettings = (patch: Partial<Accommodations>, speak: boolean, reset = false) => {
     touch();
-    sockRef.current?.emit("settings:patch", { sessionId: sessionRef.current, patch, speak });
+    sockRef.current?.emit("settings:patch", { sessionId: sessionRef.current, patch, speak, ...(reset ? { reset: true } : {}) });
   };
 
   const repeatLast = () => {

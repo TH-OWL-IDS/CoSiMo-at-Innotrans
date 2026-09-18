@@ -164,7 +164,9 @@ Everything the rider adjusts themselves is the **settings menu**
 (`open_settings`, optionally on a section): Textgröße · Lautstärke · Stimme
 (Tempo · Typ · Stimmung) · Farbe, icons only at the top level, sliders /
 chips / swatches on the leaves, one round button on the right (✓ after a
-change, ‹ back otherwise, × on the root). The hub emits `seat:settings`
+change, ‹ back otherwise, × on the root; holding it 800 ms resets — a leaf
+its one setting, the voice menu its three, the root everything — sent as
+`settings:patch` with `reset: true`, one "Zurück auf Standard." line). The hub emits `seat:settings`
 (section + the voice catalog); from there the menu is client-side. Every
 tap arrives as `settings:patch` — no LLM round: the hub validates and
 patches the seat's accommodations, persists for card-bound riders, logs

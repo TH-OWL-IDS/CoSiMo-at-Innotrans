@@ -56,8 +56,19 @@ export function settingsSpoken(
   lang: Locale,
   voices: VoiceCatalogEntry[],
   before: Accommodations,
+  reset = false,
 ): { patch: Partial<Accommodations>; spoken: string } | null {
   const g = de(lang);
+  if (reset) {
+    // a long press: every field of the patch is validated on its own, one line
+    const merged: Partial<Accommodations> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      const one = settingsSpoken({ [k]: v } as Partial<Accommodations>, lang, voices, before);
+      if (one) Object.assign(merged, one.patch);
+    }
+    if (!Object.keys(merged).length) return null;
+    return { patch: merged, spoken: g ? "Zurück auf Standard." : "Back to the default." };
+  }
   if (patch.theme !== undefined) {
     if (!(SCHEME_IDS as readonly string[]).includes(patch.theme)) return null;
     const label = THEME_LABEL[patch.theme]?.[g ? 0 : 1] ?? patch.theme;
@@ -80,6 +91,9 @@ export function settingsSpoken(
     return { patch: { speechRate: Math.round(v * 100) / 100 }, spoken: g ? "So spreche ich jetzt." : "This is how I speak now." };
   }
   if (patch.voice !== undefined || patch.voiceGender !== undefined) {
+    if (patch.voice === "" && patch.voiceGender === undefined) {
+      return { patch: { voice: "", voiceGender: before.voiceGender ?? "female" }, spoken: g ? "So klinge ich jetzt." : "This is how I sound now." };
+    }
     if (patch.voice) {
       const v = voices.find((x) => x.key === patch.voice);
       if (!v) return null;

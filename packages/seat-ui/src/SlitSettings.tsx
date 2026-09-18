@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ALargeSmall, AudioLines, Check, ChevronLeft, Gauge, Palette, Sparkles, UserRound, Volume2, X } from "lucide-react";
 import {
+  SETTINGS_DEFAULTS,
   SETTINGS_IDLE_MS,
   TEXT_SIZES,
   VOICE_TONES,
@@ -24,11 +25,87 @@ import { Chip, SlitGrid, TAP } from "./SlitCard.js";
  *
  * No words: icons and controls only (labels stay as aria-labels). On the
  * right, always one round button: after a change the ✓ (keep it, go up one level),
- * otherwise ‹ back — from the root it closes the menu. Every change is
+ * otherwise ‹ back — from the root it closes the menu. A LONG press on
+ * that button (800 ms, a ring fills) resets: a leaf resets its one
+ * setting, the voice menu its three, the root everything. Every change is
  * applied at once (`settings:patch`) and CoSiMo confirms it aloud in the
  * new setting. 30 s without a tap closes the menu; so does the next
  * spoken turn (the socket hook clears it).
  */
+
+const HOLD_MS = 800;
+
+/** What a long press restores at each level. */
+function defaultsFor(path: Path): Partial<Accommodations> {
+  const d = SETTINGS_DEFAULTS;
+  switch (path) {
+    case "textSize": return { textSize: d.textSize };
+    case "volume": return { volume: d.volume };
+    case "voice.tempo": return { speechRate: d.speechRate };
+    case "voice.type": return { voice: d.voice, voiceGender: d.voiceGender };
+    case "voice.tone": return { voiceTone: d.voiceTone };
+    case "voice": return { speechRate: d.speechRate, voice: d.voice, voiceGender: d.voiceGender, voiceTone: d.voiceTone };
+    case "theme": return { theme: d.theme };
+    case "root": return { ...d };
+  }
+}
+
+/**
+ * The round button on the right: a tap does `onTap`, holding it fills a
+ * ring around the rim and fires `onHold` once (the following click is
+ * swallowed). Pointer events only, so a touch and a mouse behave alike.
+ */
+function HoldButton({ label, ink, bg, filled, onTap, onHold, children }: {
+  label: string; ink: string; bg: string; filled: boolean; onTap: () => void; onHold: () => void; children: React.ReactNode;
+}) {
+  const [holding, setHolding] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired = useRef(false);
+  const start = () => {
+    fired.current = false;
+    setHolding(true);
+    timer.current = setTimeout(() => { fired.current = true; setHolding(false); onHold(); }, HOLD_MS);
+  };
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    setHolding(false);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // the ring: a circle whose dash draws itself over HOLD_MS while holding
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  return (
+    <button
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onClick={() => { if (fired.current) { fired.current = false; return; } onTap(); }}
+      onContextMenu={(e) => e.preventDefault()}
+      aria-label={label}
+      title={label}
+      style={{
+        appearance: "none", position: "relative", width: TAP, height: TAP, borderRadius: "50%", flexShrink: 0,
+        border: `max(1.5px, 2cqh) solid ${ink}`, background: filled ? ink : "transparent", color: filled ? bg : ink,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", touchAction: "manipulation", transition: "background 120ms, color 120ms, transform 120ms",
+        transform: holding ? "scale(0.94)" : "none",
+        WebkitTouchCallout: "none", userSelect: "none",
+      }}
+    >
+      <svg aria-hidden viewBox="0 0 100 100" style={{ position: "absolute", inset: "-14%", width: "128%", height: "128%", pointerEvents: "none", transform: "rotate(-90deg)" }}>
+        <circle
+          cx="50" cy="50" r={R} fill="none" stroke={ink} strokeWidth="5" strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={holding ? 0 : C}
+          style={{ transition: holding ? `stroke-dashoffset ${HOLD_MS}ms linear` : "stroke-dashoffset 120ms ease", opacity: 0.9 }}
+        />
+      </svg>
+      {children}
+    </button>
+  );
+}
 
 type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme";
 
@@ -106,7 +183,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
   scheme: ColorScheme;
   textScale: number;
   lang: Locale;
-  onPatch: (patch: Partial<Accommodations>, speak: boolean) => void;
+  onPatch: (patch: Partial<Accommodations>, speak: boolean, reset?: boolean) => void;
   onClose: () => void;
 }) {
   const ink = scheme.ink;
@@ -133,23 +210,20 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
     if (parent) go(parent); else onClose();
   };
 
-  const rightIcon = dirty ? Check : path === "root" ? X : ChevronLeft;
-  const rightLabel = dirty ? (de ? "Übernehmen" : "Keep") : path === "root" ? (de ? "Schließen" : "Close") : (de ? "Zurück" : "Back");
-  const RightIcon = rightIcon;
+  const RightIcon = dirty ? Check : path === "root" ? X : ChevronLeft;
+  const rightLabel = (dirty ? (de ? "Übernehmen" : "Keep") : path === "root" ? (de ? "Schließen" : "Close") : (de ? "Zurück" : "Back")) + (de ? " · lange drücken: zurücksetzen" : " · hold: reset");
+  const reset = () => { touch(); setDirty(true); onPatch(defaultsFor(path), true, true); };
   const aside = (
-    <button
-      onClick={() => { touch(); if (dirty) { setDirty(false); const parent = parentOf(path); if (parent) setPath(parent); else onClose(); } else up(); }}
-      aria-label={rightLabel}
-      title={rightLabel}
-      style={{
-        appearance: "none", width: TAP, height: TAP, borderRadius: "50%", flexShrink: 0,
-        border: `max(1.5px, 2cqh) solid ${ink}`, background: dirty ? ink : "transparent", color: dirty ? scheme.bg : ink,
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", touchAction: "manipulation", transition: "background 120ms, color 120ms",
-      }}
+    <HoldButton
+      label={rightLabel}
+      ink={ink}
+      bg={scheme.bg}
+      filled={dirty}
+      onTap={() => { touch(); if (dirty) { setDirty(false); const parent = parentOf(path); if (parent) setPath(parent); else onClose(); } else up(); }}
+      onHold={reset}
     >
       <RightIcon size="55%" strokeWidth={2.4} aria-hidden />
-    </button>
+    </HoldButton>
   );
 
   const icons = (items: typeof ROOT) =>

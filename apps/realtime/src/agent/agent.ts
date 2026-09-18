@@ -707,11 +707,12 @@ export class CosimoAgent {
    * with a short templated line spoken in the NEW setting (the new voice,
    * the new volume …), which is how the rider judges the change.
    */
-  async handleSettingsPatch(input: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; lang: Locale; persona: PersonaKey }): Promise<void> {
+  async handleSettingsPatch(input: { sessionId: string; deviceId: string; patch: Partial<Accommodations>; speak: boolean; reset?: boolean; lang: Locale; persona: PersonaKey }): Promise<void> {
     const { sessionId, deviceId, patch, speak, lang, persona } = input;
+    const reset = Boolean(input.reset);
     const voices = this.operatorConfig.get().tts.voices;
     const before = this.hub.accommodationsOf(sessionId) ?? this.personas.get(persona).accommodations;
-    const ans = settingsSpoken(patch, lang, voices, before);
+    const ans = settingsSpoken(patch, lang, voices, before, reset);
     if (!ans) {
       logger.log("settings.patch", { applied: patch, speak }, { deviceId, sessionId, level: "warn" });
       return;
@@ -721,7 +722,7 @@ export class CosimoAgent {
     const turnNo = this.hub.beginTurn(sessionId);
     logger.log("settings.patch", { applied: ans.patch, speak }, { deviceId, sessionId, turn: turnNo });
     const [setting, v] = Object.entries(ans.patch)[0] ?? [];
-    this.recorder.addTurn(sessionId, { role: "user", modality: "tap", lang, transcript: `[settings] ${setting} = ${String(v)}`, at: new Date().toISOString() });
+    this.recorder.addTurn(sessionId, { role: "user", modality: "tap", lang, transcript: reset ? `[settings] reset ${Object.keys(ans.patch).join(",")}` : `[settings] ${setting} = ${String(v)}`, at: new Date().toISOString() });
     if (!speak) {
       this.persist(sessionId);
       return;
