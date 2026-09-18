@@ -533,6 +533,8 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs, onOpenLight }: { c: 
   const logs = c.logs;
   const last = <K extends LogEvent["kind"]>(kind: K) =>
     [...logs].reverse().find((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind);
+  const recent = <K extends LogEvent["kind"]>(kind: K, n = 10) =>
+    logs.filter((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind).slice(-n);
 
   const lastTurnLlm = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "turn.start" }> => e.kind === "turn.start" && e.data.llm !== null);
   const llmName = lastTurnLlm?.data.llm ? `${lastTurnLlm.data.llm.provider} · ${lastTurnLlm.data.llm.model}` : "noch kein Turn";
