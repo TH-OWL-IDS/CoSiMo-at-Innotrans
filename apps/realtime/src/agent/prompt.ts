@@ -250,9 +250,22 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
       ]
     : [];
 
+  // A system invariant, NOT part of the editable core: words never change the
+  // cabin, only a tool call does. Measured on the GX10 Qwen3.6-35B with the
+  // full prompt and tool set (2026-09-18, 4 light sentences × 3): without
+  // this block 4/12 turns called set_light and the rest narrated "Das Licht
+  // ist jetzt …" — with it 11/12. It rides beside the core so a stored
+  // prompt copy in the CMS can never drop it.
+  const truthBlock = [
+    "",
+    "## Words never switch anything",
+    "You cannot change the light, a setting or a memory by saying so — only a tool call does it. Never write a sentence like \"Das Licht ist jetzt …\" or \"Ich stelle das Licht …\" without the matching tool call in the same message. First the call; the words come after the result. A request you cannot fulfil gets an honest \"das kann ich nicht\", never a pretended action.",
+  ];
+
   const traitLines = traitsPrelude(profile.traits);
   return [
     core.trim() || DEFAULT_CORE_PROMPT,
+    ...truthBlock,
     ...(journey ? journeyBlock(journey) : []),
     ...voicesBlock,
     ...scenesBlock,

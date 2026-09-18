@@ -310,7 +310,8 @@ export async function executeTool(
     case "set_light": {
       const light = ctx.hub.currentLight();
       const scenes = light.scenes;
-      const sceneWord = typeof input.scene === "string" ? input.scene.trim().toLowerCase() : "";
+      // "und etwas dunkler" sometimes arrives as step without a group: that is dimming
+      const sceneWord = typeof input.scene === "string" ? input.scene.trim().toLowerCase() : typeof input.step === "string" && !input.group ? String(input.step).trim().toLowerCase() : "";
       const group = typeof input.group === "string" && (LIGHT_GROUPS as readonly string[]).includes(input.group) ? (input.group as LightGroup) : null;
       let req: LightSetRequest | null = null;
       if (sceneWord) {
