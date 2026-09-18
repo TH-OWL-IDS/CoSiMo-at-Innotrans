@@ -1048,7 +1048,7 @@ function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId:
   const activeSeats = c.seats.filter((s) => s.active);
   const idleSeats = c.seats.filter((s) => !s.active);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <Eyebrow>
         {activeSeats.length} aktiv{idleSeats.length ? ` · ${idleSeats.length} frei` : ""}
         {c.seats.length === 0 ? " · keine iPads verbunden" : ""}
