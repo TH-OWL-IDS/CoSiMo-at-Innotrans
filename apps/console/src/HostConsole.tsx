@@ -64,7 +64,7 @@ import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, SeatGlyph, Select, Tip, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
-import LightPanel from "./LightPanel";
+import LightPage from "./LightPage";
 
 /**
  * Die Konsole — the live operator surface, three views behind one header:
@@ -475,7 +475,50 @@ function SpeechTest({ kind, result, onTest, disabled, hint, voices = [], onTestV
   );
 }
 
-function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void; onShowSystemLogs: () => void }) {
+/** The rider-facing light state (Kabine / alle Sitze / per seat), for the Licht view. */
+function RiderLightRows({ c }: { c: CosimoState }) {
+  const seatControl = (s: SeatSummary, id: CabinControlId) => s.controls.find((x) => x.id === id);
+  const control = (id: CabinControlId): CabinControlState | undefined => {
+    if (CABIN_CONTROLS.find((d) => d.id === id)?.scope === "cabin") return c.hostCabin.find((x) => x.id === id);
+    const xs = c.seats.map((s) => seatControl(s, id)).filter(Boolean) as CabinControlState[];
+    if (!xs.length) return undefined;
+    return { id, on: xs.some((x) => x.on), degraded: xs.some((x) => x.degraded) };
+  };
+  const CABIN_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "cabin");
+  const SEAT_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "seat");
+  return (
+    <>
+      <LightRow
+        label="Kabine"
+        hint={`gilt für alle Sitze${c.seats.length === 0 ? " · kein Sitz verbunden, der schalten könnte" : ""}`}
+        controls={CABIN_DEFS.map((d) => ({ def: d, state: c.hostCabin.find((x) => x.id === d.id) }))}
+        onSet={(id, change) => c.setCabinControl(c.seats[0]?.deviceId ?? c.deviceId, id, change)}
+      />
+      {SEAT_DEFS.length > 0 && c.seats.length > 1 && (
+        <LightRow
+          label="alle Sitze"
+          hint={`${c.seats.length} Sitze`}
+          controls={SEAT_DEFS.map((d) => ({ def: d, state: control(d.id) }))}
+          onSet={(id, change) => c.seats.forEach((s) => c.setCabinControl(s.deviceId, id, change))}
+        />
+      )}
+      {c.seats.map((s) => {
+        const kind = c.devices.find((d) => d.deviceId === s.deviceId)?.kind;
+        return (
+          <LightRow
+            key={s.deviceId}
+            label={s.deviceId}
+            hint={[kind === "emulator" ? "Emulator" : "iPad", s.active ? `${s.personaLabel} · aktiv` : "frei"].join(" · ")}
+            controls={SEAT_DEFS.map((d) => ({ def: d, state: seatControl(s, d.id) }))}
+            onSet={(id, change) => c.setCabinControl(s.deviceId, id, change)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function OverviewTab({ c, st, onShowLogs, onShowSystemLogs, onOpenLight }: { c: CosimoState; st: ConnectionStatus | null; onShowLogs: (deviceId: string) => void; onShowSystemLogs: () => void; onOpenLight: () => void }) {
   // A minute tick, so "vor 40 s" stays honest without the log changing.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -484,15 +527,12 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
   }, []);
   const [promptOpen, setPromptOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [lightOpen, setLightOpen] = useState(false);
 
   // The log stream carries the richer facts: which brain answers, whether the
   // fallback is standing in, how long the last turns took, what the light did.
   const logs = c.logs;
   const last = <K extends LogEvent["kind"]>(kind: K) =>
     [...logs].reverse().find((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind);
-  const recent = <K extends LogEvent["kind"]>(kind: K, n = 10) =>
-    logs.filter((e): e is Extract<LogEvent, { kind: K }> => e.kind === kind).slice(-n);
 
   const lastTurnLlm = [...logs].reverse().find((e): e is Extract<LogEvent, { kind: "turn.start" }> => e.kind === "turn.start" && e.data.llm !== null);
   const llmName = lastTurnLlm?.data.llm ? `${lastTurnLlm.data.llm.provider} · ${lastTurnLlm.data.llm.model}` : "noch kein Turn";
@@ -513,27 +553,6 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
       ? `${cfg?.tts.voiceList.find((v) => v.key === defaultAcc.voice)?.label ?? defaultAcc.voice} (${defaultAcc.voiceGender === "male" ? "männlich" : "weiblich"})`
       : `${defaultAcc.voiceGender === "male" ? "männliche" : "weibliche"} Standardstimme`;
   // The light: what the kiosks reported back after firing the LPU-2 URLs.
-  const cabinResults = recent("cabin.result", 50);
-  const cabinOk = cabinResults.filter((e) => e.data.ok).length;
-  const cabinFailed = cabinResults.length - cabinOk;
-  const lastCabin = cabinResults[cabinResults.length - 1];
-  // Cabin-scoped state comes from the hub (host:seats carries it); a
-  // seat-scoped control is aggregated: "an" when any seat has it on.
-  const seatControl = (s: SeatSummary, id: CabinControlId) => s.controls.find((x) => x.id === id);
-  const control = (id: CabinControlId): CabinControlState | undefined => {
-    if (CABIN_CONTROLS.find((d) => d.id === id)?.scope === "cabin") return c.hostCabin.find((x) => x.id === id);
-    const xs = c.seats.map((s) => seatControl(s, id)).filter(Boolean) as CabinControlState[];
-    if (!xs.length) return undefined;
-    return { id, on: xs.some((x) => x.on), degraded: xs.some((x) => x.degraded) };
-  };
-  const CABIN_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "cabin");
-  const SEAT_DEFS = CABIN_CONTROLS.filter((d) => d.scope === "seat");
-  const onOff = (id: CabinControlId) => {
-    const x = control(id);
-    if (!x) return "—";
-    return <span className={x.degraded ? "text-warn" : undefined}>{x.on ? "an" : "aus"}{x.degraded ? " · nicht bestätigt" : ""}</span>;
-  };
-  const lightState: ServiceState = !cfg ? "starting" : st?.light ? (control("interior-light")?.degraded ? "warn" : "ok") : "warn";
   const live = c.devices.filter((d) => d.health !== "lost");
   const kioskIds = live.filter((d) => d.role === "kiosk").map((d) => d.deviceId);
   // Rows: real kiosks, then emulators, then journey views (lost ones last
@@ -764,79 +783,12 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
         <ServiceCard
           icon={Lightbulb}
           name="Licht"
+          detail="Das Kabinenlicht hat seine eigene Seite: Steuerung jeder Leuchte, Adresse und Playbacks aus dem CMS, das Licht-Log."
+          facts={[]}
           action={
-            <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setLightOpen(true)}>
-              <Lightbulb size={14} /> Steuern
+            <Button size="sm" variant="secondary" className="shrink-0" onClick={onOpenLight}>
+              <Lightbulb size={14} /> Lichtsteuerung
             </Button>
-          }
-          detail="Das Kabinenlicht: der Hub entscheidet, das iPad schaltet — es ist das einzige Gerät im Kabinen-LAN und feuert die fertigen LPU-2-URLs. „Innenlicht“ ist die echte Lampe, „Leselampe“ nur auf den Bildschirmen. „nicht bestätigt“ heißt: der letzte Schaltversuch kam nicht beim Controller an, gezeigt wird der letzte bekannte Stand."
-          facts={[
-            ["Innenlicht", onOff("interior-light")],
-            ["Leselampe", onOff("reading-lamp")],
-            ["LPU-2", cfg ? (cfg.cabin.lpu2BaseUrl ? `${hostOf(cfg.cabin.lpu2BaseUrl)} · ${cfg.cabin.timeoutMs} ms Timeout` : <span className="text-warn">keine Adresse im CMS</span>) : "—"],
-            ["Schaltungen", cabinResults.length ? `${cabinOk} ok${cabinFailed ? ` · ${cabinFailed} fehlgeschlagen` : ""} · zuletzt ${ago(lastCabin!.ts, now)}${lastCabin!.data.ok ? "" : ` (${lastCabin!.data.error ?? "Fehler"})`}` : "noch keine"],
-          ]}
-        >
-          {/* the rig catalog, as the CMS maps it: key → playback; the exact go/re URLs live in the tooltip */}
-          <div className="flex max-h-[210px] flex-col gap-1 overflow-y-auto border-t border-line-soft pt-2.5 pr-1">
-            {(["rider", "zone", "signal"] as const).map((group) => {
-              const rows = (cfg?.cabin.routes ?? []).filter((r) => r.group === group);
-              if (rows.length === 0) return null;
-              return (
-                <div key={group} className="flex flex-col gap-0.5">
-                  <span className="text-2xs uppercase tracking-caps text-mute">
-                    {group === "rider" ? "Fahrgast (per Stimme)" : group === "zone" ? "Zonen (nur Personal)" : "Signale (nur Personal)"}
-                  </span>
-                  {rows.map((r) => (
-                    <Tip key={r.key} tip={r.on ? `an → ${r.on}\naus → ${r.off ?? "—"}` : "kein Playback im CMS — wird nur simuliert"}>
-                      <span className="flex items-center gap-2 text-sm">
-                        <span className="min-w-0 truncate">{r.label}</span>
-                        <span className="ml-auto shrink-0 tabular-nums">{r.playback != null ? `pb${String(r.playback).padStart(2, "0")}` : <span className="text-mute">—</span>}</span>
-                      </span>
-                    </Tip>
-                  ))}
-                </div>
-              );
-            })}
-            {cfg && cfg.cabin.routes.length === 0 && <span className="text-sm text-mute">{cfg.cabin.lpu2BaseUrl ? "keine Playbacks im CMS" : "keine LPU-2-Adresse im CMS — alles simuliert"}</span>}
-          </div>
-        </ServiceCard>
-        <LightPanel
-          open={lightOpen}
-          onOpenChange={setLightOpen}
-          c={c}
-          cfg={cfg}
-          lightOk={st?.light}
-          riderSection={
-            <>
-                {/* the cabin itself — shared state, there even with no seats */}
-                <LightRow
-                  label="Kabine"
-                  hint={`gilt für alle Sitze${c.seats.length === 0 ? " · kein Sitz verbunden, der schalten könnte" : ""}`}
-                  controls={CABIN_DEFS.map((d) => ({ def: d, state: c.hostCabin.find((x) => x.id === d.id) }))}
-                  onSet={(id, change) => c.setCabinControl(c.seats[0]?.deviceId ?? c.deviceId, id, change)}
-                />
-                {SEAT_DEFS.length > 0 && c.seats.length > 1 && (
-                  <LightRow
-                    label="alle Sitze"
-                    hint={`${c.seats.length} Sitze`}
-                    controls={SEAT_DEFS.map((d) => ({ def: d, state: control(d.id) }))}
-                    onSet={(id, change) => c.seats.forEach((s) => c.setCabinControl(s.deviceId, id, change))}
-                  />
-                )}
-                {c.seats.map((s) => {
-                  const kind = c.devices.find((d) => d.deviceId === s.deviceId)?.kind;
-                  return (
-                    <LightRow
-                      key={s.deviceId}
-                      label={s.deviceId}
-                      hint={[kind === "emulator" ? "Emulator" : "iPad", s.active ? `${s.personaLabel} · aktiv` : "frei"].join(" · ")}
-                      controls={SEAT_DEFS.map((d) => ({ def: d, state: seatControl(s, d.id) }))}
-                      onSet={(id, change) => c.setCabinControl(s.deviceId, id, change)}
-                    />
-                  );
-                })}
-            </>
           }
         />
         <ServiceCard
@@ -1173,9 +1125,10 @@ function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId:
  * Shell — header with the view switcher
  * ──────────────────────────────────────────────────────────────── */
 
-type Tab = "uebersicht" | "sessions" | "logs";
+type Tab = "uebersicht" | "licht" | "sessions" | "logs";
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "uebersicht", label: "Übersicht", icon: LayoutDashboard },
+  { id: "licht", label: "Licht", icon: Lightbulb },
   { id: "sessions", label: "Sessions", icon: Armchair },
   { id: "logs", label: "Logs", icon: ScrollText },
 ];
@@ -1319,7 +1272,8 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
       </header>
 
       <div className="p-6">
-        {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor}  onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} />}
+        {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor} onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} onOpenLight={() => switchTab("licht")} />}
+        {tab === "licht" && <LightPage c={c} cfg={c.hostConfig} lightOk={st?.light} riderSection={<RiderLightRows c={c} />} onClearLogs={c.clearLogs} onReplayLogs={() => c.replayLogs()} />}
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
       </div>
