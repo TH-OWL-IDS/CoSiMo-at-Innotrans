@@ -178,7 +178,7 @@ export default function LightPage({ c, cfg, lightOk, riderSection, onClearLogs, 
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="m-0 mr-auto text-base font-normal">
           <b><Lightbulb size={14} className="-mb-0.5 inline" /> Licht</b>{" "}
@@ -201,7 +201,7 @@ export default function LightPage({ c, cfg, lightOk, riderSection, onClearLogs, 
         </section>
       )}
 
-      <section className="flex flex-col gap-2">
+      <section className="flex flex-col gap-3">
         <span className="text-2xs uppercase tracking-caps text-mute">Rig · Adresse und Playbacks aus dem CMS · Intensität 0–100 % → 0–255 am Gerät</span>
         {RIG_FIXTURES.map((f) => (
           <FixtureRow

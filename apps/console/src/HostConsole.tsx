@@ -588,8 +588,8 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs, onOpenLight }: { c: 
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <ServiceCard
           icon={Cable}
           name="Verbindungen"
@@ -781,7 +781,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs, onOpenLight }: { c: 
           </div>
         </ServiceCard>
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <ServiceCard
           icon={Lightbulb}
           name="Licht"
@@ -1261,7 +1261,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
     <main className="min-h-screen bg-bg text-ink">
       {/* ── the header: wordmark centred, the hamburger on the right; the empty
              left zone is its counterweight. `relative` anchors the menu's clip box. ── */}
-      <header className="relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-2.5 shadow-card">
+      <header className="relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-3 shadow-card sm:px-10 lg:px-16">
         <div className="flex-1" />
         <h1 className="m-0 text-2xl font-semibold">
           <a href="#uebersicht" aria-label="CoSiMo Konsole — zur Übersicht" onClick={(e) => { e.preventDefault(); switchTab("uebersicht"); }} className="inline-flex text-ink no-underline">
@@ -1273,7 +1273,9 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
         </div>
       </header>
 
-      <div className="p-6">
+      {/* every view sits in one centred column: a readable width, a wide gutter
+          on both sides, air between the sections */}
+      <div className="mx-auto w-full max-w-[1200px] px-6 py-8 sm:px-10 lg:px-16">
         {tab === "uebersicht" && <OverviewTab c={c} st={st} onShowLogs={showLogsFor} onShowSystemLogs={() => { setLogSeatFilter((f) => ({ seat: SYSTEM_SEAT, n: (f?.n ?? 0) + 1 })); switchTab("logs"); }} onOpenLight={() => switchTab("licht")} />}
         {tab === "licht" && <LightPage c={c} cfg={c.hostConfig} lightOk={st?.light} riderSection={<RiderLightRows c={c} />} onClearLogs={c.clearLogs} onReplayLogs={() => c.replayLogs()} />}
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
