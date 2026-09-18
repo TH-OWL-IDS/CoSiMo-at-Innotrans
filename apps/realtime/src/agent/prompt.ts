@@ -245,7 +245,7 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
         "## Lichtszenen",
         "Für set_light scene=<key> (Reihenfolge = die Taste am Panel):",
         ...scenes.map((s) => `- ${s.key}: „${s.label}"`),
-        "Dazu immer: aus, heller, dunkler.",
+        "Dazu immer: aus (alles aus), heller / dunkler (dimmt die aktuelle Szene eine Stufe, schaltet nie aus).",
       ]
     : [];
 

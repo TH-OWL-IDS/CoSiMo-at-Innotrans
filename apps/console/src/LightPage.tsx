@@ -205,7 +205,7 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
         <b><Lightbulb size={14} className="-mb-0.5 inline" /> Licht</b>{" "}
         <span className={cn(!cfg ? "text-mute" : noAddress ? "text-warn" : lightOk ? "text-ok" : "text-mute")}>
           · {!cfg ? "startet" : noAddress ? "keine LPU-2-Adresse im CMS — nur simuliert" : `LPU-2 ${host}${lightOk ? " · ok" : " · nicht bestätigt"}`}
-          {light ? ` · ${light.scene === "off" ? "aus" : light.scene ? scenes.find((s) => s.key === light.scene)?.label ?? light.scene : "frei"}` : ""}
+          {light ? ` · ${light.scene === "off" ? "aus" : light.scene ? scenes.find((s) => s.key === light.scene)?.label ?? light.scene : "frei"}${light.dim !== 1 ? ` · gedimmt ${Math.round(light.dim * 100)} %` : ""}` : ""}
           {c.seats.length === 0 && cfg && !noAddress ? " · kein iPad verbunden, das schalten könnte" : ""}
         </span>
       </h2>

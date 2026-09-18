@@ -68,13 +68,22 @@ export interface CabinLightState {
   scenes: LightScene[];
   /** The last physical outcome (an iPad fired the URLs and the LPU-2 answered). */
   confirmed: boolean;
+  /** "etwas dunkler / heller": the interior groups' brightness relative to
+   *  the scene as stored (1 = as stored). A scene switch resets it. */
+  dim: number;
 }
+
+export const DIM_STEP = 0.75;
+export const DIM_MIN = 0.2;
+export const DIM_MAX = 1.5;
 
 /** Seat / console → hub: one change. Either a scene step or one fixture. */
 export interface LightSetRequest {
-  /** A scene key, "off", or a step: "next" (the panel button, cycles the
-   *  scenes), "brighter" / "darker" (the scenes in brightness order). */
+  /** A scene key, "off", or "next" (the panel button, cycles the scenes). */
   scene?: string;
+  /** "etwas heller / dunkler": dim the interior groups WITHIN the current
+   *  scene (× DIM_STEP per step), or set the factor directly. */
+  dim?: "brighter" | "darker" | number;
   /** One fixture (a rider may only send LIGHT_GROUPS ids). */
   group?: { id: string; on?: boolean; intensity?: number; bias?: number; rgb?: { red: number; green: number; blue: number }; mode?: string | null };
 }

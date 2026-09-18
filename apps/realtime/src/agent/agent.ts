@@ -121,8 +121,9 @@ function templatedConfirmation(actions: TurnAction[], lang: Locale, terse = fals
   const lights = actions.filter((a) => a.tool === "set_light");
   if (lights.length) {
     const last = lights[lights.length - 1]!;
-    const args = (last.args ?? {}) as { scene?: string; sceneLabel?: string; group?: { id?: string; on?: boolean; intensity?: number } };
-    if (args.scene === "off") parts.push(de ? "Gern, das Licht ist aus." : "Sure, the light is off.");
+    const args = (last.args ?? {}) as { scene?: string; sceneLabel?: string; dim?: string; dimPct?: number; group?: { id?: string; on?: boolean; intensity?: number } };
+    if (args.dim) parts.push(de ? `Gern, etwas ${args.dim === "darker" ? "dunkler" : "heller"}.` : `Sure, a bit ${args.dim === "darker" ? "darker" : "brighter"}.`);
+    else if (args.scene === "off") parts.push(de ? "Gern, das Licht ist aus." : "Sure, the light is off.");
     else if (args.scene) parts.push(de ? `Gern, das Licht steht jetzt auf „${args.sceneLabel ?? args.scene}".` : `Sure, the light is now "${args.sceneLabel ?? args.scene}".`);
     else if (args.group) {
       const g = args.group;

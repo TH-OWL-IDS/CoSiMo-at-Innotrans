@@ -52,11 +52,11 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "set_light",
     description:
-      "The cabin light. It has SCENES the rider switches between — the scene keys and names are listed in your instructions — plus 'aus' (off), 'heller' (the next brighter scene) and 'dunkler' (the next darker one). Use `scene` for anything about the light as a whole ('mach es gemütlich', 'Licht aus', 'heller bitte', 'mach das Licht an' → the standard scene). Use `group` only when the rider names one part of the light — Lichtlinien (the light lines along the roof), Deckenpaneel (the ceiling panel), Boden (the floor light) — with `on`, or `level` 0–100, or `step` heller/dunkler. One light, shared by all seats: a change is for everyone.",
+      "The cabin light. It has SCENES the rider switches between — the scene keys and names are listed in your instructions — plus 'aus' (off). 'heller' / 'dunkler' DIM the current scene a step (they never switch scenes or turn the light off). Use `scene` for the light as a whole ('mach es gemütlich' → that scene, 'Licht aus' → aus, 'mach das Licht an' → the first scene, 'etwas dunkler' → dunkler). Use `group` only when the rider names one part of the light — Lichtlinien (the light lines along the roof), Deckenpaneel (the ceiling panel), Boden (the floor light) — with `on`, or `level` 0–100, or `step` heller/dunkler. One light, shared by all seats: a change is for everyone.",
     input_schema: {
       type: "object",
       properties: {
-        scene: { type: "string", description: "A scene key from your instructions, or aus | heller | dunkler." },
+        scene: { type: "string", description: "A scene key from your instructions, or aus | heller | dunkler (heller/dunkler dim the current scene)." },
         group: { type: "string", enum: ["roofline", "rooflight", "floor"], description: "One part of the light: roofline = Lichtlinien, rooflight = Deckenpaneel, floor = Boden." },
         on: { type: "boolean", description: "For a group: on / off." },
         level: { type: "number", minimum: 0, maximum: 100, description: "For a group: brightness 0–100." },
@@ -314,10 +314,16 @@ export async function executeTool(
       const group = typeof input.group === "string" && (LIGHT_GROUPS as readonly string[]).includes(input.group) ? (input.group as LightGroup) : null;
       let req: LightSetRequest | null = null;
       if (sceneWord) {
-        const map: Record<string, string> = { aus: "off", off: "off", heller: "brighter", brighter: "brighter", dunkler: "darker", darker: "darker", an: scenes[0]?.key ?? "", on: scenes[0]?.key ?? "" };
-        const key = map[sceneWord] ?? scenes.find((s) => s.key === sceneWord || s.label.toLowerCase() === sceneWord)?.key;
-        if (!key) return { text: `error: unknown scene "${sceneWord}" — valid: ${scenes.map((s) => s.key).join(", ")}, aus, heller, dunkler`, action: { tool: name } };
-        req = { scene: key };
+        const dimWord: Record<string, "brighter" | "darker"> = { heller: "brighter", brighter: "brighter", dunkler: "darker", darker: "darker" };
+        if (dimWord[sceneWord]) {
+          if (light.scene === "off") return { text: "error: the light is off — set a scene first (e.g. the first scene) instead of dimming", action: { tool: name } };
+          req = { dim: dimWord[sceneWord] };
+        } else {
+          const map: Record<string, string> = { aus: "off", off: "off", an: scenes[0]?.key ?? "", on: scenes[0]?.key ?? "" };
+          const key = map[sceneWord] ?? scenes.find((s) => s.key === sceneWord || s.label.toLowerCase() === sceneWord)?.key;
+          if (!key) return { text: `error: unknown scene "${sceneWord}" — valid: ${scenes.map((s) => s.key).join(", ")}, aus, heller, dunkler`, action: { tool: name } };
+          req = { scene: key };
+        }
       } else if (group) {
         const cur = light.groups[group] ?? { on: false, intensity: 0, bias: 0 };
         const g: NonNullable<LightSetRequest["group"]> = { id: group };
@@ -331,12 +337,12 @@ export async function executeTool(
       }
       const state = ctx.hub.applyLight(req, ctx.deviceId);
       if (!state) return { text: "error: could not apply", action: { tool: name } };
-      const sceneLabel = state.scene === "off" ? "aus" : state.scene ? scenes.find((s) => s.key === state.scene)?.label ?? state.scene : "frei (einzelne Gruppe geändert)";
+      const sceneLabel = (state.scene === "off" ? "aus" : state.scene ? scenes.find((s) => s.key === state.scene)?.label ?? state.scene : "frei (einzelne Gruppe geändert)") + (state.dim !== 1 ? ` · gedimmt auf ${Math.round(state.dim * 100)} %` : "");
       const groupsNow = LIGHT_GROUPS.map((g) => `${g}: ${state.groups[g]?.on ? `${state.groups[g]!.intensity}%` : "aus"}`).join(", ");
       const caveat = state.confirmed ? "" : " — the controller has not confirmed yet";
       return {
         text: `ok: light is now "${sceneLabel}" (${groupsNow}) — shared by all seats${caveat}`,
-        action: { tool: name, args: { ...(req as unknown as Record<string, unknown>), ...(state.scene && state.scene !== "off" ? { sceneLabel } : {}) } },
+        action: { tool: name, args: { ...(req as unknown as Record<string, unknown>), ...(state.scene && state.scene !== "off" ? { sceneLabel } : {}), ...(req.dim ? { dim: req.dim, dimPct: Math.round(state.dim * 100) } : {}) } },
       };
     }
 

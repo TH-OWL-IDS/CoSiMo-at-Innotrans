@@ -40,7 +40,10 @@ cannot reach the light controller. The iPads are the only dual-homed devices
    free after a fixture was moved by hand, + every fixture's level — the
    same objects the console's rig actions edit — + the scene list) and
    broadcasts it as `light:state` to every seat and console. `light:set`
-   (a scene key / off / next / brighter / darker, or one group) comes from
+   (a scene key / off / next, a `dim` step — "etwas heller / dunkler"
+   scales the interior groups WITHIN the current scene by 0.75 per step,
+   never switches or turns off; a scene switch resets it — or one group)
+   comes from
    the panel button "l", the slit menu, the console, and CoSiMo's
    `set_light` tool (all through `applyLight`). The console's
    `host:scene-save` writes the cabin's current levels into a scene

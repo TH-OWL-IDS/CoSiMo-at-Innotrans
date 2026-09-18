@@ -38,9 +38,11 @@ import {
   rigOps,
   LIGHT_GROUPS,
   DEFAULT_LIGHT_SCENES,
+  DIM_MAX,
+  DIM_MIN,
+  DIM_STEP,
   normalizeGroupLevel,
   offFixtures,
-  sceneBrightness,
   sceneLevels,
   type CabinLightState,
   type FixtureLevels,
@@ -281,6 +283,7 @@ export class Hub {
     groups: sceneLevels(DEFAULT_LIGHT_SCENES[0]!),
     scenes: DEFAULT_LIGHT_SCENES,
     confirmed: false,
+    dim: 1,
   };
   private sceneSaver: ((req: SceneSaveRequest, groups: FixtureLevels, scenes: LightScene[]) => Promise<LightScene[] | null>) | undefined;
   /** Scene 1 has been applied once at boot (first iPad + a configured rig). */
@@ -1365,23 +1368,35 @@ export class Hub {
     let scene: string | "off" | null = this.light.scene;
     let touched: string[];
     if (req.scene) {
-      const byBrightness = [...scenes].sort((a, b) => sceneBrightness(a) - sceneBrightness(b));
-      const cur = scenes.find((s) => s.key === this.light.scene);
       let target: LightScene | "off" | undefined;
       if (req.scene === "off") target = "off";
       else if (req.scene === "next") {
         const i = scenes.findIndex((s) => s.key === this.light.scene);
         target = scenes[(i + 1) % scenes.length];
-      } else if (req.scene === "brighter" || req.scene === "darker") {
-        const i = cur ? byBrightness.findIndex((s) => s.key === cur.key) : this.light.scene === "off" ? -1 : Math.floor(byBrightness.length / 2);
-        target = req.scene === "brighter" ? byBrightness[Math.min(byBrightness.length - 1, i + 1)] : i <= 0 ? "off" : byBrightness[i - 1];
       } else target = scenes.find((s) => s.key === req.scene);
       if (!target) return null;
       const levels = target === "off" ? offFixtures() : sceneLevels(target);
       // in place: rig.fixtures shares this object
       for (const id of Object.keys(levels)) this.light.groups[id] = levels[id]!;
       scene = target === "off" ? "off" : target.key;
+      this.light.dim = 1;
       touched = Object.keys(levels);
+    } else if (req.dim !== undefined) {
+      // "etwas dunkler": the interior groups relative to the scene as stored
+      // (or to what is lit, when the cabin is free) — the scene stays active
+      if (this.light.scene === "off") return null;
+      const next = typeof req.dim === "number" ? req.dim : req.dim === "darker" ? this.light.dim * DIM_STEP : this.light.dim / DIM_STEP;
+      const dim = Math.max(DIM_MIN, Math.min(DIM_MAX, Number.isFinite(next) ? next : 1));
+      const stored = this.light.scene ? sceneLevels(scenes.find((s) => s.key === this.light.scene)!) : null;
+      for (const g of LIGHT_GROUPS) {
+        const base = stored ? stored[g]! : this.light.groups[g] ?? { on: false, intensity: 0, bias: 0 };
+        // free cabin: scale what is lit by the step, not by the absolute factor
+        const factor = stored ? dim : dim / this.light.dim;
+        if (!base.on) continue;
+        this.light.groups[g] = { ...base, intensity: Math.max(5, Math.min(100, Math.round(base.intensity * factor))) };
+      }
+      this.light.dim = dim;
+      touched = [...LIGHT_GROUPS];
     } else if (req.group && RIG_FIXTURES.some((f) => f.id === req.group!.id)) {
       const id = req.group.id;
       const base = this.light.groups[id] ?? rigDefaultState(RIG_FIXTURES.find((f) => f.id === id)!);
@@ -1391,7 +1406,7 @@ export class Hub {
     } else return null;
     this.light.scene = scene;
 
-    const control = scene ? `light:scene:${scene}` : `light:group:${touched[0]}`;
+    const control = req.dim !== undefined ? `light:dim:${this.light.dim.toFixed(2)}` : scene ? `light:scene:${scene}` : `light:group:${touched[0]}`;
     const cfg = this.lpu2Config?.();
     if (cfg?.baseUrl) {
       const ops = touched.flatMap((id) => {
