@@ -6,12 +6,17 @@ import type { CosimoState } from "@cosimo/client";
 import {
   LIGHT_GROUPS,
   LIGHT_GROUP_LABEL,
+  RIG_FIXTURES,
+  rigDefaultState,
   sameLevels,
+  splitBias,
   type CabinLightState,
   type HostConfigBroadcast,
   type LightGroup,
   type LightScene,
   type LogEvent,
+  type RigFixture,
+  type RigFixtureState,
 } from "@cosimo/shared";
 
 /**
@@ -20,9 +25,23 @@ import {
  * (Lichtlinien · Deckenpaneel · Boden) with on/off, brightness and
  * cold/warm. Every slider move goes to the cabin at once (the light shows
  * it); the cabin is then "frei" until "speichern" writes the values into
- * the scene (CMS) or "verwerfen" re-applies the stored scene. Beneath, the
- * light's own log.
+ * the scene (CMS) or "verwerfen" re-applies the stored scene.
+ *
+ * A second row of cards holds the lights outside the scenes — Außenlicht,
+ * Kopfstützen, Signallicht, Leselampen — each with its own settings
+ * beneath (the installer's model: on/off · brightness · cold/warm, the
+ * signal light with RGB + the exclusive red modes), driven through the
+ * rig state the hub keeps (`host:rig`). Beneath everything, the light's log.
  */
+
+/** The cards of the second row: fixtures outside the scenes, reading lamps as one card. */
+type ExtraCard = { id: string; label: string; fixtures: RigFixture[] };
+const EXTRA_CARDS: ExtraCard[] = [
+  { id: "outer", label: "Au\u00dfenlicht", fixtures: RIG_FIXTURES.filter((f) => f.id === "outer") },
+  { id: "headrests", label: "Kopfst\u00fctzen", fixtures: RIG_FIXTURES.filter((f) => f.id === "headrests") },
+  { id: "signals", label: "Signallicht", fixtures: RIG_FIXTURES.filter((f) => f.id === "signals") },
+  { id: "reading", label: "Leselampen", fixtures: RIG_FIXTURES.filter((f) => f.id.startsWith("reading-")) },
+];
 
 const DEBOUNCE_MS = 80;
 
@@ -92,6 +111,67 @@ function GroupRow({ id, level, disabled, onSet }: {
   );
 }
 
+/** One rig fixture's settings (outside the scenes): on/off · brightness · cold/warm (· RGB + modes). */
+function FixtureRow({ f, state, disabled, playback, onAction }: {
+  f: RigFixture;
+  state: RigFixtureState;
+  disabled: boolean;
+  playback: (key: string) => number | null;
+  onAction: (action: "on" | "off" | "levels" | "mode", state: RigFixtureState) => void;
+}) {
+  const [local, setLocal] = useState(state);
+  useEffect(() => setLocal(state), [state]);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef(local);
+  pending.current = local;
+  const queue = (patch: Partial<RigFixtureState>) => {
+    setLocal((s) => ({ ...s, ...patch }));
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => onAction("levels", pending.current), DEBOUNCE_MS);
+  };
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const keys = f.kind === "single" ? [f.key] : f.kind === "pair" ? [f.cw, f.ww] : [f.cw, f.ww, f.rgb.red, f.rgb.green, f.rgb.blue];
+  const mapped = keys.some((k) => playback(k) != null);
+  const dead = disabled || !mapped;
+  const biasLabel = (b: number) => (b === 0 ? "50 / 50" : b > 0 ? `kalt +${b} %` : `warm +${Math.abs(b)} %`);
+  const split = f.kind === "single" ? null : splitBias(local.intensity, local.bias);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className={cn("grid items-center gap-3", f.kind === "single" ? "md:grid-cols-[200px_1fr]" : "md:grid-cols-[200px_1fr_1fr]")}>
+        <div className="flex flex-col gap-1">
+          <Button variant={local.on ? "on" : "secondary"} size="sm" className="justify-start" disabled={dead} onClick={() => onAction(local.on ? "off" : "on", { ...local, on: !local.on })}>
+            <Lightbulb size={14} /> {f.label}
+          </Button>
+          <span className="text-2xs tabular-nums text-mute">
+            {mapped ? keys.map((k) => `pb${String(playback(k) ?? "--").padStart(2, "0")}`).join(" · ") : <span className="text-warn">nicht im CMS</span>}
+          </span>
+        </div>
+        <Slider label="Helligkeit" value={local.intensity} min={0} max={100} step={5} disabled={dead} format={(v) => `${v} %`} onChange={(v) => queue({ intensity: v })} />
+        {f.kind !== "single" && (
+          <Slider label="kalt / warm" value={local.bias} min={-100} max={100} step={10} disabled={dead} format={(v) => `${biasLabel(v)}${split ? ` · CW ${split.cw} / WW ${split.ww}` : ""}`} onChange={(v) => queue({ bias: v })} />
+        )}
+      </div>
+      {f.kind === "combined" && (
+        <div className="grid gap-3 md:grid-cols-[200px_1fr_1fr]">
+          <span className="text-2xs uppercase tracking-caps text-mute md:pt-1">Farbe und Modi</span>
+          <div className="flex flex-col gap-2">
+            {(["red", "green", "blue"] as const).map((ch) => (
+              <Slider key={ch} label={ch === "red" ? "Rot" : ch === "green" ? "Grün" : "Blau"} value={local.rgb?.[ch] ?? 0} min={0} max={100} step={5} disabled={dead} format={(v) => `${v} %`} onChange={(v) => queue({ rgb: { red: 0, green: 0, blue: 0, ...local.rgb, [ch]: v } })} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 self-start">
+            {f.modes.map((m) => (
+              <Button key={m.key} size="xs" variant={local.mode === m.key ? "on" : "secondary"} disabled={dead} onClick={() => { const next = { ...local, mode: local.mode === m.key ? null : m.key }; setLocal(next); onAction("mode", next); }}>
+                {m.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }: {
   c: CosimoState;
   cfg: HostConfigBroadcast | null;
@@ -112,6 +192,10 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
   const openScene = scenes.find((s) => s.key === open) ?? null;
   const free = light?.scene === null;
   const dirty = Boolean(openScene && light && free && !sameLevels(light.groups, openScene.groups));
+  const [extra, setExtra] = useState<string | null>(null);
+  const routes = cfg?.cabin.routes ?? [];
+  const playback = (key: string) => routes.find((r) => r.key === key)?.playback ?? null;
+  const rigState = (f: RigFixture) => c.rig?.fixtures[f.id] ?? rigDefaultState(f);
   const [label, setLabel] = useState("");
   useEffect(() => setLabel(openScene?.label ?? ""), [openScene?.key, openScene?.label]);
   const renamed = Boolean(openScene && label.trim() && label.trim() !== openScene.label);
@@ -203,6 +287,43 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
           </span>
         </section>
       )}
+
+      {/* the lights outside the scenes */}
+      <section className="flex flex-col gap-3">
+        <span className="text-2xs uppercase tracking-caps text-mute">Weitere Leuchten · nicht Teil der Szenen</span>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {EXTRA_CARDS.map((card) => {
+            const states = card.fixtures.map(rigState);
+            const anyOn = states.some((s) => s.on);
+            const isOpen = extra === card.id;
+            const mapped = card.fixtures.some((f) => (f.kind === "single" ? [f.key] : [f.cw, f.ww]).some((k) => playback(k) != null));
+            return (
+              <button
+                key={card.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => setExtra(isOpen ? null : card.id)}
+                className={cn("flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors disabled:opacity-45", anyOn ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well")}
+              >
+                <span className="text-lg font-semibold">{card.label}</span>
+                <span className={cn("text-2xs", anyOn ? "text-white/70" : "text-mute")}>
+                  {!mapped ? "nicht im CMS" : anyOn ? `an · ${states.filter((s) => s.on).map((s) => `${s.intensity} %`).join(" · ")}` : "aus"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        {extra && (
+          <div className="flex flex-col gap-4 rounded-lg border border-line bg-white p-4">
+            {EXTRA_CARDS.find((x) => x.id === extra)!.fixtures.map((f) => (
+              <FixtureRow key={f.id} f={f} state={rigState(f)} disabled={disabled} playback={playback} onAction={(action, state) => c.hostRig({ fixture: f.id, action, state })} />
+            ))}
+            {c.rig?.results[EXTRA_CARDS.find((x) => x.id === extra)!.fixtures[0]!.id]?.ok === false && (
+              <span className="text-xs text-warn">letzter Schaltversuch: {c.rig.results[EXTRA_CARDS.find((x) => x.id === extra)!.fixtures[0]!.id]?.error ?? "fehlgeschlagen"}</span>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-2">
         <span className="text-2xs uppercase tracking-caps text-mute">Licht-Log · jede Schaltung und jede Antwort des iPads</span>
