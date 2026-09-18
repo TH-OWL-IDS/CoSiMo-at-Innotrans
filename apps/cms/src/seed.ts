@@ -311,8 +311,8 @@ async function seed(): Promise<void> {
   if (existing.length) {
     // An operator-edited map stays; catalog keys it does not know yet are
     // appended with the installer's numbers (e.g. the RGB playbacks).
-    const known = new Set(existing.map((r) => r.control));
-    const missing = PLAYBACKS.filter((p) => !known.has(p.control));
+    const known = new Set<string>(existing.map((r: { control?: string | null }) => r.control ?? ""));
+    const missing = PLAYBACKS.filter((p: { control: string; playback: number }) => !known.has(p.control));
     if (missing.length) {
       await payload.updateGlobal({
         slug: "operator-config",
