@@ -18,6 +18,7 @@ import type {
 import type { Accommodations, PersonaBroadcast, PersonaKey } from "./persona.js";
 import type { Modality, Turn, SeatCard } from "./session.js";
 import type { SeatSettingsOpen, SettingsPatch } from "./settings.js";
+import type { HostRigAction, HostRigState } from "./rig.js";
 import type { LogEvent } from "./log.js";
 
 /** A device connected to the realtime hub (for the operator console). */
@@ -306,6 +307,8 @@ export interface ServerToClientEvents {
    *  pushed to host consoles on hello and whenever it changes. URLs and
    *  model names only; keys never leave the hub's environment. */
   "host:config": (payload: HostConfigBroadcast) => void;
+  /** The rig page's state (every fixture + last outcomes), on connect and after every action. */
+  "host:rig-state": (payload: HostRigState) => void;
   /** Reply to host:inspect — sent only to the requesting host socket. */
   "host:inspect:result": (payload: SeatInspection) => void;
   /** The structured debug log (host consoles only): a replay batch on
@@ -375,6 +378,10 @@ export interface ClientToServerEvents {
    *  global — "blackout" (on/off), "release-all", "hello" (LPU-2 test). The
    *  hub builds the URLs and routes them to one healthy kiosk. */
   "host:light": (payload: { key: string; on?: boolean }) => void;
+  /** The console's rig page (the installer's control page on our stack):
+   *  one fixture action with the state the operator set; the hub keeps the
+   *  state, builds the URLs (levels 0–100 → 0–255) and routes them. */
+  "host:rig": (payload: HostRigAction) => void;
   /** The same rig actions from a kiosk's hidden operator menu — that iPad fires them itself. */
   "cabin:light": (payload: { key: string; on?: boolean }) => void;
   "host:llm-test": (payload: Record<string, never>) => void;

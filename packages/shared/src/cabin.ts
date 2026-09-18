@@ -91,7 +91,7 @@ export interface Lpu2KeyDef {
 export const LIGHT_ZONES: { id: string; label: string }[] = [
   { id: "outer", label: "Au\u00dfenlicht" },
   { id: "floor", label: "Bodenlicht" },
-  { id: "roofline", label: "Dachlinie" },
+  { id: "roofline", label: "Lichtlinien" },
   { id: "headrests", label: "Kopfst\u00fctzen" },
   { id: "signals", label: "Signale wei\u00df" },
 ];
@@ -105,8 +105,8 @@ export const LIGHT_SIGNALS: { id: string; label: string }[] = [
 ];
 
 export const LPU2_KEYS: Lpu2KeyDef[] = [
-  { key: "interior-light-cw", label: "Innenlicht (Rooflight) \u2013 kaltwei\u00df", group: "rider" },
-  { key: "interior-light-ww", label: "Innenlicht (Rooflight) \u2013 warmwei\u00df", group: "rider" },
+  { key: "interior-light-cw", label: "Deckenpaneel (Rooflight) \u2013 kaltwei\u00df", group: "rider" },
+  { key: "interior-light-ww", label: "Deckenpaneel (Rooflight) \u2013 warmwei\u00df", group: "rider" },
   { key: "reading-1", label: "Leselampe Sitz 1 (vorn)", group: "rider" },
   { key: "reading-2", label: "Leselampe Sitz 2 (Mitte vorn)", group: "rider" },
   { key: "reading-3", label: "Leselampe Sitz 3 (Mitte hinten)", group: "rider" },
@@ -116,6 +116,10 @@ export const LPU2_KEYS: Lpu2KeyDef[] = [
     { key: `${id}-ww`, label: `${label} \u2013 warmwei\u00df`, group: "zone" as const },
   ]),
   ...LIGHT_SIGNALS.map(({ id, label }) => ({ key: id, label, group: "signal" as const })),
+  // the signal light's RGB playbacks (installer sheet 2026-09-18: 38/39/40)
+  { key: "signals-red", label: "Signallicht \u2013 rot", group: "signal" },
+  { key: "signals-green", label: "Signallicht \u2013 gr\u00fcn", group: "signal" },
+  { key: "signals-blue", label: "Signallicht \u2013 blau", group: "signal" },
 ];
 
 /** Host-only global actions (no playback, fixed endpoints). */

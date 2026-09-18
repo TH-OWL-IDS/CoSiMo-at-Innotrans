@@ -45,8 +45,6 @@ import {
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
-  LIGHT_SIGNALS,
-  LIGHT_ZONES,
   type Accommodations,
   type CabinControlId,
   type CabinControlState,
@@ -66,6 +64,7 @@ import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, SeatGlyph, Select, Tip, cn } from "@cosimo/ui";
 import { resolveServerUrl } from "./serverUrl";
 import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
+import LightPanel from "./LightPanel";
 
 /**
  * Die Konsole — the live operator surface, three views behind one header:
@@ -802,25 +801,14 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
             {cfg && cfg.cabin.routes.length === 0 && <span className="text-sm text-mute">{cfg.cabin.lpu2BaseUrl ? "keine Playbacks im CMS" : "keine LPU-2-Adresse im CMS — alles simuliert"}</span>}
           </div>
         </ServiceCard>
-        <Dialog.Root open={lightOpen} onOpenChange={setLightOpen}>
-          <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-drawer bg-ink/10" />
-            <Dialog.Content
-              className="fixed left-1/2 top-1/2 z-drawer flex max-h-[86vh] w-[min(560px,94vw)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-hidden rounded-xl border border-line bg-white p-4 shadow-drawer focus:outline-none"
-              aria-describedby={undefined}
-            >
-              <div className="flex items-center justify-between">
-                <Dialog.Title className="m-0 text-base font-normal">
-                  <b><Lightbulb size={14} className="-mb-0.5 inline" /> Licht</b>{" "}
-                  <span className={cn(lightState === "ok" ? "text-ok" : lightState === "warn" ? "text-warn" : "text-mute")}>
-                    · {!cfg ? "startet" : !cfg.cabin.lpu2BaseUrl ? "keine LPU-2-Adresse im CMS — nur simuliert" : st?.light ? `LPU-2 ${hostOf(cfg.cabin.lpu2BaseUrl)} · ok` : "LPU-2 nicht bestätigt"}
-                  </span>
-                </Dialog.Title>
-                <Dialog.Close asChild>
-                  <Button icon size="sm" aria-label="schließen"><X size={16} /></Button>
-                </Dialog.Close>
-              </div>
-              <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+        <LightPanel
+          open={lightOpen}
+          onOpenChange={setLightOpen}
+          c={c}
+          cfg={cfg}
+          lightOk={st?.light}
+          riderSection={
+            <>
                 {/* the cabin itself — shared state, there even with no seats */}
                 <LightRow
                   label="Kabine"
@@ -848,47 +836,9 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs }: { c: CosimoState; 
                     />
                   );
                 })}
-                {/* host-only rig control: zones (CW/WW pairs, additive → the hub
-                    releases the sibling), red signals, globals. Stateless by
-                    design — the cabin is in front of the operator's eyes. */}
-                <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
-                  <span className="text-2xs uppercase tracking-caps text-mute">Zonen (nur Personal)</span>
-                  {LIGHT_ZONES.map((z) => (
-                    <div key={z.id} className="flex items-center gap-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{z.label}</span>
-                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(`${z.id}-cw`, true)}>kalt</Button>
-                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(`${z.id}-ww`, true)}>warm</Button>
-                      <Button size="xs" variant="secondary" onClick={() => { c.hostLight(`${z.id}-cw`, false); c.hostLight(`${z.id}-ww`, false); }}>aus</Button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-1.5 border-t border-line-soft pt-2.5">
-                  <span className="text-2xs uppercase tracking-caps text-mute">Signale (nur Personal)</span>
-                  {LIGHT_SIGNALS.map((sg) => (
-                    <div key={sg.id} className="flex items-center gap-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{sg.label}</span>
-                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(sg.id, true)}>an</Button>
-                      <Button size="xs" variant="secondary" onClick={() => c.hostLight(sg.id, false)}>aus</Button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
-                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("blackout", true)}>Blackout an</Button>
-                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("blackout", false)}>Blackout aus</Button>
-                  <Button size="xs" variant="secondary" tone="accent" onClick={() => { if (window.confirm("Alle Playbacks releasen? Die Standalone-Szene übernimmt.")) c.hostLight("release-all"); }}>
-                    Alles releasen
-                  </Button>
-                  <Button size="xs" variant="secondary" onClick={() => c.hostLight("hello")}>
-                    <FlaskConical size={13} /> LPU-2 testen
-                  </Button>
-                </div>
-                <span className="text-xs text-mute">
-                  Innenlicht (Rooflight) und die Leselampe des jeweiligen Sitzes erreicht auch der Fahrgast über CoSiMo — Zonen, Signale und Blackout nur diese Konsole. Ein iPad im Kabinen-LAN feuert die LPU-2-URLs; das Ergebnis steht in den System-Logs („nicht bestätigt“ = keine Antwort vom Controller).
-                </span>
-              </div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
+            </>
+          }
+        />
         <ServiceCard
           state={st.serverTts ? "ok" : "warn"}
           icon={Volume2}

@@ -9,7 +9,7 @@
 
 import { createHash } from "node:crypto";
 import type { Server, Socket } from "socket.io";
-import { buildActuation, buildHostLight, type Lpu2Config } from "./cabin/lpu2.js";
+import { buildActuation, buildHostLight, buildRigOps, type Lpu2Config } from "./cabin/lpu2.js";
 import { logger } from "./log/logger.js";
 import { config } from "./config.js";
 import {
@@ -31,6 +31,11 @@ import {
   type PipelinePhase,
   type RiderContext,
   type SeatCard,
+  type HostRigState,
+  type RigFixtureState,
+  RIG_FIXTURES,
+  rigDefaultState,
+  rigOps,
   type SeatSettingsOpen,
   type SettingsSection,
   type VoiceCatalogEntry,
@@ -252,6 +257,12 @@ export class Hub {
   private readonly pendingActuation = new Map<string, { requestedBy: string; at: number }>();
   /** The last real (physical) switch attempt reported by a seat failed. */
   private lightFailed = false;
+  /** The console's rig page: every fixture as the operator last set it,
+   *  plus the last LPU-2 outcome per fixture. Cabin state, one copy. */
+  private readonly rig: HostRigState = {
+    fixtures: Object.fromEntries(RIG_FIXTURES.map((f) => [f.id, rigDefaultState(f)])),
+    results: {},
+  };
   private personaResolver: PersonaResolver | undefined;
   private personaLister: PersonaLister | undefined;
   private configLister: (() => HostConfigBroadcast) | undefined;
@@ -727,6 +738,7 @@ export class Hub {
       if (role === "host" && this.servicesLister) {
         socket.emit("host:services", { services: this.servicesLister() });
       }
+      if (role === "host") socket.emit("host:rig-state", this.rig);
       if (role === "host") {
         socket.on("host:probe", () => {
           logger.log("host.action", { action: "probe", args: {} }, { deviceId });
@@ -759,6 +771,46 @@ export class Hub {
           this.pendingActuation.set(key, { requestedBy: deviceId, at: Date.now() });
           logger.log("cabin.actuate", { control: key, scope: "host", urls: actuation.urls, change: { on: Boolean(on) }, actuator: actor.id }, { deviceId });
           actor.entry.socket.emit("cabin:actuate", actuation);
+        });
+        // The rig page: the operator's state for one fixture + which action
+        // it was; the commands follow the installer's own page (rigOps).
+        socket.on("host:rig", ({ fixture, action, state }) => {
+          const def = RIG_FIXTURES.find((f) => f.id === fixture);
+          if (!def || !state || typeof state !== "object") return;
+          const next: RigFixtureState = {
+            on: action === "on" ? true : action === "off" ? false : Boolean(state.on),
+            intensity: Math.max(0, Math.min(100, Number(state.intensity) || 0)),
+            bias: Math.max(-100, Math.min(100, Number(state.bias) || 0)),
+            ...(def.kind === "combined"
+              ? {
+                  rgb: { red: clamp100(state.rgb?.red), green: clamp100(state.rgb?.green), blue: clamp100(state.rgb?.blue) },
+                  mode: action === "off" ? null : def.modes.some((m) => m.key === state.mode) ? state.mode! : null,
+                }
+              : {}),
+          };
+          this.rig.fixtures[fixture] = next;
+          const control = `rig:${fixture}`;
+          const cfg = this.lpu2Config?.();
+          const actuation = cfg ? buildRigOps(control, rigOps(def, next, action), cfg) : null;
+          if (!actuation) {
+            const error = cfg?.baseUrl ? "nicht zugeordnet" : "keine LPU-2-Adresse";
+            this.rig.results[fixture] = { ok: false, error, at: Date.now(), urls: [] };
+            logger.log("cabin.result", { control, scope: "host", ok: false, error }, { deviceId, level: "warn" });
+            this.pushRig();
+            return;
+          }
+          const actor = this.pickActuator(undefined);
+          if (!actor) {
+            this.rig.results[fixture] = { ok: false, error: "kein iPad im Kabinen-LAN", at: Date.now(), urls: actuation.urls };
+            logger.log("cabin.result", { control, scope: "host", ok: false, error: "no actuator" }, { deviceId, level: "warn" });
+            this.pushRig();
+            return;
+          }
+          this.rig.results[fixture] = { ok: true, at: Date.now(), urls: actuation.urls };
+          this.pendingActuation.set(control, { requestedBy: deviceId, at: Date.now() });
+          logger.log("cabin.actuate", { control, scope: "host", urls: actuation.urls, change: { action, ...next }, actuator: actor.id }, { deviceId });
+          actor.entry.socket.emit("cabin:actuate", actuation);
+          this.pushRig();
         });
         socket.on("host:llm-test", () => {
           logger.log("host.action", { action: "llm-test", args: {} }, { deviceId });
@@ -935,6 +987,12 @@ export class Hub {
         logger.log("cabin.result", { control, scope: "host", ok, ...(error ? { error } : {}) }, { deviceId, level: ok ? "info" : "warn" });
         this.lightFailed = !ok;
         this.syncLightStatus();
+        if (control.startsWith("rig:")) {
+          const fixture = control.slice(4);
+          const prev = this.rig.results[fixture];
+          this.rig.results[fixture] = { ok, ...(error ? { error } : {}), at: Date.now(), urls: prev?.urls ?? [] };
+          this.pushRig();
+        }
         return;
       }
       // degraded lives with the state's owner: the cabin for shared controls,
@@ -1211,6 +1269,11 @@ export class Hub {
   }
 
   /** Push per-seat summaries to every connected host console. */
+  /** The rig page's state to every console. */
+  private pushRig(): void {
+    for (const e of this.devices.values()) if (e.role === "host") e.socket.emit("host:rig-state", this.rig);
+  }
+
   private pushSeats(): void {
     const seats: SeatSummary[] = [];
     for (const [deviceId, e] of this.devices) {
@@ -1649,4 +1712,9 @@ export class Hub {
   private now(): string {
     return new Date().toISOString();
   }
+}
+
+function clamp100(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
 }

@@ -26,6 +26,8 @@ import type {
   SeatSettingsOpen,
   Accommodations,
   HostConfigBroadcast,
+  HostRigAction,
+  HostRigState,
   LlmTestResult,
   SpeechTestResult,
   ClientKind,
@@ -121,6 +123,10 @@ export interface CosimoState {
   cabin: CabinControlState[];
   /** The shared cabin-scoped control state (host consoles, via host:seats). */
   hostCabin: CabinControlState[];
+  /** The console's rig page: every fixture's state + last outcomes (hub-held). */
+  rig: HostRigState | null;
+  /** One rig-page action (on/off/levels/mode) with the state the operator set. */
+  hostRig: (a: HostRigAction) => void;
   /** The structured debug log (host consoles): replayed buffer + live tail,
    *  oldest first, capped client-side. See @cosimo/shared log.ts. */
   logs: LogEvent[];
@@ -296,6 +302,7 @@ export function useCosimoSocket(
   const [devices, setDevices] = useState<ConnectedDevice[]>([]);
   const [seats, setSeats] = useState<SeatSummary[]>([]);
   const [hostCabin, setHostCabin] = useState<CabinControlState[]>([]);
+  const [rig, setRig] = useState<HostRigState | null>(null);
   const [personas, setPersonas] = useState<PersonaBroadcast[]>([]);
   const [hostConfig, setHostConfig] = useState<HostConfigBroadcast | null>(null);
   const [llmTest, setLlmTest] = useState<LlmTestResult | "pending" | null>(null);
@@ -472,6 +479,7 @@ export function useCosimoSocket(
     socket.on("host:seats", ({ seats, cabin: shared }) => { setSeats(seats); setHostCabin(shared ?? []); });
     socket.on("host:personas", ({ personas }) => setPersonas(personas));
     socket.on("host:config", (cfg) => setHostConfig(cfg));
+    socket.on("host:rig-state", (r) => setRig(r));
     socket.on("host:llm-test-result", (r) => setLlmTest(r));
     socket.on("host:tts-test-result", (r) => setTtsTest(r));
     socket.on("host:stt-test-result", (r) => setSttTest(r));
@@ -698,6 +706,10 @@ export function useCosimoSocket(
     sockRef.current?.emit("cabin:light", { key, ...(on !== undefined ? { on } : {}) });
   };
   /** Console light buttons: zone/signal key on/off, or "blackout" / "release-all" / "hello". */
+  const hostRig = (a: HostRigAction) => {
+    sockRef.current?.emit("host:rig", a);
+  };
+
   const hostLight = (key: string, on?: boolean) => {
     sockRef.current?.emit("host:light", { key, ...(on !== undefined ? { on } : {}) });
   };
@@ -771,7 +783,7 @@ export function useCosimoSocket(
   return {
     connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
-    llmTest, testLlm, hostLight, cabinLight, ttsTest, testTts, sttTest, testStt,
+    llmTest, testLlm, hostLight, cabinLight, rig, hostRig, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,
     inspection, inspectSeat, clearInspection, probeDevices, resetAll, resetDevice, reloadRequired, evicted, deviceId,
     unauthorized, restartService, restartResults,

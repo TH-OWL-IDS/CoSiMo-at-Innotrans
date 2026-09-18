@@ -302,10 +302,26 @@ async function seed(): Promise<void> {
     { control: "signals-rear-red", playback: 34 },
     { control: "signals-front-flash", playback: 35 },
     { control: "signals-rear-flash", playback: 36 },
+    { control: "signals-red", playback: 38 },
+    { control: "signals-green", playback: 39 },
+    { control: "signals-blue", playback: 40 },
   ] as const;
   const opConfig3 = await payload.findGlobal({ slug: "operator-config" });
-  if (opConfig3?.cabin?.lpu2Playbacks?.length) {
-    console.log("[seed] LPU-2 playback map exists: keeping the operator's mapping");
+  const existing = opConfig3?.cabin?.lpu2Playbacks ?? [];
+  if (existing.length) {
+    // An operator-edited map stays; catalog keys it does not know yet are
+    // appended with the installer's numbers (e.g. the RGB playbacks).
+    const known = new Set(existing.map((r) => r.control));
+    const missing = PLAYBACKS.filter((p) => !known.has(p.control));
+    if (missing.length) {
+      await payload.updateGlobal({
+        slug: "operator-config",
+        data: { cabin: { ...(opConfig3?.cabin ?? {}), lpu2Playbacks: [...existing, ...missing.map((p) => ({ ...p }))] } },
+      });
+      console.log(`[seed] LPU-2 playback map: kept ${existing.length} rows, added ${missing.map((m) => m.control).join(", ")}`);
+    } else {
+      console.log("[seed] LPU-2 playback map exists: keeping the operator's mapping");
+    }
   } else {
     await payload.updateGlobal({
       slug: "operator-config",

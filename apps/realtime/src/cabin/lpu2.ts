@@ -19,7 +19,7 @@
  * jumps to a cue, `fl=` flashes.
  */
 
-import type { CabinActuation, CabinControlId } from "@cosimo/shared";
+import type { CabinActuation, CabinControlId, RigOp } from "@cosimo/shared";
 
 /** Playback per catalog key (see `LPU2_KEYS`); scene controls may carry cue numbers. */
 export type Lpu2Mapping = Record<string, { playback: number; cues?: Record<string, number> }>;
@@ -109,4 +109,19 @@ export function buildHostLight(
     if (on && u && sibling) { const s = pbUrl(config, sibling, "re"); if (s) urls.push(s); }
   }
   return urls.length ? { control: key, urls, timeoutMs: config.timeoutMs } : null;
+}
+
+/**
+ * The console's rig page: a list of playback commands (shared rig.ts
+ * `rigOps`) → the URLs, in order. Unmapped keys are skipped, so a partly
+ * mapped rig still drives what it can; nothing mapped → null.
+ */
+export function buildRigOps(control: string, ops: RigOp[], config: Lpu2Config): CabinActuation | null {
+  if (!config.baseUrl) return null;
+  const urls: string[] = [];
+  for (const op of ops) {
+    const u = pbUrl(config, op.key, op.cmd === "in" ? `in=${intensity(op.level)}` : op.cmd);
+    if (u) urls.push(u);
+  }
+  return urls.length ? { control, urls, timeoutMs: config.timeoutMs } : null;
 }
