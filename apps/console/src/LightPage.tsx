@@ -5,7 +5,6 @@ import LogView from "./LogView";
 import type { CosimoState } from "@cosimo/client";
 import {
   LIGHT_GROUPS,
-  LIGHT_GROUP_LABEL,
   RIG_FIXTURES,
   rigDefaultState,
   sameLevels,
@@ -28,21 +27,13 @@ import {
  * it); the cabin is then "frei" until "speichern" writes the values into
  * the scene (CMS) or "verwerfen" re-applies the stored scene.
  *
- * A second row of cards holds the lights outside the scenes — Außenlicht,
- * Kopfstützen, Signallicht, Leselampen — each with its own settings
- * beneath (the installer's model: on/off · brightness · cold/warm, the
- * signal light with RGB + the exclusive red modes), driven through the
- * rig state the hub keeps (`host:rig`). Beneath everything, the light's log.
+ * The settings list EVERY fixture of the rig (the installer's model: on/off
+ * · brightness · cold/warm, the signal light with RGB + the exclusive red
+ * modes) — all of them belong to the scene; the three interior groups are
+ * the ones the rider / CoSiMo can reach too. Driven through the hub's rig
+ * state (`host:rig`, the same level objects as the scenes). Beneath, the log.
  */
 
-/** The cards of the second row: fixtures outside the scenes, reading lamps as one card. */
-type ExtraCard = { id: string; label: string; fixtures: RigFixture[] };
-const EXTRA_CARDS: ExtraCard[] = [
-  { id: "outer", label: "Au\u00dfenlicht", fixtures: RIG_FIXTURES.filter((f) => f.id === "outer") },
-  { id: "headrests", label: "Kopfst\u00fctzen", fixtures: RIG_FIXTURES.filter((f) => f.id === "headrests") },
-  { id: "signals", label: "Signallicht", fixtures: RIG_FIXTURES.filter((f) => f.id === "signals") },
-  { id: "reading", label: "Leselampen", fixtures: RIG_FIXTURES.filter((f) => f.id.startsWith("reading-")) },
-];
 
 // slider moves are collected and sent after this pause — every send is a
 // burst of LPU-2 calls through an iPad, so dragging must not flood the rig
@@ -105,43 +96,15 @@ function Slider({ label, value, min, max, step = 1, format, disabled, onChange }
   );
 }
 
-/** One group of the open scene: on/off, brightness, cold/warm — live on the cabin. */
-function GroupRow({ id, level, disabled, onSet }: {
-  id: LightGroup;
-  level: { on: boolean; intensity: number; bias: number };
-  disabled: boolean;
-  onSet: (patch: { on?: boolean; intensity?: number; bias?: number }) => void;
-}) {
-  // local while dragging; the hub's copy wins when it changes
-  const [local, setLocal] = useState(level);
-  useEffect(() => setLocal(level), [level]);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pending = useRef<{ intensity?: number; bias?: number }>({});
-  const queue = (patch: { intensity?: number; bias?: number }) => {
-    setLocal((s) => ({ ...s, ...patch }));
-    pending.current = { ...pending.current, ...patch };
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { const p = pending.current; pending.current = {}; onSet({ ...p, ...(p.intensity !== undefined ? { on: p.intensity > 0 } : {}) }); }, DEBOUNCE_MS);
-  };
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const biasLabel = (b: number) => (b === 0 ? "50 / 50" : b > 0 ? `kalt +${b} %` : `warm +${Math.abs(b)} %`);
-  return (
-    <div className="grid items-center gap-3 md:grid-cols-[160px_1fr_1fr]">
-      <Button variant={local.on ? "on" : "secondary"} size="sm" className="justify-start" disabled={disabled} onClick={() => onSet({ on: !local.on })}>
-        <Lightbulb size={14} /> {LIGHT_GROUP_LABEL[id].de}
-      </Button>
-      <Slider label="Helligkeit" value={local.on ? local.intensity : 0} min={0} max={100} step={5} disabled={disabled} format={(v) => `${v} %`} onChange={(v) => queue({ intensity: v })} />
-      <Slider label="kalt / warm" value={local.bias} min={-100} max={100} step={10} disabled={disabled || !local.on} format={biasLabel} onChange={(v) => queue({ bias: v })} />
-    </div>
-  );
-}
 
-/** One rig fixture's settings (outside the scenes): on/off · brightness · cold/warm (· RGB + modes). */
-function FixtureRow({ f, state, disabled, playback, onAction }: {
+/** One fixture of the open scene: on/off · brightness · cold/warm (· RGB + modes) — live on the cabin. */
+function FixtureRow({ f, state, disabled, playback, riderReachable = false, onAction }: {
   f: RigFixture;
   state: RigFixtureState;
   disabled: boolean;
   playback: (key: string) => number | null;
+  /** The three interior groups: the rider and CoSiMo can set these too. */
+  riderReachable?: boolean;
   onAction: (action: "on" | "off" | "levels" | "mode", state: RigFixtureState) => void;
 }) {
   const [local, setLocal] = useState(state);
@@ -169,6 +132,7 @@ function FixtureRow({ f, state, disabled, playback, onAction }: {
           </Button>
           <span className="text-2xs tabular-nums text-mute">
             {mapped ? keys.map((k) => `pb${String(playback(k) ?? "--").padStart(2, "0")}`).join(" · ") : <span className="text-warn">nicht im CMS</span>}
+            {riderReachable ? " · auch Fahrgast / CoSiMo" : " · nur Personal"}
           </span>
         </div>
         <Slider label="Helligkeit" value={local.intensity} min={0} max={100} step={5} disabled={dead} format={(v) => `${v} %`} onChange={(v) => queue({ intensity: v })} />
@@ -217,7 +181,6 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
   const openScene = scenes.find((s) => s.key === open) ?? null;
   const free = light?.scene === null;
   const dirty = Boolean(openScene && light && free && !sameLevels(light.groups, sceneLevels(openScene)));
-  const [extra, setExtra] = useState<string | null>(null);
   const routes = cfg?.cabin.routes ?? [];
   const playback = (key: string) => routes.find((r) => r.key === key)?.playback ?? null;
   const rigState = (f: RigFixture) => c.rig?.fixtures[f.id] ?? rigDefaultState(f);
@@ -304,64 +267,24 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
               )}
             </span>
           </div>
-          <div className="flex flex-col gap-3">
-            {LIGHT_GROUPS.map((g) => (
-              <GroupRow key={g} id={g} level={light.groups[g] ?? { on: false, intensity: 0, bias: 0 }} disabled={disabled} onSet={(patch) => c.setLight({ group: { id: g, ...patch } })} />
+          <div className="flex flex-col gap-4">
+            {RIG_FIXTURES.map((f) => (
+              <FixtureRow
+                key={f.id}
+                f={f}
+                state={light.groups[f.id] ?? rigDefaultState(f)}
+                disabled={disabled}
+                playback={playback}
+                riderReachable={(LIGHT_GROUPS as readonly string[]).includes(f.id)}
+                onAction={(action, state) => c.hostRig({ fixture: f.id, action, state })}
+              />
             ))}
           </div>
           <span className="text-xs text-mute">
-            Jede Änderung geht sofort in die Kabine — auch an den weiteren Leuchten unten, sie gehören zur Szene. {dirty ? "Die Kabine weicht von der gespeicherten Szene ab — speichern übernimmt alle Werte, verwerfen stellt die Szene wieder her." : "Die Kabine zeigt die gespeicherte Szene."}
+            Jede Änderung geht sofort in die Kabine; alle Leuchten gehören zur Szene. {dirty ? "Die Kabine weicht von der gespeicherten Szene ab — speichern übernimmt alle Werte, verwerfen stellt die Szene wieder her." : "Die Kabine zeigt die gespeicherte Szene."}
           </span>
         </section>
       )}
-
-      {/* the lights outside the scenes */}
-      <section className="flex flex-col gap-3">
-        <span className="text-2xs uppercase tracking-caps text-mute">Weitere Leuchten · Teil der Szene, nur fürs Personal (nicht über CoSiMo)</span>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {EXTRA_CARDS.map((card) => {
-            const states = card.fixtures.map(rigState);
-            const anyOn = states.some((s) => s.on);
-            const isOpen = extra === card.id;
-            const mapped = card.fixtures.some((f) => (f.kind === "single" ? [f.key] : [f.cw, f.ww]).some((k) => playback(k) != null));
-            const toggle = () => {
-              // all fixtures of the card together (the four reading lamps as one)
-              for (const f of card.fixtures) {
-                const s = rigState(f);
-                c.hostRig({ fixture: f.id, action: anyOn ? "off" : "on", state: { ...s, on: !anyOn, ...(f.kind === "combined" && anyOn ? { mode: null } : {}) } });
-              }
-            };
-            return (
-              <div
-                key={card.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setExtra(isOpen ? null : card.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExtra(isOpen ? null : card.id); } }}
-                className={cn("flex cursor-pointer flex-col gap-2 rounded-lg border p-4 text-left transition-colors", anyOn ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well")}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-lg font-semibold">{card.label}</span>
-                  <Switch on={anyOn} disabled={disabled || !mapped} onDark={anyOn} label={`${card.label} ein/aus`} onToggle={toggle} />
-                </span>
-                <span className={cn("text-2xs", anyOn ? "text-white/70" : "text-mute")}>
-                  {!mapped ? "nicht im CMS" : anyOn ? `an · ${states.filter((s) => s.on).map((s) => `${s.intensity} %`).join(" · ")}` : "aus"} · antippen: Einstellungen
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        {extra && (
-          <div className="flex flex-col gap-4 rounded-lg border border-line bg-white p-4">
-            {EXTRA_CARDS.find((x) => x.id === extra)!.fixtures.map((f) => (
-              <FixtureRow key={f.id} f={f} state={rigState(f)} disabled={disabled} playback={playback} onAction={(action, state) => c.hostRig({ fixture: f.id, action, state })} />
-            ))}
-            {c.rig?.results[EXTRA_CARDS.find((x) => x.id === extra)!.fixtures[0]!.id]?.ok === false && (
-              <span className="text-xs text-warn">letzter Schaltversuch: {c.rig.results[EXTRA_CARDS.find((x) => x.id === extra)!.fixtures[0]!.id]?.error ?? "fehlgeschlagen"}</span>
-            )}
-          </div>
-        )}
-      </section>
 
       <section className="flex flex-col gap-2">
         <span className="text-2xs uppercase tracking-caps text-mute">Licht-Log · jede Schaltung und jede Antwort des iPads</span>
