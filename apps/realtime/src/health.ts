@@ -45,7 +45,7 @@ export function startHealthMonitor(hub: Hub, llm: LlmRouter): void {
     // The CMS: authored state, not the live path — its dot is informational
     // (profiles/route fall back to built-ins), but an operator wants to know.
     try {
-      const res = await fetch(`${config.payload.internalUrl}/api/globals/operator-config`, {
+      const res = await fetch(`${config.payload.internalUrl}/api/globals/llm-config`, {
         signal: AbortSignal.timeout(2500),
       });
       hub.setCmsReachable(res.ok);

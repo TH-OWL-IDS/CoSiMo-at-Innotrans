@@ -114,7 +114,7 @@ Events without `deviceId`/`sessionId` are the hub's own story and feed the
 - `service.boot` — the process came up: port, Docker or not, LLM
   provider/model at boot, light driver, node version. A restart is visible
   as such, not just as a gap.
-- `config.loaded` — the resolved operator-config (CMS over env defaults)
+- `config.loaded` — the resolved operator config (the five CMS globals over env defaults)
   was loaded and its routing fingerprint changed: LLM/fallback/STT/TTS
   routes, voice count, LPU-2 mapping, prompt size, plus `changed` naming the
   differing keys. Logged on first load and on every change, never on

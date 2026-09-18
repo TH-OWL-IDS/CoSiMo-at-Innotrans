@@ -39,7 +39,7 @@ Seeding demo content (personas + telemetry scenarios): see
 
 Secrets (Anthropic/Deepgram/ElevenLabs keys) exist ONLY in env — never in
 the CMS, never in compose defaults. Endpoint *routing* (URLs/models) is
-CMS-editable at runtime via the operator-config global.
+CMS-editable at runtime via the config globals (llm-config, speech-config …).
 
 ## Production (VPS, behind Cloudflare Tunnel)
 

@@ -63,7 +63,7 @@ The URLs are idempotent, so a repeat or a stand-in actuator is harmless. A
 session reset (`beginSession`, "Alles zurücksetzen") deliberately does NOT
 touch cabin state — a morning reset must not switch the physical lamp.
 Controls with no playback mapped stay purely simulated. Address, playback
-and scene-cue mapping come from the CMS (`operator-config` → Kabine; scene
+and scene-cue mapping come from the CMS (`cabin-config`; scene
 KEYS are code-defined, the CMS only assigns cue numbers) with
 `LPU2_BASE_URL` as the env fallback, so mounting-day IP changes need no
 redeploy.
@@ -236,13 +236,13 @@ turns to the **fallback provider** (Operator Config) and `status.llm` /
 `service.status` say so. No usable provider → canned replies. See
 [tailnet.md](tailnet.md).
 
-## Config: env + operator-config
+## Config: env + the CMS config globals
 
 Two layers, deliberately separate:
 
 - **Env (`src/config.ts`)** — secrets and defaults. API keys live ONLY here.
 - **Operator config (`src/agent/operatorConfig.ts`)** — a TTL-cached read of
-  the CMS `operator-config` global: LLM provider/baseURL/model, STT/TTS
+  the CMS config globals (agent-config · llm-config · speech-config · voices · cabin-config, read together on one TTL): LLM provider/baseURL/model, STT/TTS
   base URLs, voice. An admin edit takes effect on the next turn, no
   redeploy. Same provider pattern as personas: refresh best-effort, merge
   over env defaults, never throw.

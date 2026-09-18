@@ -223,15 +223,12 @@ async function seed(): Promise<void> {
   // Pre-fill the agent's core system prompt so the admin shows the actual
   // prompt in use (instead of an empty field silently falling back to the
   // built-in). Only when empty — an operator-edited prompt is never touched.
-  const opConfig = await payload.findGlobal({ slug: "operator-config" });
-  if (opConfig?.agent?.systemPrompt?.trim()) {
+  const agentCfg = await payload.findGlobal({ slug: "agent-config" });
+  if (agentCfg?.systemPrompt?.trim()) {
     console.log("[seed] core prompt exists: keeping the operator's text");
   } else {
-    await payload.updateGlobal({
-      slug: "operator-config",
-      data: { agent: { systemPrompt: DEFAULT_CORE_PROMPT } },
-    });
-    console.log("[seed] core prompt seeded into operator-config");
+    await payload.updateGlobal({ slug: "agent-config", data: { systemPrompt: DEFAULT_CORE_PROMPT } });
+    console.log("[seed] core prompt seeded into agent-config");
   }
 
   // Voice catalog: 5 female + 5 male per language. The German ten are
@@ -266,14 +263,11 @@ async function seed(): Promise<void> {
     { key: "eric", label: "Eric", gender: "male" as const, language: "en" as const, voiceId: "cjVigY5qzO86Huf0OWal", description: "freundlich, männlich, mittleres Alter" },
     { key: "chris", label: "Chris", gender: "male" as const, language: "en" as const, voiceId: "iP95p4xoKVk53GoZ742B", description: "locker, männlich, bodenständig" },
   ];
-  const opConfig2 = await payload.findGlobal({ slug: "operator-config" });
-  if (opConfig2?.tts?.voices?.length) {
+  const voicesCfg = await payload.findGlobal({ slug: "voices" });
+  if (voicesCfg?.voices?.length) {
     console.log("[seed] voice catalog exists: keeping the operator's voices");
   } else {
-    await payload.updateGlobal({
-      slug: "operator-config",
-      data: { tts: { ...(opConfig2?.tts ?? {}), voices: VOICES } },
-    });
+    await payload.updateGlobal({ slug: "voices", data: { voices: VOICES } });
     console.log(`[seed] voice catalog seeded (${VOICES.length} voices)`);
   }
 
@@ -306,50 +300,36 @@ async function seed(): Promise<void> {
     { control: "signals-green", playback: 39 },
     { control: "signals-blue", playback: 40 },
   ] as const;
-  const opConfig3 = await payload.findGlobal({ slug: "operator-config" });
-  const existing = opConfig3?.cabin?.lpu2Playbacks ?? [];
+  const cabinCfg = await payload.findGlobal({ slug: "cabin-config" });
+  const existing = cabinCfg?.lpu2Playbacks ?? [];
   if (existing.length) {
     // An operator-edited map stays; catalog keys it does not know yet are
     // appended with the installer's numbers (e.g. the RGB playbacks).
     const known = new Set<string>(existing.map((r: { control?: string | null }) => r.control ?? ""));
     const missing = PLAYBACKS.filter((p: { control: string; playback: number }) => !known.has(p.control));
     if (missing.length) {
-      await payload.updateGlobal({
-        slug: "operator-config",
-        data: { cabin: { ...(opConfig3?.cabin ?? {}), lpu2Playbacks: [...existing, ...missing.map((p) => ({ ...p }))] } },
-      });
+      await payload.updateGlobal({ slug: "cabin-config", data: { lpu2Playbacks: [...existing, ...missing.map((p) => ({ ...p }))] } });
       console.log(`[seed] LPU-2 playback map: kept ${existing.length} rows, added ${missing.map((m) => m.control).join(", ")}`);
     } else {
       console.log("[seed] LPU-2 playback map exists: keeping the operator's mapping");
     }
   } else {
     await payload.updateGlobal({
-      slug: "operator-config",
-      data: {
-        cabin: {
-          ...(opConfig3?.cabin ?? {}),
-          lpu2BaseUrl: opConfig3?.cabin?.lpu2BaseUrl || "http://192.168.96.176",
-          lpu2Playbacks: PLAYBACKS.map((p) => ({ ...p })),
-        },
-      },
+      slug: "cabin-config",
+      data: { lpu2BaseUrl: cabinCfg?.lpu2BaseUrl || "http://192.168.96.176", lpu2Playbacks: PLAYBACKS.map((p) => ({ ...p })) },
     });
     console.log(`[seed] LPU-2 playback map seeded (${PLAYBACKS.length} playbacks)`);
   }
 
   // The three light scenes (packages/shared light.ts DEFAULT_LIGHT_SCENES):
   // only when none exist — the console saves tuned scenes into these rows.
-  const opConfig4 = await payload.findGlobal({ slug: "operator-config" });
-  if (opConfig4?.cabin?.lightScenes?.length) {
+  const cabinCfg2 = await payload.findGlobal({ slug: "cabin-config" });
+  if (cabinCfg2?.lightScenes?.length) {
     console.log("[seed] light scenes exist: keeping the operator's scenes");
   } else {
     await payload.updateGlobal({
-      slug: "operator-config",
-      data: {
-        cabin: {
-          ...(opConfig4?.cabin ?? {}),
-          lightScenes: DEFAULT_LIGHT_SCENES.map((sc) => ({ key: sc.key, label: sc.label, roofline: sc.groups.roofline, rooflight: sc.groups.rooflight, floor: sc.groups.floor })),
-        },
-      },
+      slug: "cabin-config",
+      data: { lightScenes: DEFAULT_LIGHT_SCENES.map((sc) => ({ key: sc.key, label: sc.label, roofline: sc.groups.roofline, rooflight: sc.groups.rooflight, floor: sc.groups.floor })) },
     });
     console.log(`[seed] light scenes seeded (${DEFAULT_LIGHT_SCENES.map((s) => s.label).join(", ")})`);
   }

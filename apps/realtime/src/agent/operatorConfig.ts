@@ -1,6 +1,6 @@
 /**
  * Operator-config provider. Endpoint routing (LLM/STT/TTS base URLs, models)
- * is hand-edited in Payload's `operator-config` global; this provider fetches
+ * is hand-edited in Payload's config globals (agent · llm · speech · voices · cabin); this provider fetches
  * it on a short TTL and merges it over the env defaults, so an admin edit
  * takes effect on the next turn without a redeploy. API keys never come from
  * the CMS — they stay in the environment.
@@ -220,10 +220,28 @@ export class OperatorConfigProvider {
     if (now - this.lastFetch < this.ttlMs) return this.cache;
     this.lastFetch = now;
     try {
-      const url = `${config.payload.internalUrl}/api/globals/operator-config`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
-      if (!res.ok) return this.cache;
-      const doc = (await res.json()) as PayloadOperatorConfigDoc;
+      // Five globals (agent · llm · speech · voices · cabin), read together and
+      // merged into one document shape — field names are the same as before
+      // the split, so the parsing below did not change.
+      const get = async <T,>(slug: string): Promise<T | null> => {
+        const res = await fetch(`${config.payload.internalUrl}/api/globals/${slug}`, { signal: AbortSignal.timeout(2500) });
+        return res.ok ? ((await res.json()) as T) : null;
+      };
+      const [agent, llm, speech, voices, cabin] = await Promise.all([
+        get<PayloadOperatorConfigDoc["agent"]>("agent-config"),
+        get<PayloadOperatorConfigDoc["llm"]>("llm-config"),
+        get<{ stt?: PayloadOperatorConfigDoc["stt"]; tts?: Omit<NonNullable<PayloadOperatorConfigDoc["tts"]>, "voices"> }>("speech-config"),
+        get<{ voices?: NonNullable<PayloadOperatorConfigDoc["tts"]>["voices"] }>("voices"),
+        get<PayloadOperatorConfigDoc["cabin"]>("cabin-config"),
+      ]);
+      if (!llm) return this.cache; // the CMS is down (the LLM route is the one that must not be guessed)
+      const doc: PayloadOperatorConfigDoc = {
+        agent: agent ?? undefined,
+        llm,
+        stt: speech?.stt,
+        tts: { ...(speech?.tts ?? {}), voices: voices?.voices ?? [] },
+        cabin: cabin ?? undefined,
+      };
       const base = envDefaults();
       this.cache = {
         agent: { systemPrompt: str(doc.agent?.systemPrompt, base.agent.systemPrompt) },

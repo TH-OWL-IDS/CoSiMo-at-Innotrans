@@ -32,15 +32,19 @@ Payload login). There is no other page — the operator console is
 - **sessions** — the research dataset. Written by the realtime service
   (turn transcripts, tool actions, emotions, latency, consent, modality),
   read-only in the admin. Consent gates *recording*, not conversing.
-- **operator-config (global)** — live-editable operations: the agent's **core
-  system prompt** (`agent.systemPrompt`; empty = built-in default — the rider
-  section is always appended in code) and endpoint routing: LLM provider
-  (`anthropic` | `openai-compatible`) + base URL + model, STT/TTS base URLs
-  and voice, plus **Kabine**: the LPU-2's address on the cabin LAN (as the
-  *iPads* see it — they place the calls), which playback drives which cabin
-  control, and for scene controls which cue number belongs to which
-  code-defined scene key. URLs and model names only — **API keys never live in the CMS**
-  (they'd be readable in the admin and land in every DB backup).
+- **The config globals** (admin group „Operations“, since 2026-09-18 five
+  instead of one `operator-config`): **agent-config** — the core system
+  prompt (`systemPrompt`; empty = built-in default, the rider section is
+  always appended in code); **llm-config** — provider (`anthropic` |
+  `openai-compatible`), base URL, model, fallback, generation parameters;
+  **speech-config** — STT and TTS endpoints, models, the default voice ids;
+  **voices** — the voice catalog (per language, order = defaults);
+  **cabin-config** — the LPU-2's address on the cabin LAN (as the *iPads*
+  see it — they place the calls), the playback map (catalog key → playback)
+  and the three **light scenes** (saved from the console). The realtime
+  service reads all five on one TTL and merges them; the seed fills each
+  one it finds empty. URLs and model names only — **API keys never live in
+  the CMS** (they'd be readable in the admin and land in every DB backup).
 
 ## Seeding
 

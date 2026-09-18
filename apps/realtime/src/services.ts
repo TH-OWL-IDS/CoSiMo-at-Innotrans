@@ -51,7 +51,7 @@ const portOf = (url: string | null): number | null => {
 };
 
 const DEFS: { id: ServiceInfo["id"]; label: string; path: string }[] = [
-  { id: "cms", label: "CMS", path: "/api/globals/operator-config" },
+  { id: "cms", label: "CMS", path: "/api/globals/llm-config" },
   { id: "realtime", label: "WS (Hub)", path: "/health" },
   { id: "console", label: "Konsole", path: "/" },
   { id: "emulator", label: "Seat (Emulator)", path: "/" },

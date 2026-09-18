@@ -82,7 +82,7 @@ client against :6101 works well — see the smoke pattern in git history).
    (hub), then clients. The Socket.IO generics make drift a type error —
    keep it that way.
 3. **API keys live in env only.** The CMS holds URLs and model names
-   (operator-config), never secrets.
+   (the config globals: agent · llm · speech · voices · cabin), never secrets.
 4. **Everything degrades, nothing dies.** New features need a fallback for
    CMS-down and LLM-down (defaults, canned replies). Hub socket handlers
    must catch — a malformed client event must never crash the process.
