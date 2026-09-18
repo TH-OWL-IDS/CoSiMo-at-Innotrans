@@ -40,7 +40,7 @@ import {
 const DEBOUNCE_MS = 250;
 
 /** The I/O switch on a card: shows on/off and switches it; the card itself only opens the settings. */
-function Switch({ on, disabled, onToggle, label, onDark }: { on: boolean; disabled?: boolean; onToggle: () => void; label: string; onDark: boolean }) {
+function Switch({ on, disabled, onToggle, label }: { on: boolean; disabled?: boolean; onToggle: () => void; label: string }) {
   return (
     <button
       type="button"
@@ -52,7 +52,7 @@ function Switch({ on, disabled, onToggle, label, onDark }: { on: boolean; disabl
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
       className={cn(
         "relative inline-flex h-7 w-14 shrink-0 items-center rounded-full border font-mono text-xs font-bold transition-colors disabled:opacity-45",
-        on ? "border-ok bg-ok text-white" : onDark ? "border-white/40 bg-white/15 text-white/80" : "border-line-strong bg-well-deep text-mute",
+        on ? "border-ok bg-ok text-white" : "border-line-strong bg-well-deep text-mute",
       )}
     >
       <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left]", on ? "left-8" : "left-0.5")} aria-hidden />
@@ -62,7 +62,7 @@ function Switch({ on, disabled, onToggle, label, onDark }: { on: boolean; disabl
 }
 
 /** One scene's three groups as bars: length = brightness, tint = warm … cold. */
-function ScenePreview({ groups, onDark }: { groups: LightScene["groups"]; onDark: boolean }) {
+function ScenePreview({ groups }: { groups: LightScene["groups"] }) {
   const tint = (bias: number) => (bias < -30 ? "#e8b96a" : bias > 30 ? "#a9c8f0" : "#d9d9d4");
   return (
     <span className="flex w-full flex-col gap-1" aria-hidden>
@@ -70,8 +70,8 @@ function ScenePreview({ groups, onDark }: { groups: LightScene["groups"]; onDark
         const lv = groups[g] ?? { on: false, intensity: 0, bias: 0 };
         return (
           <span key={g} className="flex items-center gap-1.5">
-            <span className={cn("w-3 shrink-0 text-2xs", onDark ? "text-white/60" : "text-mute")}>{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
-            <span className={cn("h-1.5 flex-1 rounded-full", onDark ? "bg-white/20" : "bg-well-deep")}>
+            <span className="w-3 shrink-0 text-2xs text-mute">{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
+            <span className="h-1.5 flex-1 rounded-full bg-well-deep">
               <span className="block h-full rounded-full" style={{ width: `${lv.on ? lv.intensity : 0}%`, background: tint(lv.bias) }} />
             </span>
           </span>
@@ -224,24 +224,24 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(isOpen ? null : sc.key); } }}
               className={cn(
                 "flex cursor-pointer flex-col gap-3 rounded-lg border p-4 text-left transition-colors",
-                active ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well",
+                isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well",
               )}
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="text-lg font-semibold">{sc.label}</span>
-                <Switch on={active} disabled={disabled} onDark={active} label={`${sc.label} ein/aus`} onToggle={() => c.setLight({ scene: active ? "off" : sc.key })} />
+                <Switch on={active} disabled={disabled} label={`${sc.label} ein/aus`} onToggle={() => c.setLight({ scene: active ? "off" : sc.key })} />
               </span>
-              <ScenePreview groups={sc.groups} onDark={active} />
-              <span className={cn("text-2xs", active ? "text-white/70" : "text-mute")}>{active ? (free ? "geändert" : "aktiv") : isOpen && free ? "geändert" : "antippen: Einstellungen"}</span>
+              <ScenePreview groups={sc.groups} />
+              <span className="text-2xs text-mute">{active ? (free ? "geändert" : "aktiv") : isOpen && free ? "geändert" : "antippen: Einstellungen"}</span>
             </div>
           );
         })}
-        <div className={cn("flex flex-col gap-3 rounded-lg border p-4 text-left", light?.scene === "off" ? "border-ink bg-ink text-white" : "border-line bg-white")}>
+        <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 text-left">
           <span className="flex items-center justify-between gap-2">
             <span className="text-lg font-semibold">Alles aus</span>
-            <Switch on={light?.scene === "off"} disabled={disabled} onDark={light?.scene === "off"} label="Alles aus" onToggle={() => c.setLight({ scene: light?.scene === "off" ? scenes[0]?.key ?? "off" : "off" })} />
+            <Switch on={light?.scene === "off"} disabled={disabled} label="Alles aus" onToggle={() => c.setLight({ scene: light?.scene === "off" ? scenes[0]?.key ?? "off" : "off" })} />
           </span>
-          <span className={cn("text-2xs", light?.scene === "off" ? "text-white/70" : "text-mute")}>Lichtlinien, Deckenpaneel und Boden aus · zurück auf Szene 1</span>
+          <span className="text-2xs text-mute">alle Leuchten aus · ausschalten: zurück auf Szene 1</span>
         </div>
       </div>
 
