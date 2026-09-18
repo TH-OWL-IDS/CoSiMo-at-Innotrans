@@ -18,8 +18,10 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-white text-ink border-line-strong hover:bg-well active:bg-line-soft",
-        secondary: "bg-well text-ink border-line-strong hover:bg-line-soft active:bg-line",
+        // hover/pressed step through the well greys — never the line tokens,
+        // which are ink since the 1px-black rules (black on black, 2026-09-18)
+        default: "bg-white text-ink border-line-strong hover:bg-well active:bg-well-deep",
+        secondary: "bg-well text-ink border-line-strong hover:bg-well-deep active:bg-well-deeper",
         primary: "bg-ink text-white border-ink hover:opacity-90 active:opacity-80",
         on: "bg-ok text-white border-ok",
         ghost: "bg-transparent text-mute border-transparent hover:bg-well hover:text-ink",

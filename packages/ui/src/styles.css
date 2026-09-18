@@ -54,6 +54,8 @@
   --color-line-soft: #181817;     /* dividers inside a card */
   --color-well: #f6f6f6;          /* sunken surfaces: log tail, code, pre */
   --color-well-raised: #fafafa;   /* a step lighter: sticky header, bands */
+  --color-well-deep: #ebebeb;     /* a step darker: a control under the pointer */
+  --color-well-deeper: #dedede;   /* pressed */
   --color-accent: #e40041;        /* CI red — also "down / live seat" */
   --color-ok: #1a7f37;
   --color-warn: #b45309;
