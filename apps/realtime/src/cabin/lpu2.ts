@@ -13,8 +13,10 @@
  * stop = `pbXX/re` (release — the standalone/background scene takes over,
  * the cabin is never left dark by our doing). Playbacks are ADDITIVE, so
  * switching a CW/WW zone on means: go on the wanted variant + re on its
- * sibling. `in=0..100` dims a RUNNING playback below its stored maxima;
- * `ju=` jumps to a cue, `fl=` flashes.
+ * sibling. `in=0..255` dims a RUNNING playback below its stored maxima
+ * (the installer's API sheet: 255 = full — our controls speak 0..100 and
+ * are scaled here, the only place that knows the device range); `ju=`
+ * jumps to a cue, `fl=` flashes.
  */
 
 import type { CabinActuation, CabinControlId } from "@cosimo/shared";
@@ -34,9 +36,10 @@ function playback(n: number): string {
   return `pb${String(n).padStart(2, "0")}`;
 }
 
-/** Clamp an intensity to what the device accepts (0–100). */
+/** Our 0–100 level → the device's 0–255 intensity (installer's API sheet). */
 function intensity(level: number): number {
-  return Math.max(0, Math.min(100, Math.round(level)));
+  const pct = Math.max(0, Math.min(100, Number(level) || 0));
+  return Math.round((pct / 100) * 255);
 }
 
 function ajax(config: Lpu2Config, path: string): string {

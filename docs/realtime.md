@@ -34,8 +34,9 @@ cannot reach the light controller. The iPads are the only dual-homed devices
    the hub owns the decision and the state. Cabin-scoped state is mutated
    once and broadcast everywhere; seat-scoped state stays on that seat.
 2. `cabin/lpu2.ts` turns the change into ready-made URLs for the Cuety LPU-2
-   (`pbXX/in=100` on, `pbXX/re` off so the standalone scene resumes,
-   `pbXX/in=<level>` dim, `pbXX/ju=<cue>` scene, `pbXX/fl=1` flash). This is
+   (`pbXX/go` on, `pbXX/re` off so the standalone scene resumes,
+   `pbXX/in=<0..255>` dim — our controls speak 0–100, the device 0–255, the
+   scaling lives here — `pbXX/ju=<cue>` scene, `pbXX/fl=1` flash). This is
    the only file that knows the controller's dialect.
 3. The hub **elects an actuator**: the requesting real iPad, else any healthy
    real iPad (ok before slow, then longest-connected), else the requester

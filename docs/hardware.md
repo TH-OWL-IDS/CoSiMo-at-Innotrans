@@ -43,7 +43,8 @@ Each iPad is **dual-homed**: Wi-Fi carries the socket to the realtime hub
 (which may live on the VPS), a USB-C Ethernet adapter joins the **air-gapped
 cabin LAN** that holds the **Cuety LPU-2** DMX controller. The hub never
 touches that network — it sends the seat a `cabin:actuate` with ready-made
-URLs and the seat fires them (`/ajax/pbXX/in=100` on, `/ajax/pbXX/re` off,
+URLs and the seat fires them (`/ajax/pbXX/go` on, `/ajax/pbXX/re` off,
+`/ajax/pbXX/in=0..255` dim — our 0–100 levels are scaled in `lpu2.ts` —
 `/ajax/hello` as a ping; port 80, plain GET, fire-and-forget). The seat
 reports the outcome, so a dead controller shows as *degraded* instead of
 CoSiMo claiming a light changed that didn't.
