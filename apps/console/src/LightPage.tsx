@@ -45,6 +45,28 @@ const EXTRA_CARDS: ExtraCard[] = [
 
 const DEBOUNCE_MS = 80;
 
+/** The I/O switch on a card: shows on/off and switches it; the card itself only opens the settings. */
+function Switch({ on, disabled, onToggle, label, onDark }: { on: boolean; disabled?: boolean; onToggle: () => void; label: string; onDark: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      title={on ? "ausschalten" : "einschalten"}
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      className={cn(
+        "relative inline-flex h-7 w-14 shrink-0 items-center rounded-full border font-mono text-xs font-bold transition-colors disabled:opacity-45",
+        on ? "border-ok bg-ok text-white" : onDark ? "border-white/40 bg-white/15 text-white/80" : "border-line-strong bg-well-deep text-mute",
+      )}
+    >
+      <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-[left]", on ? "left-8" : "left-0.5")} aria-hidden />
+      <span className={cn("absolute", on ? "left-2" : "right-2")} aria-hidden>{on ? "I" : "O"}</span>
+    </button>
+  );
+}
+
 /** One scene's three groups as bars: length = brightness, tint = warm … cold. */
 function ScenePreview({ groups, onDark }: { groups: LightScene["groups"]; onDark: boolean }) {
   const tint = (bias: number) => (bias < -30 ? "#e8b96a" : bias > 30 ? "#a9c8f0" : "#d9d9d4");
@@ -228,31 +250,33 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
           const active = light?.scene === sc.key;
           const isOpen = open === sc.key;
           return (
-            <button
+            <div
               key={sc.key}
-              type="button"
-              disabled={disabled}
-              onClick={() => { setOpen(sc.key); c.setLight({ scene: sc.key }); }}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpen(isOpen ? null : sc.key)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(isOpen ? null : sc.key); } }}
               className={cn(
-                "flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors disabled:opacity-45",
+                "flex cursor-pointer flex-col gap-3 rounded-lg border p-4 text-left transition-colors",
                 active ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well",
               )}
             >
-              <span className="text-lg font-semibold">{sc.label}</span>
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-lg font-semibold">{sc.label}</span>
+                <Switch on={active} disabled={disabled} onDark={active} label={`${sc.label} ein/aus`} onToggle={() => c.setLight({ scene: active ? "off" : sc.key })} />
+              </span>
               <ScenePreview groups={sc.groups} onDark={active} />
-              <span className={cn("text-2xs", active ? "text-white/70" : "text-mute")}>{active ? (free ? "geändert" : "aktiv") : isOpen && free ? "geändert" : "antippen: einschalten"}</span>
-            </button>
+              <span className={cn("text-2xs", active ? "text-white/70" : "text-mute")}>{active ? (free ? "geändert" : "aktiv") : isOpen && free ? "geändert" : "antippen: Einstellungen"}</span>
+            </div>
           );
         })}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => { setOpen(null); c.setLight({ scene: "off" }); }}
-          className={cn("flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors disabled:opacity-45", light?.scene === "off" ? "border-ink bg-ink text-white" : "border-line bg-white hover:bg-well")}
-        >
-          <span className="text-lg font-semibold">Alles aus</span>
-          <span className={cn("text-2xs", light?.scene === "off" ? "text-white/70" : "text-mute")}>Lichtlinien, Deckenpaneel und Boden aus</span>
-        </button>
+        <div className={cn("flex flex-col gap-3 rounded-lg border p-4 text-left", light?.scene === "off" ? "border-ink bg-ink text-white" : "border-line bg-white")}>
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-lg font-semibold">Alles aus</span>
+            <Switch on={light?.scene === "off"} disabled={disabled} onDark={light?.scene === "off"} label="Alles aus" onToggle={() => c.setLight({ scene: light?.scene === "off" ? scenes[0]?.key ?? "off" : "off" })} />
+          </span>
+          <span className={cn("text-2xs", light?.scene === "off" ? "text-white/70" : "text-mute")}>Lichtlinien, Deckenpaneel und Boden aus · zurück auf Szene 1</span>
+        </div>
       </div>
 
       {/* the open scene's settings — live on the cabin */}
@@ -297,19 +321,30 @@ export default function LightPage({ c, cfg, lightOk, onClearLogs, onReplayLogs }
             const anyOn = states.some((s) => s.on);
             const isOpen = extra === card.id;
             const mapped = card.fixtures.some((f) => (f.kind === "single" ? [f.key] : [f.cw, f.ww]).some((k) => playback(k) != null));
+            const toggle = () => {
+              // all fixtures of the card together (the four reading lamps as one)
+              for (const f of card.fixtures) {
+                const s = rigState(f);
+                c.hostRig({ fixture: f.id, action: anyOn ? "off" : "on", state: { ...s, on: !anyOn, ...(f.kind === "combined" && anyOn ? { mode: null } : {}) } });
+              }
+            };
             return (
-              <button
+              <div
                 key={card.id}
-                type="button"
-                disabled={disabled}
+                role="button"
+                tabIndex={0}
                 onClick={() => setExtra(isOpen ? null : card.id)}
-                className={cn("flex flex-col gap-2 rounded-lg border p-4 text-left transition-colors disabled:opacity-45", anyOn ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well")}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExtra(isOpen ? null : card.id); } }}
+                className={cn("flex cursor-pointer flex-col gap-2 rounded-lg border p-4 text-left transition-colors", anyOn ? "border-ink bg-ink text-white" : isOpen ? "border-ink bg-white" : "border-line bg-white hover:bg-well")}
               >
-                <span className="text-lg font-semibold">{card.label}</span>
-                <span className={cn("text-2xs", anyOn ? "text-white/70" : "text-mute")}>
-                  {!mapped ? "nicht im CMS" : anyOn ? `an · ${states.filter((s) => s.on).map((s) => `${s.intensity} %`).join(" · ")}` : "aus"}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-lg font-semibold">{card.label}</span>
+                  <Switch on={anyOn} disabled={disabled || !mapped} onDark={anyOn} label={`${card.label} ein/aus`} onToggle={toggle} />
                 </span>
-              </button>
+                <span className={cn("text-2xs", anyOn ? "text-white/70" : "text-mute")}>
+                  {!mapped ? "nicht im CMS" : anyOn ? `an · ${states.filter((s) => s.on).map((s) => `${s.intensity} %`).join(" · ")}` : "aus"} · antippen: Einstellungen
+                </span>
+              </div>
             );
           })}
         </div>
