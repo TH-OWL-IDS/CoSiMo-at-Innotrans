@@ -44,7 +44,9 @@ const EXTRA_CARDS: ExtraCard[] = [
   { id: "reading", label: "Leselampen", fixtures: RIG_FIXTURES.filter((f) => f.id.startsWith("reading-")) },
 ];
 
-const DEBOUNCE_MS = 80;
+// slider moves are collected and sent after this pause — every send is a
+// burst of LPU-2 calls through an iPad, so dragging must not flood the rig
+const DEBOUNCE_MS = 250;
 
 /** The I/O switch on a card: shows on/off and switches it; the card itself only opens the settings. */
 function Switch({ on, disabled, onToggle, label, onDark }: { on: boolean; disabled?: boolean; onToggle: () => void; label: string; onDark: boolean }) {
