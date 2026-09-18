@@ -37,6 +37,8 @@ export interface ResolvedOperatorConfig {
     /** Used when the primary is unreachable (probe); null = canned on outage. */
     fallback: { provider: LlmProviderKind; baseUrl: string; model: string } | null;
     generation: LlmGeneration;
+    /** Force the matching tool on clear light / settings / memory sentences (CMS switch, default off). */
+    toolForcing: boolean;
   };
   stt: { baseUrl: string; model: string };
   tts: { baseUrl: string; voiceId: string; voiceIdMale: string; model: string; voices: VoiceCatalogEntry[] };
@@ -54,6 +56,7 @@ function envDefaults(): ResolvedOperatorConfig {
       model: config.anthropic.model,
       fallback: null,
       generation: { ...DEFAULT_GENERATION },
+      toolForcing: false,
     },
     stt: {
       baseUrl: config.speech.deepgramBaseUrl,
@@ -113,6 +116,7 @@ interface PayloadOperatorConfigDoc {
     fallbackBaseUrl?: string | null;
     fallbackModel?: string | null;
     generation?: { temperature?: number | null; topP?: number | null; maxTokens?: number | null; repetitionPenalty?: number | null; thinking?: boolean | null } | null;
+    toolForcing?: boolean | null;
   };
   stt?: { baseUrl?: string | null; model?: string | null };
   tts?: {
@@ -255,6 +259,7 @@ export class OperatorConfigProvider {
                   model: str(doc.llm.fallbackModel, doc.llm.fallbackProvider === "anthropic" ? config.anthropic.model : ""),
                 }
               : null,
+          toolForcing: doc.llm?.toolForcing === true,
           generation: {
             temperature: clampNum(doc.llm?.generation?.temperature, 0.1, 1, DEFAULT_GENERATION.temperature),
             topP: clampNum(doc.llm?.generation?.topP, 0.5, 1, DEFAULT_GENERATION.topP),

@@ -63,6 +63,16 @@ export const LlmConfig: GlobalConfig = {
       ],
     },
     {
+      name: "toolForcing",
+      type: "checkbox",
+      defaultValue: false,
+      label: "Tool-Zwang",
+      admin: {
+        description:
+          "Aus (Standard): das Modell entscheidet selbst, wann es ein Tool ruft. An: bei klaren Licht-, Einstellungs- und Erinnerungs-Sätzen erzwingt der Hub den passenden Tool-Aufruf im ersten Schritt (Schutz gegen „ist jetzt an“ ohne Aufruf, wie 2026-09-03 bei Qwen gemessen).",
+      },
+    },
+    {
       name: "generation",
       type: "group",
       label: "Generierung",

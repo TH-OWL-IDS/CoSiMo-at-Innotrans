@@ -334,7 +334,10 @@ export class CosimoAgent {
         const stepStarted = Date.now();
         let stepChars = 0;
         let stepText = "";
-        const forceTool = guard === 0 ? (memoryTrigger(text) ?? presentationTrigger(text) ?? cabinTrigger(text)) : null;
+        // Tool forcing is a CMS switch (llm-config → Tool-Zwang), off by default:
+        // the model decides on its own; on, clear light / settings / memory
+        // sentences get the matching tool forced in the first step.
+        const forceTool = guard === 0 && this.operatorConfig.get().llm.toolForcing ? (memoryTrigger(text) ?? presentationTrigger(text) ?? cabinTrigger(text)) : null;
         const { toolCalls, finish } = await turn.step((delta) => {
           stepChars += delta.length;
           stepText += delta;

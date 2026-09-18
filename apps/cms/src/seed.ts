@@ -224,8 +224,17 @@ async function seed(): Promise<void> {
   // prompt in use (instead of an empty field silently falling back to the
   // built-in). Only when empty — an operator-edited prompt is never touched.
   const agentCfg = await payload.findGlobal({ slug: "agent-config" });
-  if (agentCfg?.systemPrompt?.trim()) {
+  const stored = agentCfg?.systemPrompt?.trim() ?? "";
+  // A stored prompt that still names a tool which no longer exists is a
+  // stale copy of an older default, not an operator's edit — replace it
+  // (2026-09-18: prod kept explaining set_cabin_control after set_light).
+  const RETIRED_TOOLS = ["set_cabin_control", "start_customizer"];
+  const stale = RETIRED_TOOLS.some((t) => stored.includes(t));
+  if (stored && !stale) {
     console.log("[seed] core prompt exists: keeping the operator's text");
+  } else if (stale) {
+    await payload.updateGlobal({ slug: "agent-config", data: { systemPrompt: DEFAULT_CORE_PROMPT } });
+    console.log(`[seed] core prompt replaced: the stored text named a retired tool (${RETIRED_TOOLS.filter((t) => stored.includes(t)).join(", ")})`);
   } else {
     await payload.updateGlobal({ slug: "agent-config", data: { systemPrompt: DEFAULT_CORE_PROMPT } });
     console.log("[seed] core prompt seeded into agent-config");

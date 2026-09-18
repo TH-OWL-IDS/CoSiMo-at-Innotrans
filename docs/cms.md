@@ -35,8 +35,13 @@ Payload login). There is no other page — the operator console is
 - **The config globals** (admin group „Operations“, since 2026-09-18 five
   instead of one `operator-config`): **agent-config** — the core system
   prompt (`systemPrompt`; empty = built-in default, the rider section is
-  always appended in code); **llm-config** — provider (`anthropic` |
-  `openai-compatible`), base URL, model, fallback, generation parameters;
+  always appended in code — the seed replaces a stored copy that still
+  names a retired tool such as `set_cabin_control`, since that is a stale
+  default, not an edit); **llm-config** — provider (`anthropic` |
+  `openai-compatible`), base URL, model, fallback, generation parameters,
+  **Tool-Zwang** (off by default: the model decides when to call a tool;
+  on: clear light / settings / memory sentences get the matching tool
+  forced in the first step);
   **speech-config** — STT and TTS endpoints, models, the default voice ids;
   **voices** — the voice catalog (per language, order = defaults);
   **cabin-config** — the LPU-2's address on the cabin LAN (as the *iPads*
