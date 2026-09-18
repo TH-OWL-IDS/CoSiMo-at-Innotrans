@@ -121,8 +121,9 @@ function templatedConfirmation(actions: TurnAction[], lang: Locale, terse = fals
   const lights = actions.filter((a) => a.tool === "set_light");
   if (lights.length) {
     const last = lights[lights.length - 1]!;
-    const args = (last.args ?? {}) as { scene?: string; sceneLabel?: string; dim?: string; dimPct?: number; group?: { id?: string; on?: boolean; intensity?: number } };
-    if (args.dim) parts.push(de ? `Gern, etwas ${args.dim === "darker" ? "dunkler" : "heller"}.` : `Sure, a bit ${args.dim === "darker" ? "darker" : "brighter"}.`);
+    const args = (last.args ?? {}) as { scene?: string; sceneLabel?: string; already?: boolean; dim?: string; dimPct?: number; group?: { id?: string; on?: boolean; intensity?: number } };
+    if (args.already) parts.push(args.scene === "off" ? (de ? "Das Licht ist schon aus." : "The light is already off.") : (de ? `Das Licht ist schon an${args.sceneLabel && args.sceneLabel !== "frei" ? `, auf „${args.sceneLabel}"` : ""}.` : `The light is already on${args.sceneLabel && args.sceneLabel !== "frei" ? `, on "${args.sceneLabel}"` : ""}.`));
+    else if (args.dim) parts.push(de ? `Gern, etwas ${args.dim === "darker" ? "dunkler" : "heller"}.` : `Sure, a bit ${args.dim === "darker" ? "darker" : "brighter"}.`);
     else if (args.scene === "off") parts.push(de ? "Gern, das Licht ist aus." : "Sure, the light is off.");
     else if (args.scene) parts.push(de ? `Gern, das Licht steht jetzt auf „${args.sceneLabel ?? args.scene}".` : `Sure, the light is now "${args.sceneLabel ?? args.scene}".`);
     else if (args.group) {
@@ -204,6 +205,7 @@ export class CosimoAgent {
         journeyLine(this.telemetry.get(), this.hub.riderOf(sessionId)?.accommodations.language ?? "de"),
         undefined,
         this.hub.currentLight().scenes,
+        this.lightNow(),
       ),
       turns: this.recorder.get(sessionId)?.turns ?? [],
     };
@@ -299,6 +301,7 @@ export class CosimoAgent {
       journeyLine(this.telemetry.get(), lang),
       lang,
       this.hub.currentLight().scenes,
+      this.lightNow(),
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or
@@ -728,7 +731,15 @@ export class CosimoAgent {
       journeyLine(this.telemetry.get(), "de"),
       undefined,
       this.hub.currentLight().scenes,
+      this.lightNow(),
     );
+  }
+
+  /** The cabin light in one phrase for the prompt: "Gemütlich (gedimmt 75 %)", "aus", "frei". */
+  private lightNow(): string {
+    const l = this.hub.currentLight();
+    const label = l.scene === "off" ? "aus" : l.scene ? l.scenes.find((s) => s.key === l.scene)?.label ?? l.scene : "frei (einzelne Gruppen verstellt)";
+    return l.dim !== 1 && l.scene && l.scene !== "off" ? `${label}, gedimmt auf ${Math.round(l.dim * 100)} %` : label;
   }
 
   /** Console "Testen": one short generation on the live route, no seat. */

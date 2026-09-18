@@ -322,6 +322,15 @@ export async function executeTool(
           const map: Record<string, string> = { aus: "off", off: "off", an: scenes[0]?.key ?? "", on: scenes[0]?.key ?? "" };
           const key = map[sceneWord] ?? scenes.find((s) => s.key === sceneWord || s.label.toLowerCase() === sceneWord)?.key;
           if (!key) return { text: `error: unknown scene "${sceneWord}" — valid: ${scenes.map((s) => s.key).join(", ")}, aus, heller, dunkler`, action: { tool: name } };
+          const lit = light.scene !== "off" && LIGHT_GROUPS.some((g) => light.groups[g]?.on);
+          if ((sceneWord === "an" || sceneWord === "on") && lit) {
+            // "mach das Licht an" while it is on: nothing to do — say so, keep the scene
+            const cur = light.scene ? scenes.find((s) => s.key === light.scene)?.label ?? light.scene : "frei";
+            return { text: `ok: the light is already on (${cur}) — nothing changed; tell the rider it is already on`, action: { tool: name, args: { scene: "an", already: true, sceneLabel: cur } } };
+          }
+          if (light.scene === "off" && (sceneWord === "aus" || sceneWord === "off")) {
+            return { text: "ok: the light is already off — nothing changed; tell the rider", action: { tool: name, args: { scene: "off", already: true } } };
+          }
           req = { scene: key };
         }
       } else if (group) {

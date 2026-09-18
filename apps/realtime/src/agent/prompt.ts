@@ -213,7 +213,7 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale, scenes: LightScene[] = []): string {
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale, scenes: LightScene[] = [], lightNow?: string): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
@@ -246,6 +246,7 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
         "Für set_light scene=<key> (Reihenfolge = die Taste am Panel):",
         ...scenes.map((s) => `- ${s.key}: „${s.label}"`),
         "Dazu immer: aus (alles aus), heller / dunkler (dimmt die aktuelle Szene eine Stufe, schaltet nie aus).",
+        ...(lightNow ? [`Gerade: ${lightNow}. Ist das Licht schon so, wie gewünscht, sag das statt zu schalten.`] : []),
       ]
     : [];
 
