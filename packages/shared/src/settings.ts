@@ -1,4 +1,4 @@
-import type { Accommodations } from "./persona.js";
+import { DEFAULT_VOICE_GENDER, type Accommodations } from "./persona.js";
 import type { Locale } from "./telemetry.js";
 
 /**
@@ -52,7 +52,7 @@ export const SETTINGS_DEFAULTS: Pick<Accommodations, "theme" | "character" | "te
   volume: 1,
   speechRate: 1,
   voice: "",
-  voiceGender: "female",
+  voiceGender: DEFAULT_VOICE_GENDER,
   voiceTone: "neutral",
 };
 

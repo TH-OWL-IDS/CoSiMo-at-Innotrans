@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { TEXT_SCALE, normalizeCharacter, normalizeTextSize, type CharacterId, type Locale } from "@cosimo/shared";
+import { DEFAULT_VOICE_GENDER, TEXT_SCALE, normalizeCharacter, normalizeTextSize, type CharacterId, type Locale } from "@cosimo/shared";
 import { schemeById, type ColorScheme } from "@cosimo/face";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { usePushToTalk, type NativeDictation } from "./usePushToTalk.js";
@@ -65,7 +65,7 @@ export function useSeat(
   const speakAloud = acc?.audioOutput ?? true;
   const speechRate = acc?.speechRate ?? 1;
   const volume = acc?.volume ?? 1;
-  const voiceGender = acc?.voiceGender ?? "female";
+  const voiceGender = acc?.voiceGender ?? DEFAULT_VOICE_GENDER;
   const reduceMotion = acc?.reduceMotion ?? false;
   const serverStt = cosimo.status?.serverStt ?? false;
   const serverTts = cosimo.status?.serverTts ?? false;

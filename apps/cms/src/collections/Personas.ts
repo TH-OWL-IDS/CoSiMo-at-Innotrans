@@ -1,4 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from "payload";
+import { DEFAULT_VOICE_GENDER } from "@cosimo/shared";
 
 /** True when the request carries the shared server-to-server internal key. */
 function hasInternalKey(req: PayloadRequest): boolean {
@@ -277,7 +278,7 @@ export const Personas: CollectionConfig = {
             {
               name: "voiceGender",
               type: "select",
-              defaultValue: "female",
+              defaultValue: DEFAULT_VOICE_GENDER,
               admin: { description: "Welche der konfigurierten Stimmen spricht (Voice-IDs: Operator-Config → TTS)." },
               options: [
                 { label: "Weiblich", value: "female" },

@@ -16,6 +16,7 @@ import {
   type SeatSettingsOpen,
   type SettingsSection,
   type VoiceTone,
+  DEFAULT_VOICE_GENDER,
 } from "@cosimo/shared";
 import { CHARACTERS, schemes as SCHEMES, type ColorScheme } from "@cosimo/face";
 import { Chip, SlitGrid, TAP } from "./SlitCard.js";
@@ -298,7 +299,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
             <Chip key={v.key} label={v.label} ink={ink} textScale={textScale} active={acc?.voice === v.key} onTap={() => change({ voice: v.key })} />
           ))
         : (["female", "male"] as const).map((g) => (
-            <Chip key={g} label={g === "female" ? (de ? "Weiblich" : "Female") : de ? "Männlich" : "Male"} ink={ink} textScale={textScale} active={(acc?.voiceGender ?? "female") === g && !acc?.voice} onTap={() => change({ voiceGender: g })} />
+            <Chip key={g} label={g === "female" ? (de ? "Weiblich" : "Female") : de ? "Männlich" : "Male"} ink={ink} textScale={textScale} active={(acc?.voiceGender ?? DEFAULT_VOICE_GENDER) === g && !acc?.voice} onTap={() => change({ voiceGender: g })} />
           ));
       break;
     case "voice.tone":

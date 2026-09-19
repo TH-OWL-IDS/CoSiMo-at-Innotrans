@@ -5,7 +5,7 @@
  * synthesis. The interface keeps the vendor swappable.
  */
 
-import { VOICE_TONE_STABILITY, type Locale, type VoiceCatalogEntry, type VoiceTone } from "@cosimo/shared";
+import { DEFAULT_VOICE_GENDER, VOICE_TONE_STABILITY, type Locale, type VoiceCatalogEntry, type VoiceTone } from "@cosimo/shared";
 import { config } from "../config.js";
 import type { OperatorConfigProvider } from "../agent/operatorConfig.js";
 
@@ -61,7 +61,7 @@ export class ElevenLabsTts implements TtsProvider {
     // A German rider asking for "eine Frau" gets a German female voice, an
     // English rider an English one. Anything unresolvable stays on the
     // default voice, never fails.
-    const gender = voice?.gender ?? "female";
+    const gender = voice?.gender ?? DEFAULT_VOICE_GENDER;
     const pool = voices.filter((v) => v.language === lang);
     const byKey = voice?.voiceKey ? voices.find((v) => v.key === voice.voiceKey)?.voiceId : undefined;
     const byGender =

@@ -28,6 +28,7 @@ import {
   type MonoCabTelemetry,
   type PersonaBroadcast,
   type PersonaKey,
+  DEFAULT_VOICE_GENDER,
   type PipelinePhase,
   type RiderContext,
   type SeatCard,
@@ -86,7 +87,7 @@ const DEFAULT_PERSONA_BROADCAST: PersonaBroadcast = {
     reduceMotion: false,
     input: "both",
     volume: 1,
-    voiceGender: "female",
+    voiceGender: DEFAULT_VOICE_GENDER,
     voiceTone: "neutral",
   },
 };

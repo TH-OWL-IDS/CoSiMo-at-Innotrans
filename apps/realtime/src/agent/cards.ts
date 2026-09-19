@@ -6,6 +6,7 @@ import {
   type Locale,
   type SeatCard,
   type VoiceCatalogEntry,
+  DEFAULT_VOICE_GENDER,
 } from "@cosimo/shared";
 
 /**
@@ -101,7 +102,7 @@ export function settingsSpoken(
   }
   if (patch.voice !== undefined || patch.voiceGender !== undefined) {
     if (patch.voice === "" && patch.voiceGender === undefined) {
-      return { patch: { voice: "", voiceGender: before.voiceGender ?? "female" }, spoken: g ? "So klinge ich jetzt." : "This is how I sound now." };
+      return { patch: { voice: "", voiceGender: before.voiceGender ?? DEFAULT_VOICE_GENDER }, spoken: g ? "So klinge ich jetzt." : "This is how I sound now." };
     }
     if (patch.voice) {
       const v = voices.find((x) => x.key === patch.voice);

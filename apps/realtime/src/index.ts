@@ -31,6 +31,7 @@ import { logger } from "./log/logger.js";
 import { TOOL_DEFINITIONS } from "./agent/tools.js";
 import { greetingFor } from "./agent/prompt.js";
 import { guestHello } from "./agent/canned.js";
+import { DEFAULT_VOICE_GENDER } from "@cosimo/shared";
 
 const app = express();
 const httpServer = createServer(app);
@@ -166,7 +167,7 @@ hub.onSpeechTest(async (kind, opts) => {
     const t0 = Date.now();
     const entry = opts?.voice ? cfg.tts.voices.find((v) => v.key === opts.voice) : undefined;
     if (opts?.voice && !entry) return fail(`Stimme „${opts.voice}“ nicht im Katalog`);
-    const audio = await tts.synthesize(TEST_SENTENCE, "de", { rate: 1, gender: entry?.gender ?? "female", tone: "neutral", voiceKey: entry?.key });
+    const audio = await tts.synthesize(TEST_SENTENCE, "de", { rate: 1, gender: entry?.gender ?? DEFAULT_VOICE_GENDER, tone: "neutral", voiceKey: entry?.key });
     const ttsMs = Date.now() - t0;
     if (!audio) return fail("keine Audioantwort", ttsMs);
     const buf = Buffer.from(audio.audioBase64, "base64");

@@ -9,7 +9,7 @@
  * large text — broadcast to the iPads as a PersonaBroadcast).
  */
 
-import { normalizeTextSize, type Accommodations, type Persona, type PersonaBroadcast, type PersonaKey, type PersonaMemory, DEFAULT_TRAITS, TRAIT_OPTIONS, type InteractionTraits } from "@cosimo/shared";
+import { normalizeTextSize, DEFAULT_VOICE_GENDER, type Accommodations, type Persona, type PersonaBroadcast, type PersonaKey, type PersonaMemory, DEFAULT_TRAITS, TRAIT_OPTIONS, type InteractionTraits } from "@cosimo/shared";
 import { config } from "../config.js";
 
 /** Sensible accommodation defaults; presets override only what differs. */
@@ -25,7 +25,7 @@ function accommodations(over: Partial<Accommodations> = {}): Accommodations {
     reduceMotion: false,
     input: "both",
     volume: 1,
-    voiceGender: "female",
+    voiceGender: DEFAULT_VOICE_GENDER,
     voiceTone: "neutral",
     ...over,
   };

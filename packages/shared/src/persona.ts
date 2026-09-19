@@ -97,6 +97,11 @@ export interface Accommodations {
   voice?: string;
 }
 
+/** The standard voice's gender — what a profile without a voice of its own
+ *  speaks with (the first catalog voice of that gender in the reply language),
+ *  the reset target of the settings menu, and every "no value" fallback. */
+export const DEFAULT_VOICE_GENDER: "female" | "male" = "male";
+
 /** One voice in the operator's catalog (CMS-editable, injected into the
  *  system prompt so CoSiMo can match "eine tiefere Stimme bitte" to a key). */
 export interface VoiceCatalogEntry {

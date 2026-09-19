@@ -67,8 +67,10 @@ the CMS labels it „Farbe"), `textSize`
 (s/m/l — `l` is the largest the slit holds and the default; old rows saying
 `xl` are read as `l`), `audioOutput`, `speechRate`, `showText`,
 `reduceMotion`, `input` (voice/text/both), plus the voice itself: `volume`
-(0–1, playback-side — „leiser bitte"), `voiceGender` (female/male — a second
-ElevenLabs voice id, `voiceIdMale` in speech-config), `voiceTone`
+(0–1, playback-side — „leiser bitte"), `voiceGender` (female/male; the standard is
+male — `DEFAULT_VOICE_GENDER` in shared, the `default` profile, the menu's
+reset and every empty-value fallback; the first catalog voice of that
+gender in the reply language speaks, else `voiceIdMale` in speech-config), `voiceTone`
 (neutral/warm/ruhig/lebhaft — mapped to ElevenLabs `stability`;
 „freundlicher" → warm). All are deterministic, client-applied, and
 **voice-mutable** (see Tools).

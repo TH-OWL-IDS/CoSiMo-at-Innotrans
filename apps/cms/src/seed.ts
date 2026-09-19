@@ -9,7 +9,7 @@
  */
 
 import { getPayload } from "payload";
-import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES, sceneToRow } from "@cosimo/shared";
+import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES, DEFAULT_VOICE_GENDER, sceneToRow } from "@cosimo/shared";
 import config from "./payload.config.js";
 
 /** Shape of a seeded profile (the default clean plate + mockup riders). */
@@ -58,7 +58,7 @@ const personas: ProfileSeed[] = [
     accommodations: {
       language: "de", theme: "weiss", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
-      volume: 1, voiceGender: "female", voiceTone: "neutral",
+      volume: 1, voiceGender: DEFAULT_VOICE_GENDER, voiceTone: "neutral",
     },
   },
 ];

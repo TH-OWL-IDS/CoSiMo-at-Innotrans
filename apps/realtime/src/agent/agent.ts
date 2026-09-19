@@ -21,6 +21,7 @@ import {
   type SeatInspection,
   type TurnAction,
   type TurnOutcome,
+  DEFAULT_VOICE_GENDER,
 } from "@cosimo/shared";
 import type { Hub } from "../hub.js";
 import { buildSystemPrompt, detectLang, journeyLine } from "./prompt.js";
@@ -655,7 +656,7 @@ export class CosimoAgent {
         const acc = accNow();
         return {
           rate: acc.speechRate ?? 1,
-          gender: acc.voiceGender ?? "female",
+          gender: acc.voiceGender ?? DEFAULT_VOICE_GENDER,
           tone: acc.voiceTone ?? "neutral",
           voiceKey: acc.voice,
         };
