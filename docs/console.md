@@ -44,6 +44,26 @@ via the URL hash):
   the tab label shows the active-seat count.
 - **Logs** — the structured debug stream (see below). The persona pickers are built from
 `host:personas`, pushed by the hub — no CMS query.
+- **Hilfe** (`#hilfe`, `HelpPage.tsx`) — the technical page for the booth
+  staff, in German: the system picture (`SystemDiagram.tsx`, inline SVG on
+  the CI variables), who is reachable where, what may fail; the set-up
+  checklist per iPad, cabin and console; the morning routine with live
+  chips; a troubleshooting list (symptom → check → fix) whose entries read
+  the hub's state through `diagnose.ts` — an entry that applies right now
+  says „trifft gerade zu" and the top of the list is the current findings —
+  with jump buttons into the other views; how to read a turn in the log; a
+  glossary. Content facts come from the code and `docs/`, not from the CMS.
+- **Demo** (`#demo`, `DemoPage.tsx`) — the cheat sheet for the people
+  showing CoSiMo to visitors: what it is, how a visitor operates the seat,
+  example utterances (de/en) per topic, the rider cards as a table built
+  live from `host:personas` (story, what changes visibly, conversation
+  style), three one-minute demo routines, what CoSiMo cannot do, and the
+  three moves when something sticks. Both pages carry a print button
+  (`@media print` in `index.css` hides the header, sub-nav and buttons) so
+  the sheet can lie on the counter. The reading primitives (`doc.tsx`:
+  Section, SubNav, Steps, Symptom, Say, Table, Term …) are TSX on the
+  `@cosimo/ui` tokens — no markdown renderer, so the pages can read live
+  state.
 
 ## Styling
 

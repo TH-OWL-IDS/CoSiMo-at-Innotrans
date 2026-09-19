@@ -39,9 +39,11 @@ import {
   DoorOpen,
   Gauge,
   CircleCheck,
+  CircleHelp,
   Play,
   Pause,
   Lightbulb,
+  Presentation,
 } from "lucide-react";
 import {
   CABIN_CONTROLS,
@@ -65,6 +67,9 @@ import { Brand, Button, Card, Chip, CodeChip, Dot, Eyebrow, KeyValue, SeatGlyph,
 import { resolveServerUrl } from "./serverUrl";
 import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
 import LightPage from "./LightPage";
+import HelpPage from "./HelpPage";
+import DemoPage from "./DemoPage";
+import type { Tab } from "./tabs";
 
 /**
  * Die Konsole — the live operator surface, three views behind one header:
@@ -1007,12 +1012,13 @@ function SessionsTab({ c, onShowLogs }: { c: CosimoState; onShowLogs: (deviceId:
  * Shell — header with the view switcher
  * ──────────────────────────────────────────────────────────────── */
 
-type Tab = "uebersicht" | "licht" | "sessions" | "logs";
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "uebersicht", label: "Übersicht", icon: LayoutDashboard },
   { id: "licht", label: "Licht", icon: Lightbulb },
   { id: "sessions", label: "Sessions", icon: Armchair },
   { id: "logs", label: "Logs", icon: ScrollText },
+  { id: "hilfe", label: "Hilfe", icon: CircleHelp },
+  { id: "demo", label: "Demo", icon: Presentation },
 ];
 
 /**
@@ -1141,7 +1147,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
     <main className="min-h-screen bg-bg text-ink">
       {/* ── the header: wordmark centred, the hamburger on the right; the empty
              left zone is its counterweight. `relative` anchors the menu's clip box. ── */}
-      <header className="relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-3 shadow-card sm:px-10 lg:px-16">
+      <header className="print-hide relative sticky top-0 z-header flex items-center gap-4 border-b border-line bg-white px-6 py-3 shadow-card sm:px-10 lg:px-16">
         <div className="flex-1" />
         <h1 className="m-0 text-2xl font-semibold">
           <a href="#uebersicht" aria-label="CoSiMo Konsole — zur Übersicht" onClick={(e) => { e.preventDefault(); switchTab("uebersicht"); }} className="inline-flex text-ink no-underline">
@@ -1160,6 +1166,8 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
         {tab === "licht" && <LightPage c={c} cfg={c.hostConfig} lightOk={st?.light} onClearLogs={c.clearLogs} onReplayLogs={() => c.replayLogs()} />}
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
+        {tab === "hilfe" && <HelpPage c={c} go={switchTab} showLogsFor={showLogsFor} />}
+        {tab === "demo" && <DemoPage c={c} go={switchTab} />}
       </div>
 
       {(c.reloadRequired || c.evicted) && (

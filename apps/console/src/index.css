@@ -2,6 +2,16 @@
    see packages/ui/src/styles.css. Console-only rules go below. */
 @import "@cosimo/ui/styles.css";
 
+/* Print: the Hilfe and Demo views double as hand-outs. The header, the
+   sub-navigation and the jump buttons go; cards stay on one page. */
+@media print {
+  .print-hide { display: none !important; }
+  main { background: white; }
+  section { break-inside: auto; }
+  section > * { break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+
 /* The view menu slides out from beneath the sticky header. */
 @keyframes menu-down {
   from { transform: translateY(-100%); }

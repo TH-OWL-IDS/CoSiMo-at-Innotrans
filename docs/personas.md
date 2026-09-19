@@ -164,9 +164,10 @@ Each rider profile lists **NFC chip ids**. A scan resolves the chip →
 `setPersonaForDevice` switches *that seat only*, and CoSiMo greets the rider by
 name **in their own preferred language**; unknown chips get a friendly refusal
 (`apps/realtime/src/index.ts`). A card tap also barges in on any running turn.
-The seed ships five mockup riders with typeable chips (`ANNA1`, `BRUNO1`,
-`CLARA1`, `DAVID1`, `EMIL1`) — simulate a scan by typing `[` + chip id +
-`Enter` into a focused kiosk, or via a socket `nfc:register`.
+The seed ships four mockup riders with typeable chips (`ALEX1`, `NOA1`,
+`LUCA1`, `SAM1`; the older ANNA…EMIL set is retired and deleted by the
+seed) — simulate a scan by typing `[` + chip id + `Enter` into a focused
+kiosk, or via a socket `nfc:register`.
 
 ## Degrades, never dies
 
