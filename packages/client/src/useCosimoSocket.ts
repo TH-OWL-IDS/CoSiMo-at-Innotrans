@@ -436,6 +436,7 @@ export function useCosimoSocket(
       // `volume` is silently ignored. `resume()` is async, so give a just-
       // unlocked context a beat to reach "running" before deciding; otherwise
       // the first clip after boot plays unrouted at full volume on the iPad.
+      const stopToken = stopCountRef.current;
       void (async () => {
         try {
           const an = ensureAnalyser();
@@ -443,6 +444,8 @@ export function useCosimoSocket(
           if (an && ctx && ctx.state !== "running") {
             await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 200))]);
           }
+          // a barge-in landed while we waited: this clip must not start
+          if (stopCountRef.current !== stopToken) return;
           if (an && ctx?.state === "running") {
             const src = ctx.createMediaElementSource(audio);
             src.connect(an);
@@ -472,8 +475,23 @@ export function useCosimoSocket(
   // the turn a barge-in cut: its clips still in flight are dropped, not
   // played as if they were a new turn's (the "-2" reset made them look new)
   const cutTurnRef = useRef(-1);
+  // bumped on every stop: a clip whose start was still waiting for the
+  // AudioContext (up to 200 ms) sees it and never plays
+  const stopCountRef = useRef(0);
   const stopPlayback = () => {
-    audioRef.current?.pause();
+    stopCountRef.current++;
+    const a = audioRef.current;
+    if (a) {
+      // pause is not enough on the iPad: the dictation's audio-session change
+      // counts as a system interruption, and when it ends WebKit resumes a
+      // merely paused element — the reply spoke on after release. Unload it.
+      a.onended = null;
+      a.onerror = null;
+      a.onplay = null;
+      a.pause();
+      a.removeAttribute("src");
+      try { a.load(); } catch { /* nothing to load — fine */ }
+    }
     audioRef.current = null;
     analysingRef.current = false;
     const q = ttsQueueRef.current;
