@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { mouthDriveStep, newMouthDriveState } from "./mouthDrive.js";
 import type {
   CabinControlId,
   CabinActuation,
@@ -355,7 +356,8 @@ export function useCosimoSocket(
   /** True while the current clip is wired into the analyser. */
   const analysingRef = useRef(false);
   /** Attack/release-smoothed envelope, kept across getter calls. */
-  const envelopeRef = useRef(0);
+  // the envelope / calibration state (see mouthDrive.ts); reset per clip
+  const driveRef = useRef(newMouthDriveState());
 
   /** Create/resume the AudioContext. Call from user-gesture paths — WKWebView
    *  keeps a context suspended until a gesture unlocks it. */
@@ -445,7 +447,7 @@ export function useCosimoSocket(
             const src = ctx.createMediaElementSource(audio);
             src.connect(an);
             analysingRef.current = true;
-            envelopeRef.current = 0;
+            driveRef.current = newMouthDriveState();
             // Routed: the gain node is the volume, the element must stay at 1
             // (desktop would otherwise apply both — volume squared).
             if (gainRef.current) {
@@ -698,10 +700,6 @@ export function useCosimoSocket(
       sum += v * v;
     }
     const rms = Math.sqrt(sum / timeBuf.length);
-    const target = Math.min(1, Math.pow(Math.max(0, rms - 0.02) * 5, 0.8));
-    const prev = envelopeRef.current;
-    const level = prev + (target - prev) * (target > prev ? 0.55 : 0.18);
-    envelopeRef.current = level;
 
     // Brightness: energy above ~1 kHz vs below → bright "iii" (wide mouth)
     // against dark "ooo" (round mouth). Bin width ≈ sampleRate / fftSize.
@@ -713,9 +711,7 @@ export function useCosimoSocket(
     let high = 0;
     for (let i = 1; i < split; i++) low += freqBuf[i]!;
     for (let i = split; i < top; i++) high += freqBuf[i]!;
-    const tilt = low + high > 0 ? high / (low + high) : 0.5;
-
-    return { open: level, tilt };
+    return mouthDriveStep(driveRef.current, rms, low, high);
   }, []);
 
   const overrideLight = (deviceId: string, control: CabinControlId, on: boolean) =>

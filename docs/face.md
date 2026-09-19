@@ -82,6 +82,10 @@ server's emotion says what CoSiMo feels; playback timing says when the mouth
 moves. Server and client stay decoupled, and the lips match the voice even
 with variable TTS latency. On top of the timing, `getMouthDrive()` exposes
 the playing clip's live loudness + brightness (Web Audio `AnalyserNode`,
+self-calibrated per clip in `mouthDrive.ts`: loudness against the clip's
+own running peak, brightness as the deviation from its running mean — so a
+female voice, with less low-band energy and more above 1 kHz, moves the
+mouth as fully as a male one;
 attack/release-smoothed) so the face can shape the mouth to the voice; the
 AudioContext is unlocked on the talk gesture (WKWebView rule).
 
