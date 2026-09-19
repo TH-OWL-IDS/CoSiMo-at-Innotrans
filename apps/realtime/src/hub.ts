@@ -1071,11 +1071,8 @@ export class Hub {
       const deviceId = this.trackSession(socket, sessionId);
       this.countEvent("ptt:start", deviceId);
       const entry = this.devices.get(deviceId);
-      if (entry) {
-        entry.active = true;
-        entry.lastActivity = Date.now();
-        if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
-      }
+      // pressing talk IS "continue without a card": the check-in leaves
+      if (entry) this.markActive(entry, deviceId, "input");
       this.interruptHandler?.({ deviceId, sessionId });
       this.emitPhase("listening", sessionId);
       this.setEmotion("listening", sessionId);
