@@ -99,7 +99,7 @@ const users: ProfileSeed[] = [
     brief: "Noa, 25, verarbeitet Informationen lieber über Bilder, Symbole und kurze Texte und meidet Sprache in lauten Umgebungen. Antworten kurz und so, dass sie als Text im Schlitz funktionieren; nur bei Bedarf ausführlicher sprechen. Ruhige, kontrastreiche Oberfläche.",
     accommodations: {
       language: "de", theme: "dunkel", character: "circle", textSize: "l", input: "both",
-      audioOutput: true, speechRate: 1, showText: true, reduceMotion: true,
+      audioOutput: true, speechRate: 1, showText: true, reduceMotion: false,
       volume: 0.6, voiceGender: "female", voiceTone: "ruhig",
     },
     traits: { modality: "visual-first", pace: "normal", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
@@ -138,7 +138,7 @@ const users: ProfileSeed[] = [
     // en-US) and answers in English, with an English voice from the catalog
     brief: "Sam, 33, commutes daily, uses digital tools with routine and wants to get going at once. Speak English. The essentials first — usually the next station and the time; as few steps as possible, no follow-up questions, no offers. The interaction is over after a few seconds.",
     accommodations: {
-      language: "en", theme: "gelb", character: "line", textSize: "l", input: "both",
+      language: "en", theme: "gelb", character: "blob", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
       volume: 1, voiceGender: "male", voice: "daniel", voiceTone: "warm",
     },

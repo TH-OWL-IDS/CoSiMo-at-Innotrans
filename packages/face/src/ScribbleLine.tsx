@@ -28,7 +28,9 @@ interface LineParams {
 const LINE_STATES: Record<FaceEmotion, LineParams> = {
   neutral: { amp: 7, freq: 2.2, phase: 1.3, droop: 0.06, spike: 0, swell: 0, tangle: 0, posY: 0, tilt: 0 },
   happy: { amp: 15, freq: 2.7, phase: 1.3, droop: 0, spike: 0, swell: 0, tangle: 0, posY: -4, tilt: -2 },
-  thinking: { amp: 2.5, freq: 1.6, phase: 1.3, droop: 0, spike: 0, swell: 0, tangle: 1, posY: -2, tilt: 2 },
+  // thinking: quiet and flat — the circle's rim dot already says "thinking",
+  // the former thought-knot (a spinning spiral) read as a loading spinner
+  thinking: { amp: 2, freq: 1.4, phase: 1.3, droop: 0, spike: 0, swell: 0, tangle: 0, posY: -2, tilt: 2 },
   listening: { amp: 4.5, freq: 5.5, phase: 1.3, droop: 0, spike: 0, swell: 0, tangle: 0, posY: 0, tilt: 0 },
   speaking: { amp: 11, freq: 3.4, phase: 1.3, droop: 0, spike: 0, swell: 0, tangle: 0, posY: 0, tilt: 0 },
   sleeping: { amp: 1.4, freq: 2, phase: 1.3, droop: 0, spike: 0, swell: 1, tangle: 0, posY: 12, tilt: 0 },
@@ -86,6 +88,7 @@ function withAmbient(p: LineParams, emotion: FaceEmotion, t: number): LineParams
       break;
     case "thinking":
       q.phase += t * 0.3;
+      q.amp *= 1 + 0.2 * Math.sin(t * 0.9); // a slow, thoughtful pulse
       break;
     case "listening":
       q.phase -= t * 3.2;
@@ -121,9 +124,13 @@ export default function ScribbleLine({
 }: ScribbleEntityProps & { mouthDrive?: MouthDrive; gazeDrive?: unknown }) {
   const duration = transitionMs ?? (IN_TEST ? 0 : 350);
   const tweened = useTweenedParams(LINE_STATES[emotion], duration);
-  const t = useAmbientClock(idle && !IN_TEST);
+  // the frame clock runs for the idle physics AND for the voice rig — with
+  // reduced motion the idle physics stay off, but the form still follows the
+  // voice (otherwise it would freeze while speaking)
+  const speakingWithVoice = emotion === "speaking" && Boolean(mouthDrive);
+  const t = useAmbientClock((idle || speakingWithVoice) && !IN_TEST);
   const voice = useVoice(mouthDrive, emotion === "speaking");
-  const p = withVoice(withAmbient(tweened, emotion, t), voice);
+  const p = withVoice(idle ? withAmbient(tweened, emotion, t) : tweened, voice);
   const knotSpin = emotion === "thinking" ? t * 40 : 0;
 
   return (

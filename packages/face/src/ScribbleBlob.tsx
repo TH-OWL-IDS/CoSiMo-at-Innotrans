@@ -127,9 +127,13 @@ export default function ScribbleBlob({
 }: ScribbleEntityProps & { mouthDrive?: MouthDrive; gazeDrive?: unknown }) {
   const duration = transitionMs ?? (IN_TEST ? 0 : 350);
   const tweened = useTweenedParams(BLOB_STATES[emotion], duration);
-  const t = useAmbientClock(idle && !IN_TEST);
+  // the frame clock runs for the idle physics AND for the voice rig — with
+  // reduced motion the idle physics stay off, but the form still follows the
+  // voice (otherwise it would freeze while speaking)
+  const speakingWithVoice = emotion === "speaking" && Boolean(mouthDrive);
+  const t = useAmbientClock((idle || speakingWithVoice) && !IN_TEST);
   const voice = useVoice(mouthDrive, emotion === "speaking");
-  const p = withVoice(withAmbient(tweened, emotion, t), voice);
+  const p = withVoice(idle ? withAmbient(tweened, emotion, t) : tweened, voice);
 
   const bodyTransform =
     `translate(${C.x + p.posX} ${C.y + p.posY}) rotate(${p.tilt})` +
