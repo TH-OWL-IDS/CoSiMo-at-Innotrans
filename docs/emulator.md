@@ -37,16 +37,16 @@ re-implementing it.
 
 ## The side panel replaces the hardware
 
+The **legend** is always on the page, top left, not behind the lock: the two
+rider keys (`S` hold = talk, `I` = info) and a **profile switcher** over
+every persona the hub knows (`host:personas` goes to browser seats too),
+the default profile marked "(Standard)". Choosing one is `session:login`,
+handled like a card scan — the circle's check-in, greeting, language,
+colours, Gestalt and voice all follow; the empty entry ("ausgecheckt")
+checks out like the silence timeout.
+
 Behind the corner handle and the operator password (2026-09-19 layout):
 
-- **Left, the legend** — every input the stand's hardware sends, with the
-  keyboard standing in: `S` hold = talk, `I` = info, `L` = next light
-  scene, `#ID⏎` = card scan, slit 3 s = the iPad's operator menu, `Esc`
-  closes. Beneath it the **check-in dropdown**: the authored profiles (the
-  hub sends `host:personas` to browser seats too), "Ohne Anmeldung" (the
-  guest chip) and **auschecken** — `session:login` is handled like a card
-  scan / the silence timeout, so the circle's check-in, the greeting,
-  language, colours, Gestalt and voice all follow.
 - **Right, the panel** — hold-to-talk and the info / light buttons; which
   STT/TTS path is live plus the live dictation text; a text field instead
   of the voice; any chip id (unknown ones included); the cabin light state

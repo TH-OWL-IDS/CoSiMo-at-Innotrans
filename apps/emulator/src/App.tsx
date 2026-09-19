@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
 import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat, useHidInput } from "@cosimo/seat-ui";
-import { LockKeyhole, LogOut, X } from "lucide-react";
+import { LockKeyhole, X } from "lucide-react";
 import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
 
 /** SHA-256 of the operator password — the console's page lock uses the same. */
@@ -155,47 +155,32 @@ export default function App() {
       )}
 
 
-      {/* ── the legend, docked left while the panel is open: every input the
-             stand's hardware sends (the keyboard stands in for it), and the
-             check-in — the same thing a card scan does — as a dropdown. ── */}
-      {open && unlocked && (
-        <aside
-          aria-label="Legende"
-          className="fixed left-3 top-3 z-drawer hidden w-[280px] flex-col gap-3 rounded-xl border border-line bg-white p-4 font-mono text-md text-ink shadow-drawer md:flex"
+      {/* ── the legend, always there in the browser (the stand has real
+             buttons; here the keyboard stands in): the two rider keys and a
+             switcher over every profile — choosing one is a card scan, the
+             empty entry checks out like the silence timeout. ── */}
+      <aside
+        aria-label="Legende"
+        className="fixed left-3 top-3 z-drawer flex w-[240px] flex-col gap-2.5 rounded-xl border border-line bg-white/95 p-3 font-mono text-md text-ink shadow-drawer"
+      >
+        <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+          <dt><kbd className="rounded border border-line-strong bg-well px-1.5">S</kbd> halten</dt><dd className="m-0">sprechen</dd>
+          <dt><kbd className="rounded border border-line-strong bg-well px-1.5">I</kbd></dt><dd className="m-0">Info</dd>
+        </dl>
+        <select
+          aria-label="Profil"
+          className="rounded-lg border border-line-strong bg-white px-2 py-1.5 text-sm"
+          value={cosimo.checkedIn ? cosimo.persona?.persona ?? "" : ""}
+          onChange={(e) => { const v = e.target.value; if (v) cosimo.login(v); else if (cosimo.checkedIn) cosimo.login("__checkout"); }}
         >
-          <Eyebrow size="xs">Tasten</Eyebrow>
-          <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">S</kbd> halten</dt><dd className="m-0">sprechen — loslassen sendet</dd>
-            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">I</kbd></dt><dd className="m-0">Info — die Vorstellungsfrage</dd>
-            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">L</kbd></dt><dd className="m-0">Licht — nächste Szene</dd>
-            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">#ID⏎</kbd></dt><dd className="m-0">Karte scannen, z. B. <code>#NOA1⏎</code></dd>
-            <dt>Schlitz 3 s</dt><dd className="m-0">Operator-Menü des iPads</dd>
-            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">Esc</kbd></dt><dd className="m-0">Panel schließen</dd>
-          </dl>
-          <Eyebrow size="xs" className="mt-1">Einchecken</Eyebrow>
-          <select
-            aria-label="Als Profil einchecken"
-            className="rounded-lg border border-line-strong bg-white px-2 py-1.5 text-md"
-            value={cosimo.checkedIn ? cosimo.persona?.persona ?? "" : ""}
-            onChange={(e) => { const v = e.target.value; if (v === "__guest") cosimo.checkIn(); else if (v) cosimo.login(v); }}
-          >
-            <option value="">{cosimo.checkedIn ? "— Profil wechseln —" : "— niemand eingecheckt —"}</option>
-            {cosimo.personas.filter((p) => p.persona !== "default").map((p) => (
-              <option key={p.persona} value={p.persona}>{p.label} · {p.accommodations.language === "en" ? "EN" : "DE"} · {p.accommodations.character ?? "face"}</option>
-            ))}
-            <option value="__guest">Ohne Anmeldung (Standard)</option>
-          </select>
-          <div className="flex items-center justify-between text-xs text-mute">
-            <span>{cosimo.checkedIn ? <>eingecheckt · <b className="text-ink">{cosimo.persona?.label}</b></> : "Check-in im Kreis"}</span>
-            {cosimo.checkedIn && (
-              <Button size="xs" variant="secondary" onClick={() => cosimo.login("__checkout")} title="wie nach 2 Minuten Stille"><LogOut size={12} /> auschecken</Button>
-            )}
-          </div>
-          <span className="text-xs leading-normal text-mute">
-            Ein Profil hier ist dasselbe wie die Karte am Chip: neue Sitzung, Begrüßung, Sprache, Farbe, Gestalt, Stimme. Nach 2 Minuten Stille checkt der Hub aus.
-          </span>
-        </aside>
-      )}
+          <option value="">— ausgecheckt —</option>
+          {cosimo.personas.map((p) => (
+            <option key={p.persona} value={p.persona}>
+              {p.persona === "default" ? `${p.label} (Standard)` : `${p.label} · ${p.accommodations.language === "en" ? "EN" : "DE"}`}
+            </option>
+          ))}
+        </select>
+      </aside>
       {/* ── the panel: right-side drawer on desktop, bottom sheet on a phone
              (the face stays visible above it while you hold to talk).
              Behind the password on first open; remembered for this tab. ── */}
