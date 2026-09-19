@@ -204,6 +204,8 @@ interface DeviceEntry {
   lastActivity: number;
   /** Kiosk: check the seat out after `checkoutMs` of silence (hello flag; an iPad carried around turns it off). */
   autoCheckout: boolean;
+  /** Kiosk: carried by staff — not in the cabin LAN, so never the light actuator. */
+  carried: boolean;
   /** This seat's cabin controls (per-seat reading lamp etc.). */
   controls: CabinControlState[];
   /** Physical seat position 1-4 (kiosk operator setting) — picks the
@@ -696,7 +698,7 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role, kind, token, seat, showcase, autoCheckout }) => {
+    socket.on("hello", ({ deviceId, role, kind, token, seat, showcase, autoCheckout, carried }) => {
       const resolvedKind: ClientKind = kind ?? (role === "host" ? "console" : "kiosk");
       // Consoles must present the operator password (as SHA-256); without
       // HOST_TOKEN configured (dev) everything passes. Seats and journey
@@ -719,7 +721,8 @@ export class Hub {
         phase: "idle",
         controls: freshControls(),
         active: false,
-        autoCheckout: autoCheckout !== false,
+        autoCheckout: autoCheckout !== false && carried !== true,
+        carried: carried === true,
         consent: this.defaultConsent,
         lastUser: "",
         lastReply: "",
@@ -1882,16 +1885,18 @@ export class Hub {
    */
   private pickActuator(requesterId: string | undefined): { id: string; entry: DeviceEntry } | null {
     const requester = requesterId ? this.devices.get(requesterId) : undefined;
-    if (requester && requester.role === "kiosk" && requester.kind === "kiosk") return { id: requesterId!, entry: requester };
+    // a carried iPad (staff, WLAN only) never fires: it would time out on
+    // the cabin LAN while the seat iPad next to it could switch
+    if (requester && requester.role === "kiosk" && requester.kind === "kiosk" && !requester.carried) return { id: requesterId!, entry: requester };
     // Preference: the lowest configured seat number (seat 1 sits next to
     // the staff), then healthy before slow, then longest-connected — so the
     // actuator is predictable at the stand and still fails over by itself.
     const rank = (e: DeviceEntry) => (e.seat ?? 99) * 10 + (e.health === "ok" ? 0 : 1);
     const kiosks = Array.from(this.devices)
-      .filter(([, e]) => e.kind === "kiosk" && e.health !== "lost")
+      .filter(([, e]) => e.kind === "kiosk" && e.health !== "lost" && !e.carried)
       .sort((a, b) => rank(a[1]) - rank(b[1]) || a[1].connectedAt - b[1].connectedAt);
     if (kiosks.length) return { id: kiosks[0]![0], entry: kiosks[0]![1] };
-    if (requester && requester.role === "kiosk") return { id: requesterId!, entry: requester };
+    if (requester && requester.role === "kiosk" && !requester.carried) return { id: requesterId!, entry: requester };
     return null;
   }
 

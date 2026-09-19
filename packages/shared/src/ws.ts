@@ -330,7 +330,7 @@ export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
   /** `token`: consoles send the SHA-256 of the operator password; the hub
    *  compares it with its HOST_TOKEN. Journey views and seats send none. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number; /** Kiosk: silent showcase mode (operator setting). */ showcase?: boolean; /** Kiosk: check the seat out after 2 min of silence (default true; off for an iPad carried around). */ autoCheckout?: boolean }) => void;
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number; /** Kiosk: silent showcase mode (operator setting). */ showcase?: boolean; /** Kiosk: check the seat out after 2 min of silence (default true; off for an iPad carried around). */ autoCheckout?: boolean; /** Kiosk: a carried iPad (staff, not in the cabin LAN, no seat): never the light actuator, no auto-checkout. */ carried?: boolean }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;

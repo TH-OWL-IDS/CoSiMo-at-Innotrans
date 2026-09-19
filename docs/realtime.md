@@ -179,8 +179,9 @@ or the first input (chat, consent, settings) — and emits `session:checkin`
 (`by`: nfc | guest | input), logged as `session.checkin`. The idle sweep
 (15 s) checks a seat out after `config.face.checkoutMs` (2 min) of silence
 while idle: `beginSession(deviceId, "default", "timeout")` → `session:reset`
-+ the default profile, unless the kiosk said `autoCheckout: false` in its
-hello (a carried iPad) or performs the showcase.
++ the default profile, unless the kiosk said `carried: true` in its hello
+(staff iPad: also never the light actuator — `pickActuator` skips it, as
+requester and as candidate) or performs the showcase.
 
 ## Slit cards and the settings menu (`src/agent/cards.ts`, hub `showCard` / `openSettings`)
 

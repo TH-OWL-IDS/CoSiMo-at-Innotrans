@@ -272,8 +272,8 @@ export function useCosimoSocket(
   /** Kiosks: silent showcase mode (operator setting) — the hub shows it, nothing else changes. */
   /* (see below) */
   showcase?: boolean,
-  /** Kiosks: check the seat out after 2 min of silence (default true; an iPad carried around turns it off). */
-  autoCheckout = true,
+  /** Kiosks: a carried iPad (staff) — no auto-checkout after silence, never the light actuator. */
+  carried = false,
 ): CosimoState {
   const sockRef = useRef<CosimoSocket | null>(null);
   // Stable across reloads of this tab, unique per tab: sessionStorage. A
@@ -487,7 +487,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
-      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}), ...(showcase ? { showcase: true } : {}), ...(autoCheckout ? {} : { autoCheckout: false }) });
+      socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}), ...(showcase ? { showcase: true } : {}), ...(carried ? { carried: true, autoCheckout: false } : {}) });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -629,7 +629,7 @@ export function useCosimoSocket(
       socket.close();
       sockRef.current = null;
     };
-  }, [realtimeUrl, deviceId, role, kind, token, seat, showcase, autoCheckout]);
+  }, [realtimeUrl, deviceId, role, kind, token, seat, showcase, carried]);
 
   const clearCard = () => setCard(null);
 
