@@ -23,7 +23,9 @@ app and the emulator:
   accommodation mapping (theme, text size, showText,
   reduce-motion), push-to-talk and the browser-TTS fallback.
 - `SeatView` — the markup: the black stage with the circle and slit cutouts,
-  the face, phase hint / running transcript, telemetry strip.
+  the face, the slit (wave with the phase word and the running dictation,
+  the settled line with its travelling dot while CoSiMo thinks, captions,
+  menu, telemetry strip).
   `fullscreen` is true on the iPad (the stage *is* the screen) and false in a
   browser (a centred portrait frame in the iPad mini's aspect ratio).
 - `PanelLayout` + defaults — the cutout geometry type; the iPad persists its

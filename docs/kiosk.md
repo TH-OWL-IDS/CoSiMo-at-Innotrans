@@ -17,7 +17,9 @@ The iPad sits behind a physical panel with exactly two cutouts. Everything
 outside them renders pitch black (invisible, no light bleed):
 
 - **The circle** — CoSiMo's world. Face-and-voice-first: the animated face
-  plus a short phase hint; reply *text* is progressive disclosure — only
+  (no text in the circle; the phase words "Hört zu …" / "Denkt nach …" sit
+  in the slit's lower band, and thinking is the slit's settled line with a
+  dot riding it right → left → right); reply *text* is progressive disclosure — only
   when the profile's `showText` accommodation is on does the layout flip to
   a small face above a **running transcript** (deaf / text-first riders).
   Also hosts a "connecting…" note (there is no consent screen — the privacy notice is signage at the cab). The circle is

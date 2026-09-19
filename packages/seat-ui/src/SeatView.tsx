@@ -31,7 +31,8 @@ import { IPAD_MINI_ASPECT, type PanelLayout } from "./panelLayout.js";
 import type { Seat } from "./useSeat.js";
 
 
-// No idle hint — talking happens via the physical button, not the screen.
+// The phase words in the slit's lower band (no idle hint — talking happens
+// via the physical button, not the screen).
 const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
   idle: { de: "", en: "" },
   listening: { de: "Hört zu …", en: "Listening …" },
@@ -49,26 +50,6 @@ const PHASE_HINT: Record<PipelinePhase, Record<Locale, string>> = {
  * The circle is display-only: touch does nothing here by design. The one
  * gesture is the operator's — a 3s hold on the slit (`onSlitHold`).
  */
-/** Once shown, the thinking dot stays at least this long. */
-const THINK_MIN_MS = 760;
-
-/** `on`, but never dropping before `minMs` after it last rose. */
-function useMinPresence(on: boolean, minMs: number): boolean {
-  const [shown, setShown] = useState(on);
-  const since = useRef(0);
-  useEffect(() => {
-    if (on) {
-      since.current = Date.now();
-      setShown(true);
-      return;
-    }
-    const wait = Math.max(0, minMs - (Date.now() - since.current));
-    const t = setTimeout(() => setShown(false), wait);
-    return () => clearTimeout(t);
-  }, [on, minMs]);
-  return shown;
-}
-
 export default function SeatView({
   seat,
   layout,
@@ -249,7 +230,6 @@ export default function SeatView({
   const afterReply = !show && showText && !speakingNow && cosimo.lastReplyAt > 0 && now - cosimo.lastReplyAt < 8000 && Boolean(captionText);
   const slitMode: "wave" | "calm" | "settings" | "caption" | "card" | "idle" =
     waveShown || (show && listening) ? "wave" : thinking ? "calm" : settingsOpen ? "settings" : !show && cosimo.card ? "card" : speakingNow || afterReply ? "caption" : "idle";
-  const showDot = useMinPresence(thinking, THINK_MIN_MS);
   const rimState: keyof StateColors | null = ptt.error ? "error" : listening ? "listening" : speaking ? "speaking" : null;
   // The rim keeps its last colour while fading out, so the fade is not a colour jump.
   const lastRim = useRef<keyof StateColors>("listening");
@@ -278,7 +258,9 @@ export default function SeatView({
   // attack fast / release slow) lifts the sheets and lights a third one, so
   // the room breathes with each phrase. Thinking: a slow synthetic pulse.
   // Idle: plain ground. Reduced motion: a still, faint tint.
-  const wabering = (!listening && phase === "thinking") || (speaking && !listening);
+  // thinking lives in the slit (the settled line with its travelling dot);
+  // the ground only breathes with the voice
+  const wabering = speaking && !listening;
   // the THEME's colour (its ink — what the colour swatches show), not the
   // semantic state colours: the ground says which CoSiMo this is, the rim says what it does
   // on the black cabin ground the theme's light tint glows (its ink would
@@ -332,27 +314,6 @@ export default function SeatView({
       {sheet(`radial-gradient(55% 60% at 68% 62%, ${withAlpha(waberColor, 0.34)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "21s", "7.4s", "-5s", 0.7, 0.18)}
       {/* the voice sheet: dark while silent, lights up with each phrase */}
       {sheet(`radial-gradient(70% 45% at 50% 52%, ${withAlpha(waberColor, 0.36)} 0%, ${withAlpha(waberColor, 0)} 100%)`, "11s", "4.6s", "-2s", 0.08, 0.32)}
-    </div>
-  );
-  const glowDot = (
-    <div
-      aria-hidden
-      style={{
-        // the orbit: a full-size layer that rotates; the dot sits at its top edge
-        position: "absolute", inset: 0, borderRadius: "50%", pointerEvents: "none", zIndex: 4,
-        opacity: showDot ? 1 : 0,
-        transition: "opacity 350ms ease",
-        animation: reduceMotion ? "none" : "cosimo-orbit 2.6s linear infinite",
-        animationPlayState: showDot ? "running" : "paused",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute", left: "50%", top: "1.5%", transform: "translate(-50%, -50%)",
-          width: "calc(var(--circle) * 0.055)", height: "calc(var(--circle) * 0.055)", borderRadius: "50%",
-          background: `radial-gradient(circle, ${withAlpha(scheme.states.thinking, 0.6)} 0%, ${withAlpha(scheme.states.thinking, 0.28)} 45%, ${withAlpha(scheme.states.thinking, 0)} 70%)`,
-        }}
-      />
     </div>
   );
 
@@ -426,11 +387,9 @@ export default function SeatView({
             ["--circle" as string]: circleSize,
           }}
         >
-          <style>{`@keyframes cosimo-orbit { to { transform: rotate(360deg) } }
-@keyframes cosimo-drift { from { translate: -12% -9% } to { translate: 12% 9% } }
+          <style>{`@keyframes cosimo-drift { from { translate: -12% -9% } to { translate: 12% 9% } }
 @keyframes cosimo-swell { 0%, 100% { scale: 1 } 50% { scale: 1.24 } }`}</style>
           {glowRim}
-          {glowDot}
           <Inset radius="50%" />
           {/* the Face — always centred; text never enters the circle (subtitles
               live in the slit, see showText). reduceMotion stills its idle life. */}
@@ -460,12 +419,12 @@ export default function SeatView({
                   type="button"
                   onClick={cosimo.checkIn}
                   style={{
-                    appearance: "none", cursor: "pointer", touchAction: "manipulation",
+                    appearance: "none", cursor: "pointer", touchAction: "manipulation", marginTop: "4cqh",
                     border: `max(1.5px, 0.25cqh) solid ${scheme.ink}`, borderRadius: 999, background: "transparent", color: scheme.ink,
                     padding: "1cqh 3cqh", fontFamily: "inherit", fontWeight: 600, fontSize: `clamp(11px, ${2.3 * textScale}cqh, 20px)`, opacity: 0.85,
                   }}
                 >
-                  {lang === "de" ? "Ohne Anmeldung weiter" : "Continue without a card"}
+                  {lang === "de" ? "Ohne Check-In nutzen" : "Use without check-in"}
                 </button>
               </div>
             ) : (
@@ -478,29 +437,6 @@ export default function SeatView({
               />
             )}
           </div>
-
-          {/* only a short phase hint in the circle — the words are the slit's
-              subtitles (showText), never text on the face */}
-          {(
-            <div
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              style={{
-                position: "absolute",
-                left: "50%",
-                bottom: "9%",
-                transform: "translateX(-50%)",
-                width: "62%",
-                textAlign: "center",
-                fontSize: `clamp(12px, ${2.8 * textScale}cqw, ${18 * textScale}px)`,
-                lineHeight: 1.35,
-                opacity: 0.55,
-              }}
-            >
-              {show || shownCheckin ? "" : PHASE_HINT[cosimo.phase][lang]}
-            </div>
-          )}
 
           {/* connection state, tucked at the top of the circle */}
           {!cosimo.connected && (
@@ -555,7 +491,7 @@ export default function SeatView({
           <Inset radius={layout.slitR} />
           {slitMode === "wave" || slitMode === "calm" ? (
             /* hold-to-talk: the rider's voice as a line; thinking: the same line, settled */
-            <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} transcript={!show && slitMode === "wave" ? ptt.partial : ""} />
+            <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} transcript={!show && slitMode === "wave" ? ptt.partial : ""} label={show ? "" : slitMode === "calm" ? PHASE_HINT.thinking[lang] : listening ? PHASE_HINT.listening[lang] : ""} />
           ) : slitMode === "caption" ? (
             <SlitCaption
               text={captionText}
