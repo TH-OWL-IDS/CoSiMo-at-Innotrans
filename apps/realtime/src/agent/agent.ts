@@ -340,17 +340,36 @@ export class CosimoAgent {
       // called show_choices six times in a row, nine seconds of nothing).
       const made = new Set<string>();
       let noTools = false;
+      // A step that spoke AND called a tool ("Hier sind die Einstellungen."
+      // + open_settings) is often followed by the same sentence again after
+      // the result. The step after such a step is held back and compared;
+      // a repeat is dropped, anything new is released in one piece.
+      let spokenWithTools = "";
+      const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
       for (let guard = 0; guard < 6; guard++) {
         const stepStarted = Date.now();
         let stepChars = 0;
         let stepText = "";
+        const hold = spokenWithTools;
+        spokenWithTools = "";
         // Tool forcing is a CMS switch (llm-config → Tool-Zwang), off by default:
         // the model decides on its own; on, clear light / settings / memory
         // sentences get the matching tool forced in the first step.
         const forceTool = guard === 0 && this.operatorConfig.get().llm.toolForcing ? (memoryTrigger(text) ?? presentationTrigger(text) ?? cabinTrigger(text)) : null;
+        const release = (delta: string) => {
+          if (ctrl.signal.aborted) return; // barged-in — swallow late chunks
+          if (!startedSpeaking) {
+            startedSpeaking = true;
+            this.hub.emitPhase("speaking", sessionId, turnNo);
+          }
+          assistantText += delta;
+          this.hub.emitChatDelta(sessionId, delta, false, turnNo);
+          speaker.push(delta);
+        };
         const { toolCalls, finish } = await turn.step((delta) => {
           stepChars += delta.length;
           stepText += delta;
+          if (hold) return; // decided after the step (repeat or new)
           if (ctrl.signal.aborted) return; // barged-in — swallow late chunks
           if (!startedSpeaking) {
             startedSpeaking = true;
@@ -365,6 +384,15 @@ export class CosimoAgent {
         }, forceTool ? { forceTool } : noTools ? { noTools: true } : undefined);
         noTools = false;
 
+        let repeated = false;
+        if (hold && stepText.trim()) {
+          const a = norm(hold);
+          const b = norm(stepText);
+          repeated = a === b || a.endsWith(b) || b.endsWith(a);
+          if (repeated) turn.retractLastAssistant();
+          else release(stepText);
+        }
+        if (toolCalls.length && stepText.trim()) spokenWithTools = stepText;
         logger.log(
           "llm.step",
           {
@@ -374,6 +402,7 @@ export class CosimoAgent {
             durationMs: Date.now() - stepStarted,
             ...(finish ? { finish } : {}),
             ...(forceTool ? { forced: forceTool } : {}),
+            ...(repeated ? { repeated: true } : {}),
           },
           { ...ctx, level: finish === "length" ? "warn" : "debug" },
         );
