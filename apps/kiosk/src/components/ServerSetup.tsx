@@ -42,6 +42,7 @@ export default function ServerSetup({
   layout,
   seat,
   showcase,
+  autoCheckout,
   slitMotion,
   onSave,
   onCancel,
@@ -54,9 +55,11 @@ export default function ServerSetup({
   seat: number;
   /** Showcase mode (silent endless performance) on/off. */
   showcase: boolean;
+  /** Auto-checkout after 2 min of silence on/off (off for a carried iPad). */
+  autoCheckout: boolean;
   /** Timing of the slit's rest rotation. */
   slitMotion: SlitMotion;
-  onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion) => void;
+  onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion, autoCheckout: boolean) => void;
   /** Present when opened as an overlay over a running kiosk. */
   onCancel?: () => void;
   /** Testing aid: return to the kiosk with the text console open. */
@@ -68,6 +71,7 @@ export default function ServerSetup({
   const [geo, setGeo] = useState<PanelLayout>(layout);
   const [seatDraft, setSeatDraft] = useState(seat);
   const [showDraft, setShowDraft] = useState(showcase);
+  const [checkoutDraft, setCheckoutDraft] = useState(autoCheckout);
   const [motionDraft, setMotionDraft] = useState<SlitMotion>(slitMotion);
   const [error, setError] = useState("");
 
@@ -81,7 +85,7 @@ export default function ServerSetup({
       setError("Bitte eine vollständige URL angeben, z. B. https://cosimo.example.org");
       return;
     }
-    onSave(url, geo, seatDraft, showDraft, motionDraft);
+    onSave(url, geo, seatDraft, showDraft, motionDraft, checkoutDraft);
   };
 
   const num = (key: keyof PanelLayout, label: string) => (
@@ -149,6 +153,17 @@ export default function ServerSetup({
           </div>
           <p className="m-0 max-w-[26rem] text-sm text-mute">
             1 = vorn, 4 = hinten. Bestimmt, welche Leselampe dieser Sitz schaltet — ohne Zuordnung bleibt sie simuliert.
+          </p>
+        </Card>
+
+        <Card className="items-center">
+          <Eyebrow>Auschecken</Eyebrow>
+          <label className="flex cursor-pointer items-center gap-2 text-md">
+            <input type="checkbox" className="accent-ink" checked={checkoutDraft} onChange={(e) => setCheckoutDraft(e.target.checked)} />
+            Nach 2 Minuten Stille automatisch auschecken
+          </label>
+          <p className="m-0 max-w-[26rem] text-sm text-mute">
+            Der Kreis zeigt dann wieder das Einchecken, die Sitzung ist vorbei. Aus, wenn dieses iPad herumgetragen wird.
           </p>
         </Card>
 

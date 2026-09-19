@@ -40,9 +40,11 @@ export function useSeat(
     seat?: number;
     /** Silent showcase mode (kiosk operator setting). */
     showcase?: boolean;
+    /** Check the seat out after 2 min of silence (kiosk operator setting; off for an iPad carried around). */
+    autoCheckout?: boolean;
   },
 ): Seat {
-  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind, undefined, opts?.seat, opts?.showcase);
+  const cosimo = useCosimoSocket(serverUrl, "kiosk", kind, undefined, opts?.seat, opts?.showcase, opts?.autoCheckout ?? true);
   const [lang, setLang] = useState<Locale>("de");
   // The active profile's preferred language becomes the seat's UI language
   // (e.g. an NFC scan loads an English-speaking rider). The visitor can still

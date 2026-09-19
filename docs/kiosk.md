@@ -26,6 +26,17 @@ outside them renders pitch black (invisible, no light bleed):
   barge-in); touch does nothing by design. Text scale, speech
   rate, reduce-motion and the UI language all follow the active profile's
   accommodations, live.
+- **The check-in** (2026-09-19) — nobody at the seat: the circle shows the
+  chip symbol, "Mit deinem Chip einchecken" and a guest chip "Ohne
+  Anmeldung weiter" (the default profile) instead of the Gestalt; the slit
+  keeps its rotation. A card scan, the guest chip, or simply talking /
+  pressing "i" checks the seat in (`session:checkin`). After 2 min of
+  silence (`SEAT_CHECKOUT_MS`) the hub checks the seat out again — a fresh
+  default session, the circle shows the check-in — unless the operator
+  screen's **Auschecken** switch is off (`hello.autoCheckout=false`, for an
+  iPad carried around). Rider switches animate: what is in the circle sinks
+  back and shrinks, the colours drift to the new scheme (700 ms), the new
+  content grows in with a small overshoot; reduced motion swaps plainly.
 - **The slit** — at rest a rotating strip (status · line · next station ·
   mic hint, `TelemetryStrip`); while the talk button is held the rider's
   voice as a line (`SlitWave`) with the live dictation small underneath,

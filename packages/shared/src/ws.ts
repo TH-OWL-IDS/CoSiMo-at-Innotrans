@@ -279,6 +279,11 @@ export interface ServerToClientEvents {
    * riders), shows the consent screen again. `"*"` = every seat.
    */
   "session:reset": (payload: { deviceId: string; sessionId?: string; consent?: boolean | null }) => void;
+  /** The seat is checked in: a card was scanned, the guest chip tapped, or
+   *  the rider simply started talking. Until then the circle shows the
+   *  check-in; after 2 min of silence the hub checks the seat out again
+   *  (session:reset) unless the kiosk opted out (hello.autoCheckout=false). */
+  "session:checkin": (payload: { sessionId: string; by: "nfc" | "guest" | "input" }) => void;
   /** Currently connected devices (for the operator console). */
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
   /** Per-seat live summaries (host consoles only). `cabin` is the shared
@@ -325,7 +330,7 @@ export interface ClientToServerEvents {
   /** Identify which iPad/role is connecting. */
   /** `token`: consoles send the SHA-256 of the operator password; the hub
    *  compares it with its HOST_TOKEN. Journey views and seats send none. */
-  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number; /** Kiosk: silent showcase mode (operator setting). */ showcase?: boolean }) => void;
+  hello: (payload: { deviceId: string; role: "kiosk" | "host"; kind?: ClientKind; token?: string; /** Kiosk: physical seat position 1-4 (operator setting) — picks the reading-lamp playback. */ seat?: number; /** Kiosk: silent showcase mode (operator setting). */ showcase?: boolean; /** Kiosk: check the seat out after 2 min of silence (default true; off for an iPad carried around). */ autoCheckout?: boolean }) => void;
   /** Push-to-talk pressed/released — drives the listening Face/phase. */
   "ptt:start": (payload: { sessionId: string }) => void;
   "ptt:stop": (payload: { sessionId: string }) => void;
@@ -345,6 +350,8 @@ export interface ClientToServerEvents {
   }) => void;
   /** One change from the settings menu (hub applies it, no LLM round). */
   "settings:patch": (payload: SettingsPatch) => void;
+  /** The guest chip on the check-in: continue without a card (default profile). */
+  "session:checkin": (payload: { sessionId: string }) => void;
   /** The ↻ affordance: say the last reply again (no LLM round). */
   "reply:repeat": (payload: { sessionId: string }) => void;
   /** Visitor consent decision for recording. */

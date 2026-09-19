@@ -89,6 +89,7 @@ export default function CosimoKiosk({
   layout,
   seatNumber,
   showcase,
+  autoCheckout,
   slitMotion,
   onOpenSetup,
   setup,
@@ -101,11 +102,13 @@ export default function CosimoKiosk({
   seatNumber: number;
   /** Showcase: silent endless performance; buttons ignored, only the menu ends it. */
   showcase: boolean;
+  /** Check the seat out after 2 min of silence (operator setting; off for a carried iPad). */
+  autoCheckout: boolean;
   /** Timing of the slit's rest rotation (operator setting). */
   slitMotion: SlitMotion;
   onOpenSetup: () => void;
   /** The hidden operator setup, overlaid while non-null (the kiosk keeps running underneath). */
-  setup: { onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
+  setup: { onSave: (url: string, layout: PanelLayout, seat: number, showcase: boolean, motion: SlitMotion, autoCheckout: boolean) => void; onCancel: () => void; onOpenTestChat: () => void } | null;
   /** Testing aid: show the hidden text console (opened via the setup screen). */
   testChat?: boolean;
   onCloseTestChat?: () => void;
@@ -116,7 +119,7 @@ export default function CosimoKiosk({
   useEffect(() => {
     void createNativeDictation().then(setNativeStt);
   }, []);
-  const seat = useSeat(serverUrl, "kiosk", { nativeStt, seat: seatNumber >= 1 && seatNumber <= 4 ? seatNumber : undefined, showcase });
+  const seat = useSeat(serverUrl, "kiosk", { nativeStt, seat: seatNumber >= 1 && seatNumber <= 4 ? seatNumber : undefined, showcase, autoCheckout });
   const { cosimo, lang, ptt } = seat;
 
   // This seat drives the cabin's light controller on the local LAN — the hub
@@ -142,6 +145,7 @@ export default function CosimoKiosk({
         layout={layout}
         seat={seatNumber}
         showcase={showcase}
+        autoCheckout={autoCheckout}
         slitMotion={slitMotion}
         onSave={setup.onSave}
         onCancel={setup.onCancel}

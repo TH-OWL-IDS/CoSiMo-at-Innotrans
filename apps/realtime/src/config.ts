@@ -73,6 +73,9 @@ export const config = {
   face: {
     emotionDecayMs: num("FACE_EMOTION_DECAY_MS", 10_000),
     idleSleepMs: num("FACE_IDLE_SLEEP_MS", 120_000),
+    /** Silence after which a checked-in seat is checked out again (back to
+     *  the check-in in the circle, session over). */
+    checkoutMs: num("SEAT_CHECKOUT_MS", 120_000),
   },
   /** Allowed CORS origins: cms (6100), console dev (6102), emulator dev
    *  (6103), journey dev (6104) and the native kiosk WebView. Override via

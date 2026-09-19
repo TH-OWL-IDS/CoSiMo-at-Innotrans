@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { characterById, withAlpha, type StateColors } from "@cosimo/face";
+import { Nfc } from "lucide-react";
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import { SlitSettings } from "./SlitSettings.js";
 import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
@@ -93,6 +94,30 @@ export default function SeatView({
   const Gestalt = characterById(seat.character).Component;
   // Showcase overlays the live state: same renderer, different source.
   const show = useShowcase(Boolean(showcase), lang, seat.scheme);
+  // the check-in: nobody at this seat → the circle offers the card / the
+  // guest chip instead of the Gestalt (the slit keeps its rotation)
+  const checkedIn = show || cosimo.checkedIn;
+  // switching riders (card, guest, checkout): what is in the circle sinks
+  // back and shrinks, the colours drift to the new scheme, then the new
+  // content grows in — keyed on who is here and which Gestalt they chose
+  const sceneKey = `${checkedIn ? cosimo.persona?.persona ?? "default" : "checkin"}:${seat.character}`;
+  const [shown, setShown] = useState(sceneKey);
+  const [swap, setSwap] = useState<"in" | "out" | "idle">("idle");
+  useEffect(() => {
+    if (sceneKey === shown) return;
+    if (reduceMotion) { setShown(sceneKey); return; }
+    setSwap("out");
+    const t1 = setTimeout(() => { setShown(sceneKey); setSwap("in"); }, 340);
+    const t2 = setTimeout(() => setSwap("idle"), 340 + 420);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [sceneKey, shown, reduceMotion]);
+  const shownCheckin = shown.startsWith("checkin:");
+  const swapStyle: React.CSSProperties =
+    swap === "out"
+      ? { transform: "translate(-50%, -50%) translateY(6%) scale(0.55)", opacity: 0, transition: "transform 340ms cubic-bezier(0.4, 0, 1, 1), opacity 300ms ease" }
+      : swap === "in"
+        ? { transform: "translate(-50%, -50%)", opacity: 1, transition: "transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 260ms ease" }
+        : { transform: "translate(-50%, -50%)", opacity: 1 };
   const scheme = show?.scheme ?? seat.scheme;
   const showText = show ? true : seat.showText;
   const faceEmotion = show ? show.emotion : cosimo.faceEmotion;
@@ -358,7 +383,7 @@ export default function SeatView({
             outline: guide,
             boxShadow: panel ? halo : undefined,
             touchAction: "none",
-            transition: "background 300ms",
+            transition: "background 700ms ease, color 700ms ease",
             ["--circle" as string]: circleSize,
           }}
         >
@@ -376,19 +401,43 @@ export default function SeatView({
               position: "absolute",
               // 52%: the artwork's visual mass (eyes mid 125, mouth 104) sits
               // left of its viewBox centre (130) — this optically centres it.
-              left: "52%",
+              left: shownCheckin ? "50%" : "52%",
               top: "48%",
-              transform: "translate(-50%, -50%)",
               width: "88%",
+              transformOrigin: "50% 60%",
+              ...swapStyle,
             }}
           >
-            <Gestalt
-              emotion={faceEmotion}
-              idle={!reduceMotion}
-              mouthDrive={mouthDrive}
-              gazeDrive={gazeDrive}
-              style={{ width: "100%", height: "auto", color: scheme.ink, display: "block" }}
-            />
+            {shownCheckin ? (
+              /* the check-in, where the Gestalt otherwise is: the chip symbol,
+                 one line, and the guest chip — talking or pressing "i" also
+                 counts as "without a card" */
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5cqh", color: scheme.ink, textAlign: "center", padding: "0 8%" }}>
+                <Nfc size="30cqh" strokeWidth={1.6} aria-hidden style={{ opacity: 0.9 }} />
+                <span style={{ fontSize: `clamp(14px, ${5.2 * textScale}cqh, 44px)`, fontWeight: 700, lineHeight: 1.15 }}>
+                  {lang === "de" ? "Mit deinem Chip einchecken" : "Check in with your chip"}
+                </span>
+                <button
+                  type="button"
+                  onClick={cosimo.checkIn}
+                  style={{
+                    appearance: "none", cursor: "pointer", touchAction: "manipulation",
+                    border: `max(1.5px, 0.35cqh) solid ${scheme.ink}`, borderRadius: 999, background: "transparent", color: scheme.ink,
+                    padding: "1.4cqh 4cqh", fontFamily: "inherit", fontWeight: 600, fontSize: `clamp(12px, ${3.4 * textScale}cqh, 30px)`,
+                  }}
+                >
+                  {lang === "de" ? "Ohne Anmeldung weiter" : "Continue without a card"}
+                </button>
+              </div>
+            ) : (
+              <Gestalt
+                emotion={faceEmotion}
+                idle={!reduceMotion}
+                mouthDrive={mouthDrive}
+                gazeDrive={gazeDrive}
+                style={{ width: "100%", height: "auto", color: scheme.ink, display: "block", transition: "color 700ms ease" }}
+              />
+            )}
           </div>
 
           {/* only a short phase hint in the circle — the words are the slit's
@@ -410,7 +459,7 @@ export default function SeatView({
                 opacity: 0.55,
               }}
             >
-              {show ? "" : PHASE_HINT[cosimo.phase][lang]}
+              {show || shownCheckin ? "" : PHASE_HINT[cosimo.phase][lang]}
             </div>
           )}
 
@@ -461,7 +510,7 @@ export default function SeatView({
             ["--slit-inset" as string]: `calc(min(50cqh, ${layout.slitR}px) * 0.62 + 5cqh)`,
             outline: guide,
             boxShadow: panel ? halo : undefined,
-            transition: "background 300ms",
+            transition: "background 700ms ease, color 700ms ease",
           }}
         >
           <Inset radius={layout.slitR} />

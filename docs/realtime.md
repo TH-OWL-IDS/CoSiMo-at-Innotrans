@@ -170,6 +170,18 @@ preferred language — reply in English anyway"). Gate: 31/32 (the rule
 alone scored 20/32 — the German journey line pulled replies back to
 German).
 
+## Sessions: check-in and auto-checkout
+
+A kiosk seat starts checked out (`active: false`; the circle shows the
+check-in). `markActive` flips it once per session — a card scan
+(`beginSession … "nfc"`), the guest chip (`session:checkin` from the seat)
+or the first input (chat, consent, settings) — and emits `session:checkin`
+(`by`: nfc | guest | input), logged as `session.checkin`. The idle sweep
+(15 s) checks a seat out after `config.face.checkoutMs` (2 min) of silence
+while idle: `beginSession(deviceId, "default", "timeout")` → `session:reset`
++ the default profile, unless the kiosk said `autoCheckout: false` in its
+hello (a carried iPad) or performs the showcase.
+
 ## Slit cards and the settings menu (`src/agent/cards.ts`, hub `showCard` / `openSettings`)
 
 The slit is CoSiMo's control strip: one fixed grid (context left, actions

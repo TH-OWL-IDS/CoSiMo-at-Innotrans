@@ -44,6 +44,7 @@ const DEFAULT_LEVEL: Record<LogEvent["kind"], LogLevel> = {
   "config.loaded": "info",
   "service.restart": "warn",
   "session.start": "info",
+  "session.checkin": "info",
   "card.show": "info",
   "settings.open": "info",
   "settings.patch": "info",

@@ -202,6 +202,8 @@ interface DeviceEntry {
   phase: PipelinePhase;
   /** Last visitor/agent interaction — idle seats drift to the sleeping face. */
   lastActivity: number;
+  /** Kiosk: check the seat out after `checkoutMs` of silence (hello flag; an iPad carried around turns it off). */
+  autoCheckout: boolean;
   /** This seat's cabin controls (per-seat reading lamp etc.). */
   controls: CabinControlState[];
   /** Physical seat position 1-4 (kiosk operator setting) — picks the
@@ -405,7 +407,17 @@ export class Hub {
     const now = Date.now();
     let changed = false;
     for (const [deviceId, e] of this.devices) {
-      if (e.role !== "kiosk" || e.emotion === "sleeping" || e.phase !== "idle") continue;
+      if (e.role !== "kiosk" || e.phase !== "idle") continue;
+      // checked in and silent for checkoutMs → checked out: a fresh default
+      // session, the circle shows the check-in again (unless this iPad is
+      // carried around: hello.autoCheckout=false)
+      if (e.active && e.autoCheckout && !e.showcase && now - e.lastActivity >= config.face.checkoutMs) {
+        this.clearDecay(deviceId);
+        this.beginSession(deviceId, "default", "timeout");
+        changed = true;
+        continue;
+      }
+      if (e.emotion === "sleeping") continue;
       if (now - e.lastActivity < config.face.idleSleepMs) continue;
       this.clearDecay(deviceId);
       this.emitEmotion(e, "sleeping");
@@ -499,7 +511,7 @@ export class Hub {
    * hands the client the new id, applies a card rider's stored consent (or
    * the operator default — the seat never asks on screen).
    */
-  beginSession(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot"): string | undefined {
+  beginSession(deviceId: string, persona: PersonaKey, by: "nfc" | "host" | "boot" | "timeout"): string | undefined {
     const entry = this.devices.get(deviceId);
     if (!entry || entry.role !== "kiosk") return undefined;
     const previous = entry.sessionId || undefined;
@@ -527,8 +539,24 @@ export class Hub {
     logger.log("session.start", { persona, by, consent: entry.consent, stored: stored !== undefined, ...(previous ? { previousSessionId: previous } : {}) }, { deviceId, sessionId });
     entry.socket.emit("session:reset", { deviceId, sessionId, consent: entry.consent });
     entry.socket.emit("persona:active", entry.persona);
+    // a card scan IS the check-in — the circle leaves the check-in at once
+    if (by === "nfc") this.markActive(entry, deviceId, "nfc");
     this.pushSeats();
     return sessionId;
+  }
+
+  /**
+   * The seat is in use: a card, the guest chip, or simply the first input.
+   * Flips `active` once per session and tells the seat (the circle swaps the
+   * check-in for the Gestalt); the auto-checkout sweep watches it from here.
+   */
+  private markActive(entry: DeviceEntry, deviceId: string, by: "nfc" | "guest" | "input"): void {
+    entry.lastActivity = Date.now();
+    if (entry.active) return;
+    entry.active = true;
+    if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
+    entry.socket.emit("session:checkin", { sessionId: entry.sessionId, by });
+    logger.log("session.checkin", { by }, { deviceId, sessionId: entry.sessionId });
   }
 
   onSpeechTest(tester: SpeechTester): void {
@@ -668,7 +696,7 @@ export class Hub {
   }
 
   register(socket: Sock): void {
-    socket.on("hello", ({ deviceId, role, kind, token, seat, showcase }) => {
+    socket.on("hello", ({ deviceId, role, kind, token, seat, showcase, autoCheckout }) => {
       const resolvedKind: ClientKind = kind ?? (role === "host" ? "console" : "kiosk");
       // Consoles must present the operator password (as SHA-256); without
       // HOST_TOKEN configured (dev) everything passes. Seats and journey
@@ -691,6 +719,7 @@ export class Hub {
         phase: "idle",
         controls: freshControls(),
         active: false,
+        autoCheckout: autoCheckout !== false,
         consent: this.defaultConsent,
         lastUser: "",
         lastReply: "",
@@ -937,13 +966,21 @@ export class Hub {
       );
     });
 
+    // The guest chip on the check-in: continue without a card.
+    socket.on("session:checkin", ({ sessionId }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (!entry || entry.role !== "kiosk") return;
+      this.markActive(entry, deviceId, "guest");
+      this.pushSeats();
+    });
+
     // A tap in the settings menu — starts the visible session if it had not.
     socket.on("settings:patch", ({ sessionId, patch, speak, reset }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
       if (!entry || !patch || typeof patch !== "object") return;
-      entry.lastActivity = Date.now();
-      entry.active = true;
+      this.markActive(entry, deviceId, "input");
       this.settingsPatchHandler?.({
         sessionId, deviceId, patch, speak: Boolean(speak), reset: Boolean(reset),
         lang: entry.persona.accommodations.language,
@@ -979,8 +1016,7 @@ export class Hub {
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.consent = consent;
-        entry.active = true;
-        entry.lastActivity = Date.now();
+        this.markActive(entry, deviceId, "input");
         // A card-bound rider's decision is stored on the profile — it then
         // applies at every login without asking again.
         if (this.persistableResolver?.(entry.persona.persona)) this.consentPersister?.(entry.persona.persona, consent);
@@ -998,9 +1034,7 @@ export class Hub {
       const entry = this.devices.get(deviceId);
       if (entry) {
         entry.lastUser = text.slice(0, SNIPPET_MAX);
-        entry.active = true;
-        entry.lastActivity = Date.now();
-        if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
+        this.markActive(entry, deviceId, "input");
       }
       this.pushSeats();
       if (!entry) return;

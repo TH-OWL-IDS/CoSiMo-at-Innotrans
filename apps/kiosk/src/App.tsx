@@ -10,6 +10,7 @@ import {
 } from "./config/panelLayout";
 import { getSeatNumber, setSeatNumber } from "./config/seatNumber";
 import { getShowcase, setShowcase } from "./config/showcase";
+import { getAutoCheckout, setAutoCheckout } from "./config/autoCheckout";
 import { DEFAULT_SLIT_MOTION, getSlitMotion, setSlitMotion, type SlitMotion } from "./config/slitMotion";
 
 /**
@@ -26,6 +27,8 @@ export default function App() {
   const [seat, setSeat] = useState(0);
   /** Showcase: the silent endless performance (operator setting). */
   const [showcase, setShowcaseState] = useState(false);
+  /** Auto-checkout after 2 min of silence (operator setting; off for a carried iPad). */
+  const [autoCheckout, setAutoCheckoutState] = useState(true);
   /** Timing of the slit's rest rotation (operator setting). */
   const [slitMotion, setSlitMotionState] = useState<SlitMotion>(DEFAULT_SLIT_MOTION);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -37,16 +40,18 @@ export default function App() {
     void getPanelLayout().then(setLayout);
     void getSeatNumber().then(setSeat);
     void getShowcase().then(setShowcaseState);
+    void getAutoCheckout().then(setAutoCheckoutState);
     void getSlitMotion().then(setSlitMotionState);
   }, []);
 
-  const save = useCallback((url: string, nextLayout: PanelLayout, nextSeat: number, nextShowcase: boolean, nextMotion: SlitMotion) => {
-    void Promise.all([setServerUrl(url), setPanelLayout(nextLayout), setSeatNumber(nextSeat), setShowcase(nextShowcase), setSlitMotion(nextMotion)]).then(() => {
+  const save = useCallback((url: string, nextLayout: PanelLayout, nextSeat: number, nextShowcase: boolean, nextMotion: SlitMotion, nextAutoCheckout: boolean) => {
+    void Promise.all([setServerUrl(url), setPanelLayout(nextLayout), setSeatNumber(nextSeat), setShowcase(nextShowcase), setSlitMotion(nextMotion), setAutoCheckout(nextAutoCheckout)]).then(() => {
       setUrl(url);
       setLayout(nextLayout);
       setSeat(nextSeat);
       setShowcaseState(nextShowcase);
       setSlitMotionState(nextMotion);
+      setAutoCheckoutState(nextAutoCheckout);
       setSetupOpen(false);
     });
   }, []);
@@ -54,7 +59,7 @@ export default function App() {
   if (serverUrl === undefined) return null;
   // First launch: no server known yet — the setup stands alone.
   if (serverUrl === null) {
-    return <ServerSetup current={null} layout={layout} seat={seat} showcase={showcase} slitMotion={slitMotion} onSave={save} />;
+    return <ServerSetup current={null} layout={layout} seat={seat} showcase={showcase} autoCheckout={autoCheckout} slitMotion={slitMotion} onSave={save} />;
   }
 
   // Afterwards the setup is an overlay on the running kiosk, so the seat's
@@ -66,6 +71,7 @@ export default function App() {
       layout={layout}
       seatNumber={seat}
       showcase={showcase}
+      autoCheckout={autoCheckout}
       slitMotion={slitMotion}
       onOpenSetup={() => setSetupOpen(true)}
       setup={

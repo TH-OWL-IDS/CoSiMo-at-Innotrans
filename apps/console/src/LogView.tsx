@@ -30,6 +30,7 @@ import {
   Power,
   Settings2,
   UserPlus,
+  UserCheck,
 } from "lucide-react";
 import { LOG_KINDS, type LogEvent, type LogKind, type LogLevel } from "@cosimo/shared";
 import { Button, Input, Select, Tip, cn } from "@cosimo/ui";
@@ -61,6 +62,7 @@ const KIND_ICON: Record<LogKind, LucideIcon> = {
   "config.loaded": Settings2,
   "service.restart": RotateCw,
   "session.start": UserPlus,
+  "session.checkin": UserCheck,
   "card.show": ListTodo,
   "settings.open": SlidersHorizontal,
   "settings.patch": MousePointerClick,
@@ -108,6 +110,8 @@ export function summarize(e: LogEvent): string {
       return `Konfig ${e.data.source === "cms" ? "aus dem CMS" : "env-Defaults"} · ${e.data.llm} · Fallback ${e.data.fallback ?? "keiner"} · ${e.data.voices} Stimmen · LPU-2 ${e.data.lpu2Mapped} gemappt${e.data.changed.length ? ` · geändert: ${e.data.changed.join(", ")}` : ""}`;
     case "service.restart":
       return `Container „${e.data.id}“ ${e.data.ok ? "neu gestartet" : "Neustart fehlgeschlagen"} (${e.data.durationMs} ms)${e.data.error ? ` · ${e.data.error}` : ""}`;
+    case "session.checkin":
+      return `eingecheckt · ${e.data.by === "nfc" ? "Karte" : e.data.by === "guest" ? "ohne Anmeldung" : "erste Eingabe"}`;
     case "session.start":
       return `neue Session · ${e.data.persona} (${e.data.by})${e.data.consent ? " · Aufzeichnung" : " · keine Aufzeichnung"}${e.data.stored ? " (Profil)" : ""}${e.data.previousSessionId ? ` · vorher ${e.data.previousSessionId}` : ""}`;
     case "card.show":
