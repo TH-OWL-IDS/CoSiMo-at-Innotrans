@@ -45,7 +45,10 @@ outside them renders pitch black (invisible, no light bleed):
   mic hint, `TelemetryStrip`); while the talk button is held the rider's
   voice as a line (`SlitWave`) with the live dictation small underneath,
   anchored at its end so a long sentence runs out to the left; then
-  subtitles (`showText`), a Ja/Nein card, or the rider's settings menu
+  subtitles (`showText`, `SlitCaption`: one line — a sentence longer than
+  the slit holds a beat, runs right-to-left at about the pace of speech
+  until its end is in view, holds there; two clamped lines under reduced
+  motion), a Ja/Nein card, or the rider's settings menu
   (`SlitSettings`: Textgröße · Lautstärke · Stimme · Farbe — CoSiMo looks
   down at it while it is open).
 

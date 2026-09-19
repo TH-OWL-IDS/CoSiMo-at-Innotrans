@@ -499,6 +499,7 @@ export default function SeatView({
               telemetry={cosimo.telemetry}
               lang={lang}
               textScale={textScale}
+              reduceMotion={reduceMotion}
               aside={afterReply ? <RepeatAffordance lastReplyAt={cosimo.lastReplyAt} ink={scheme.ink} onRepeat={cosimo.repeatLast} lang={lang} /> : undefined}
             />
           ) : slitMode === "settings" ? (
