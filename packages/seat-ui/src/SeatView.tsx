@@ -490,19 +490,6 @@ export default function SeatView({
           }}
         >
           <Inset radius={layout.slitR} />
-          {/* why nothing is heard: the dictation / microphone error, in words */}
-          {ptt.error && !show && (
-            <div
-              role="alert"
-              style={{
-                position: "absolute", left: "var(--slit-inset, 7cqh)", right: "var(--slit-inset, 7cqh)", bottom: "5cqh", zIndex: 3,
-                fontSize: "clamp(9px, 12cqh, 24px)", fontWeight: 600, lineHeight: 1.2, color: scheme.states.error,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none",
-              }}
-            >
-              {ptt.error}
-            </div>
-          )}
           {slitMode === "wave" || slitMode === "calm" ? (
             /* hold-to-talk: the rider's voice as a line; thinking: the same line, settled */
             <SlitWave sample={ptt.wave.sample} kind={show ? () => "native" : ptt.wave.kind} ink={scheme.ink} leaving={!show && !ptt.active && slitMode === "wave"} calm={slitMode === "calm"} transcript={!show && slitMode === "wave" ? ptt.partial : ""} label={show ? "" : slitMode === "calm" ? PHASE_HINT.thinking[lang] : listening ? PHASE_HINT.listening[lang] : ""} />
