@@ -1,7 +1,26 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { characterById, withAlpha, type StateColors } from "@cosimo/face";
-import { Nfc } from "lucide-react";
+
+/** The stand's chip symbol (the NFC tag mark on the panel): a ring with two arcs each side. */
+function ChipMark({ size, color }: { size: string; color: string }) {
+  const arc = (r: number, side: 1 | -1) => {
+    // an arc of ±48° around the horizontal axis, on the given side
+    const a = (48 * Math.PI) / 180;
+    const x1 = 50 + side * r * Math.cos(a), y1 = 50 - r * Math.sin(a);
+    const x2 = 50 + side * r * Math.cos(a), y2 = 50 + r * Math.sin(a);
+    return `M ${x1} ${y1} A ${r} ${r} 0 0 ${side === 1 ? 1 : 0} ${x2} ${y2}`;
+  };
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden style={{ display: "block", color }} fill="none" stroke="currentColor" strokeWidth={7.5} strokeLinecap="round">
+      <circle cx="50" cy="50" r="10" />
+      <path d={arc(23, -1)} />
+      <path d={arc(36, -1)} />
+      <path d={arc(23, 1)} />
+      <path d={arc(36, 1)} />
+    </svg>
+  );
+}
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import { SlitSettings } from "./SlitSettings.js";
 import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
@@ -423,9 +442,9 @@ export default function SeatView({
               /* the check-in, where the Gestalt otherwise is: the chip symbol,
                  one line, and the guest chip — talking or pressing "i" also
                  counts as "without a card" */
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5cqh", color: scheme.ink, textAlign: "center", padding: "0 8%" }}>
-                <Nfc size="30cqh" strokeWidth={1.6} aria-hidden style={{ opacity: 0.9 }} />
-                <span style={{ fontSize: `clamp(14px, ${5.2 * textScale}cqh, 44px)`, fontWeight: 700, lineHeight: 1.15 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3.2cqh", color: scheme.ink, textAlign: "center", padding: "0 14%" }}>
+                <ChipMark size="16cqh" color={scheme.ink} />
+                <span style={{ fontSize: `clamp(12px, ${3.1 * textScale}cqh, 28px)`, fontWeight: 600, lineHeight: 1.2, opacity: 0.9 }}>
                   {lang === "de" ? "Mit deinem Chip einchecken" : "Check in with your chip"}
                 </span>
                 <button
@@ -433,8 +452,8 @@ export default function SeatView({
                   onClick={cosimo.checkIn}
                   style={{
                     appearance: "none", cursor: "pointer", touchAction: "manipulation",
-                    border: `max(1.5px, 0.35cqh) solid ${scheme.ink}`, borderRadius: 999, background: "transparent", color: scheme.ink,
-                    padding: "1.4cqh 4cqh", fontFamily: "inherit", fontWeight: 600, fontSize: `clamp(12px, ${3.4 * textScale}cqh, 30px)`,
+                    border: `max(1.5px, 0.25cqh) solid ${scheme.ink}`, borderRadius: 999, background: "transparent", color: scheme.ink,
+                    padding: "1cqh 3cqh", fontFamily: "inherit", fontWeight: 600, fontSize: `clamp(11px, ${2.3 * textScale}cqh, 20px)`, opacity: 0.85,
                   }}
                 >
                   {lang === "de" ? "Ohne Anmeldung weiter" : "Continue without a card"}
