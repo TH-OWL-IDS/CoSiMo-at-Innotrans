@@ -134,7 +134,16 @@ export function usePushToTalk({
       stopTimerRef.current = null;
       return;
     }
-    if (active || !supported) return;
+    if (active) return;
+    if (!supported) {
+      // the press still cuts CoSiMo (barge-in) and the rider sees WHY
+      // nothing is heard, instead of a dead button (an iPad without a
+      // recognizer showed neither a wave nor a reason, 2026-09-19)
+      onStart();
+      setError(lang === "de" ? "keine Spracherkennung auf diesem Gerät" : "no speech recognition on this device");
+      onStop();
+      return;
+    }
     setActive(true);
     setError(null);
     setPartial("");

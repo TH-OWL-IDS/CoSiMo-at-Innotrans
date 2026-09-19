@@ -21,11 +21,19 @@ import type { NativeDictation } from "@cosimo/seat-ui";
 const FINAL_WAIT_MS = 300;
 export async function createNativeDictation(): Promise<NativeDictation | null> {
   if (!Capacitor.isNativePlatform()) return null;
+  // Unavailable on this iPad (dictation off, no plugin …): still hand back a
+  // dictation whose start() says so — the seat then shows the reason in the
+  // slit instead of a dead talk button.
+  let unavailable: string | null = null;
   try {
     const { available } = await SpeechRecognition.available();
-    if (!available) return null;
-  } catch {
-    return null;
+    if (!available) unavailable = "Diktat auf diesem iPad nicht verf\u00fcgbar (Einstellungen \u2192 Allgemein \u2192 Tastatur \u2192 Diktieren)";
+  } catch (err) {
+    unavailable = `Spracherkennung: ${err instanceof Error ? err.message : String(err)}`;
+  }
+  if (unavailable) {
+    const reason = unavailable;
+    return { async start(_lang, onError) { onError(reason); }, async stop() { return null; } };
   }
 
   let last = "";
