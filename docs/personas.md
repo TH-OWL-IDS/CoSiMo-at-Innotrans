@@ -59,7 +59,8 @@ seeded as trait combinations.
 
 ### Accommodations (the machine-actionable levers)
 
-`language` (de/en — the rider's preferred language), `theme` (the colour
+`language` (de/en — the rider's preferred language), `character` (the
+Gestalt in the circle: `face | blob | circle | line`, see face.md), `theme` (the colour
 scheme — ids are German colour words `weiss|dunkel|blau|gruen|gelb|rosa|grau`;
 the tool exposes it as the setting `farbe`, so „stell auf grün" maps directly;
 the CMS labels it „Farbe"), `textSize`

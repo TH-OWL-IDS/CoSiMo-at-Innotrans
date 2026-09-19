@@ -17,6 +17,7 @@ function accommodations(over: Partial<Accommodations> = {}): Accommodations {
   return {
     language: "de",
     theme: "weiss",
+    character: "face",
     textSize: "l",
     audioOutput: true,
     speechRate: 1,

@@ -43,6 +43,22 @@ the realtime service chooses emotions, the face renders them; one shared
 type keeps them in lockstep. Color theming comes via `currentColor` + the
 `ColorScheme` list (`schemes.ts`); personas select schemes by id.
 
+### The Gestalten (2026-09-19)
+
+Besides the face, three abstract scribble creatures from CoSiMo-mockup —
+**Knäuel** (`ScribbleBlob`, a tangle of pen loops), **Kreis**
+(`ScribbleCircle`, a hand-drawn ring), **Linie** (`ScribbleLine`, one line
+whose waveform is the emotion). All speak the same eight `FaceEmotion`s
+and each has its own rig: emotion poses, idle physics (`withAmbient`) and a
+voice coupling (`withVoice` — the shared `mouthDrive` loudness/brightness,
+smoothed in `voice.ts`: the tangle loosens and swells, the wave rises and
+gets finer, the rim resonates). Only the face follows a finger
+(`gazeDrive`). `CHARACTERS` / `characterById` (characters.ts) map the
+profile's `accommodations.character` (`face | blob | circle | line`,
+shared `CHARACTER_IDS`) to a component; the seat renders that one in the
+circle. Picked in the slit menu (Gestalt icon), by voice
+(`set_presentation gestalt=…`) or in the CMS persona.
+
 ## packages/client
 
 `useCosimoSocket(serverUrl, role)` — the one hook every client uses (kiosk

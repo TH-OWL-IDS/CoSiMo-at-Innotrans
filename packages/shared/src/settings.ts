@@ -45,8 +45,9 @@ export interface SettingsPatch {
 }
 
 /** What a long press on the menu's round button restores. */
-export const SETTINGS_DEFAULTS: Pick<Accommodations, "theme" | "textSize" | "volume" | "speechRate" | "voice" | "voiceGender" | "voiceTone"> = {
+export const SETTINGS_DEFAULTS: Pick<Accommodations, "theme" | "character" | "textSize" | "volume" | "speechRate" | "voice" | "voiceGender" | "voiceTone"> = {
   theme: "weiss",
+  character: "face",
   textSize: "l",
   volume: 1,
   speechRate: 1,

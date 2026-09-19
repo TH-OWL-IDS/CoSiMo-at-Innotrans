@@ -197,6 +197,19 @@ export const Personas: CollectionConfig = {
               admin: { description: "Farbschema: weiss · dunkel · blau · gruen · gelb · rosa · grau (per Sprache: „stell auf grün“)." },
             },
             {
+              name: "character",
+              type: "select",
+              defaultValue: "face",
+              label: "Gestalt",
+              admin: { description: "Was im Kreis erscheint: das Gesicht oder eine der abstrakten Kritzel-Gestalten (gleiche Emotionen, eigenes Rig)." },
+              options: [
+                { label: "Gesicht", value: "face" },
+                { label: "Knäuel", value: "blob" },
+                { label: "Kreis", value: "circle" },
+                { label: "Linie", value: "line" },
+              ],
+            },
+            {
               name: "textSize",
               type: "select",
               defaultValue: "l",

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Locale, PipelinePhase } from "@cosimo/shared";
-import { CosimoFaceAnimated, withAlpha, type StateColors } from "@cosimo/face";
+import { characterById, withAlpha, type StateColors } from "@cosimo/face";
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import { SlitSettings } from "./SlitSettings.js";
 import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
@@ -88,6 +88,9 @@ export default function SeatView({
   children?: ReactNode;
 }) {
   const { cosimo, lang, textScale, reduceMotion, ptt } = seat;
+  // the Gestalt: the face or an abstract scribble creature, same emotions,
+  // each with its own rig — the rider's choice (profile / slit menu / voice)
+  const Gestalt = characterById(seat.character).Component;
   // Showcase overlays the live state: same renderer, different source.
   const show = useShowcase(Boolean(showcase), lang, seat.scheme);
   const scheme = show?.scheme ?? seat.scheme;
@@ -379,7 +382,7 @@ export default function SeatView({
               width: "88%",
             }}
           >
-            <CosimoFaceAnimated
+            <Gestalt
               emotion={faceEmotion}
               idle={!reduceMotion}
               mouthDrive={mouthDrive}

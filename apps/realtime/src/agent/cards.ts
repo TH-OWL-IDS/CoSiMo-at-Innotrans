@@ -1,4 +1,5 @@
 import {
+  CHARACTER_IDS,
   SCHEME_IDS,
   VOICE_TONES,
   type Accommodations,
@@ -41,6 +42,9 @@ const THEME_LABEL: Record<string, [string, string]> = {
   weiss: ["Weiß", "White"], dunkel: ["Dunkel", "Dark"], blau: ["Blau", "Blue"],
   gruen: ["Grün", "Green"], gelb: ["Gelb", "Yellow"], rosa: ["Rosa", "Pink"], grau: ["Grau", "Grey"],
 };
+const CHARACTER_LABEL: Record<string, [string, string]> = {
+  face: ["Gesicht", "the face"], blob: ["Knäuel", "the tangle"], circle: ["Kreis", "the ring"], line: ["Linie", "the line"],
+};
 const TONE_LABEL: Record<string, [string, string]> = {
   neutral: ["neutral", "neutral"], warm: ["warm", "warm"], ruhig: ["ruhig", "calm"], lebhaft: ["lebhaft", "lively"],
 };
@@ -73,6 +77,11 @@ export function settingsSpoken(
     if (!(SCHEME_IDS as readonly string[]).includes(patch.theme)) return null;
     const label = THEME_LABEL[patch.theme]?.[g ? 0 : 1] ?? patch.theme;
     return { patch: { theme: patch.theme }, spoken: g ? `${label} — so?` : `${label} — like this?` };
+  }
+  if (patch.character !== undefined) {
+    if (!(CHARACTER_IDS as readonly string[]).includes(String(patch.character))) return null;
+    const label = CHARACTER_LABEL[patch.character]?.[g ? 0 : 1] ?? patch.character;
+    return { patch: { character: patch.character }, spoken: g ? `So sehe ich jetzt aus — ${label}.` : `This is how I look now — ${label}.` };
   }
   if (patch.textSize !== undefined) {
     if (!["s", "m", "l"].includes(patch.textSize)) return null;

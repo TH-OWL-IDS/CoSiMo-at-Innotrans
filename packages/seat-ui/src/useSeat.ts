@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { TEXT_SCALE, normalizeTextSize, type Locale } from "@cosimo/shared";
+import { TEXT_SCALE, normalizeCharacter, normalizeTextSize, type CharacterId, type Locale } from "@cosimo/shared";
 import { schemeById, type ColorScheme } from "@cosimo/face";
 import { useCosimoSocket, type CosimoState } from "@cosimo/client";
 import { usePushToTalk, type NativeDictation } from "./usePushToTalk.js";
@@ -13,6 +13,8 @@ export interface Seat {
   toggleLang: () => void;
   /** The active profile's accommodations, resolved to render-ready values. */
   scheme: ColorScheme;
+  /** Which Gestalt shows in the circle (face · blob · circle · line). */
+  character: CharacterId;
   textScale: number;
   showText: boolean;
   reduceMotion: boolean;
@@ -54,6 +56,7 @@ export function useSeat(
   // all voice-mutable via CoSiMo (set_presentation).
   const acc = cosimo.persona?.accommodations;
   const scheme = schemeById(acc?.theme ?? "weiss");
+  const character = normalizeCharacter(acc?.character);
   // "l" (1.0) is the slit's full size — the setting only goes smaller.
   const textScale = TEXT_SCALE[normalizeTextSize(acc?.textSize)];
   const showText = acc?.showText ?? false;
@@ -113,6 +116,7 @@ export function useSeat(
     setLang,
     toggleLang: () => setLang((l) => (l === "de" ? "en" : "de")),
     scheme,
+    character,
     textScale,
     showText,
     reduceMotion,

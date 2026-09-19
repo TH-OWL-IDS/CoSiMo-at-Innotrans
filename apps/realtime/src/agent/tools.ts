@@ -8,6 +8,7 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import {
+  CHARACTER_IDS,
   EXPRESSIVE_EMOTIONS,
   SCHEME_IDS,
   VOICE_TONES,
@@ -99,13 +100,13 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       properties: {
         setting: {
           type: "string",
-          enum: ["textSize", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "farbe", "language", "volume", "voice", "tone"],
+          enum: ["textSize", "audioOutput", "speechRate", "showText", "reduceMotion", "input", "farbe", "gestalt", "language", "volume", "voice", "tone"],
           description: "Which setting to change.",
         },
         value: {
           type: ["string", "number", "boolean"],
           description:
-            "New value. textSize: s|m|l (l is the largest the screen holds; m and s are smaller). input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau.",
+            "New value. textSize: s|m|l (l is the largest the screen holds; m and s are smaller). input: voice|text|both. showText: true shows your replies as text on screen (speech stays on). audioOutput: false silences you entirely — only on explicit request. reduceMotion: true|false. speechRate: 0.5–1.5. volume: 0–1 playback loudness ('leiser' → 0.5, quieter still → 0.3; audioOutput stays on). voice: female|male (gender default) or a voice key from the Stimmen list in your instructions. tone: neutral|warm|ruhig|lebhaft — the voice's character ('freundlicher' → warm). language: de|en. farbe (the colour scheme, exact ids): weiss (hell), dunkel (schwarz/Nacht), blau, gruen, gelb (warm), rosa (pink), grau. gestalt (what shows in the circle): face (Gesicht) | blob (Knäuel) | circle (Kreis) | line (Linie).",
         },
       },
       required: ["setting", "value"],
@@ -224,6 +225,14 @@ function presentationPatch(setting: string, value: unknown, voices: VoiceCatalog
       return (SCHEME_IDS as readonly string[]).includes(id)
         ? { patch: { theme: id } }
         : { error: `farbe must be one of: ${SCHEME_IDS.join("|")}` };
+    }
+    case "gestalt": {
+      const raw = String(value).trim().toLowerCase();
+      const map: Record<string, string> = { gesicht: "face", face: "face", knäuel: "blob", knaeuel: "blob", blob: "blob", tangle: "blob", kreis: "circle", ring: "circle", circle: "circle", linie: "line", line: "line" };
+      const id = map[raw] ?? raw;
+      return (CHARACTER_IDS as readonly string[]).includes(id)
+        ? { patch: { character: id as Accommodations["character"] } }
+        : { error: `gestalt must be one of: ${CHARACTER_IDS.join("|")}` };
     }
     case "volume": {
       let n = typeof value === "number" ? value : Number(value);

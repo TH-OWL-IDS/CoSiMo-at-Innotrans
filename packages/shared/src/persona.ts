@@ -64,6 +64,9 @@ export interface Accommodations {
   language: Locale;
   /** Appearance scheme id (see packages/face schemes). */
   theme: string;
+  /** Which "Gestalt" shows in the circle: the face or one of the abstract
+   *  scribble creatures (packages/face characters). Default face. */
+  character?: CharacterId;
   /** On-screen text scale — `l` is the largest the slit can hold (the
    *  default look); `m` and `s` only go smaller. See TEXT_SCALE. */
   textSize: TextSize;
@@ -111,6 +114,12 @@ export interface VoiceCatalogEntry {
 }
 
 /** Voice character presets → ElevenLabs stability (low = expressive, high = even). */
+export const CHARACTER_IDS = ["face", "blob", "circle", "line"] as const;
+export type CharacterId = (typeof CHARACTER_IDS)[number];
+export function normalizeCharacter(v: unknown): CharacterId {
+  return (CHARACTER_IDS as readonly string[]).includes(String(v)) ? (v as CharacterId) : "face";
+}
+
 export const TEXT_SIZES = ["s", "m", "l"] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
 /** Render scale per text size. The slit's type is sized so that 1.0 fills

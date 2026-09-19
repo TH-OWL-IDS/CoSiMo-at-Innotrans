@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ALargeSmall, AudioLines, Check, ChevronLeft, Gauge, Lightbulb, Palette, Sparkles, UserRound, Volume2, X } from "lucide-react";
+import { ALargeSmall, AudioLines, Check, ChevronLeft, Gauge, Lightbulb, Palette, Shapes, Sparkles, UserRound, Volume2, X } from "lucide-react";
 import {
   SETTINGS_DEFAULTS,
   SETTINGS_IDLE_MS,
@@ -17,7 +17,7 @@ import {
   type SettingsSection,
   type VoiceTone,
 } from "@cosimo/shared";
-import { schemes as SCHEMES, type ColorScheme } from "@cosimo/face";
+import { CHARACTERS, schemes as SCHEMES, type ColorScheme } from "@cosimo/face";
 import { Chip, SlitGrid, TAP } from "./SlitCard.js";
 
 /**
@@ -51,6 +51,7 @@ function defaultsFor(path: Path): Partial<Accommodations> {
     case "voice.tone": return { voiceTone: d.voiceTone };
     case "voice": return { speechRate: d.speechRate, voice: d.voice, voiceGender: d.voiceGender, voiceTone: d.voiceTone };
     case "theme": return { theme: d.theme };
+    case "character": return { character: d.character };
     case "root": return { ...d };
     default: return {}; // the light paths reset through the scene (see `reset`)
   }
@@ -113,13 +114,14 @@ function HoldButton({ label, ink, bg, filled, onTap, onHold, children }: {
   );
 }
 
-type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme" | "light" | `light.${LightGroup}`;
+type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme" | "character" | "light" | `light.${LightGroup}`;
 
 const ROOT: { path: Path; icon: typeof ALargeSmall; de: string; en: string }[] = [
   { path: "textSize", icon: ALargeSmall, de: "Textgröße", en: "Text size" },
   { path: "volume", icon: Volume2, de: "Lautstärke", en: "Volume" },
   { path: "voice", icon: AudioLines, de: "Stimme", en: "Voice" },
   { path: "theme", icon: Palette, de: "Farbe", en: "Colour" },
+  { path: "character", icon: Shapes, de: "Gestalt", en: "Shape" },
   { path: "light", icon: Lightbulb, de: "Licht", en: "Light" },
 ];
 const VOICE: { path: Path; icon: typeof ALargeSmall; de: string; en: string }[] = [
@@ -344,6 +346,11 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
       );
       break;
     }
+    case "character":
+      body = CHARACTERS.map((ch) => (
+        <Chip key={ch.id} label={ch.label[lang]} ink={ink} textScale={textScale} active={(acc?.character ?? "face") === ch.id} onTap={() => change({ character: ch.id })} />
+      ));
+      break;
     case "theme":
       body = SCHEMES.map((sch) => (
         <button

@@ -1,5 +1,9 @@
 export { default as CosimoFaceAnimated } from "./CosimoFaceAnimated.js";
 export { default as ScribbleCanvas } from "./ScribbleCanvas.js";
+export { default as ScribbleBlob } from "./ScribbleBlob.js";
+export { default as ScribbleCircle } from "./ScribbleCircle.js";
+export { default as ScribbleLine } from "./ScribbleLine.js";
+export { CHARACTERS, characterById, type Character, type CharacterProps } from "./characters.js";
 export { FACE_STATES, type FaceParams } from "./states.js";
 export {
   IN_TEST,
