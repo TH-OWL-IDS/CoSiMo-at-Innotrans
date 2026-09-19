@@ -7,9 +7,8 @@ import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
 /** SHA-256 of the operator password — the console's page lock uses the same. */
 const HASH = "3bb21893fb23828e7ae7a66a38d67ae119525d12867310adfcb622d2742bb540";
 const UNLOCK_KEY = "cosimo.emulator.unlocked";
-/** The browser seat gets a larger face than the calibrated iPad default —
- *  there is no physical panel to fit; the slit stays where it is. */
-const EMULATOR_LAYOUT = { ...DEFAULT_PANEL_LAYOUT, circleD: 92 };
+/** The browser seat renders the iPad's default calibration. */
+const EMULATOR_LAYOUT = DEFAULT_PANEL_LAYOUT;
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");

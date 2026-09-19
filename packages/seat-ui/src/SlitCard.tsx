@@ -78,14 +78,14 @@ export function Chip({
 /** The strip's shell: question left, a scrolling row of actions beneath.
  *  `hideLabel` keeps the label for assistive tech only (the settings menu
  *  is icons and controls, no words). */
-export function SlitGrid({ label, scheme, textScale, children, aside, hideLabel = false }: { label: string; scheme: ColorScheme; textScale: number; children: ReactNode; aside?: ReactNode; hideLabel?: boolean }) {
+export function SlitGrid({ label, scheme, textScale, children, aside, hideLabel = false, fill = false }: { label: string; scheme: ColorScheme; textScale: number; children: ReactNode; aside?: ReactNode; hideLabel?: boolean; /** The body is one control that takes the whole row (a slider): no scroll strip, no fade, the gap to the button equals the inset. */ fill?: boolean }) {
   return (
     <div
       role="group"
       aria-label={label}
       style={{
         width: "100%", height: "100%", boxSizing: "border-box",
-        display: "flex", alignItems: "center", gap: "4cqh",
+        display: "flex", alignItems: "center", gap: fill ? "var(--slit-inset, 5cqh)" : "4cqh",
         padding: "6cqh var(--slit-inset, 5cqh)",
         overflow: "hidden", color: scheme.ink,
         // @ts-expect-error custom property for the pressed chip's text colour
@@ -106,7 +106,9 @@ export function SlitGrid({ label, scheme, textScale, children, aside, hideLabel 
         )}
         {/* row 2: the actions — a horizontal strip that scrolls instead of clipping,
             with a soft fade on the right as the "there is more" cue */}
-        <span style={{
+        <span style={fill ? {
+          display: "flex", alignItems: "center", width: "100%",
+        } : {
           display: "flex", gap: "3.5cqh", alignItems: "center", flexShrink: 0,
           overflowX: "auto", overflowY: "hidden", scrollbarWidth: "none",
           // vertical room for the colour swatches' selection ring (an outline

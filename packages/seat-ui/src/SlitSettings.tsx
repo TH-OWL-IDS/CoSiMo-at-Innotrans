@@ -145,6 +145,9 @@ function sectionPath(section?: SettingsSection): Path {
   return section ?? "root";
 }
 
+/** The thumb: a ring a touch smaller than the chips. */
+const THUMB = "clamp(30px, 34cqh, 72px)";
+
 function Slider({ min, max, step, value, label, ink, onCommit, ends }: {
   min: number; max: number; step: number; value: number; label: string; ink: string;
   onCommit: (v: number) => void;
@@ -155,9 +158,18 @@ function Slider({ min, max, step, value, label, ink, onCommit, ends }: {
   useEffect(() => setV(value), [value]);
   const pct = ((v - min) / (max - min)) * 100;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: "3cqh", flexShrink: 0 }}>
+    <span style={{ display: "flex", alignItems: "center", gap: "4cqh", width: "100%" }}>
+      <style>{`
+input.cosimo-slider { -webkit-appearance: none; appearance: none; margin: 0; }
+input.cosimo-slider:focus-visible { outline: max(1.5px, 1.5cqh) solid var(--ink); outline-offset: 2cqh; border-radius: 999px; }
+input.cosimo-slider::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+input.cosimo-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: var(--thumb); height: var(--thumb); border-radius: 50%; border: max(1.5px, 2cqh) solid var(--ink); background: var(--slit-bg, #fff); box-sizing: border-box; cursor: pointer; }
+input.cosimo-slider::-moz-range-track { height: 2px; background: transparent; }
+input.cosimo-slider::-moz-range-thumb { width: var(--thumb); height: var(--thumb); border-radius: 50%; border: max(1.5px, 2cqh) solid var(--ink); background: var(--slit-bg, #fff); box-sizing: border-box; cursor: pointer; }
+`}</style>
       {ends?.[0]}
       <input
+        className="cosimo-slider"
         type="range"
         min={min}
         max={max}
@@ -168,12 +180,13 @@ function Slider({ min, max, step, value, label, ink, onCommit, ends }: {
         onPointerUp={() => onCommit(v)}
         onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") onCommit(v); }}
         style={{
-          // a bare line with a knob — styled through accent-color + a track gradient
-          width: "clamp(140px, 240cqh, 640px)",
-          height: TAP,
-          accentColor: ink,
-          background: `linear-gradient(to right, ${ink} ${pct}%, transparent ${pct}%) no-repeat center / 100% 2px`,
-          appearance: "auto",
+          // the track: a line, filled in ink up to the value, faint after it;
+          // the thumb (a ring) is styled above — the input is as tall as it
+          ["--ink" as string]: ink,
+          ["--thumb" as string]: THUMB,
+          flex: 1, minWidth: 0,
+          height: THUMB,
+          background: `linear-gradient(to right, ${ink} ${pct}%, color-mix(in srgb, ${ink} 28%, transparent) ${pct}%) no-repeat center / 100% max(2px, 1.5cqh)`,
           touchAction: "none",
           cursor: "pointer",
         }}
@@ -342,7 +355,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
   }
 
   return (
-    <SlitGrid label={titleOf(path, lang)} scheme={scheme} textScale={textScale} aside={aside} hideLabel>
+    <SlitGrid label={titleOf(path, lang)} scheme={scheme} textScale={textScale} aside={aside} hideLabel fill={path === "textSize" || path === "volume" || path === "voice.tempo"}>
       {body}
     </SlitGrid>
   );

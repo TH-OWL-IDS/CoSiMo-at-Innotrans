@@ -35,12 +35,12 @@ export interface PanelLayout {
  */
 export const DEFAULT_PANEL_LAYOUT: PanelLayout = {
   circleX: 50,
-  circleY: 39.2,
-  circleD: 94.9,
+  circleY: 33,
+  circleD: 97,
   slitX: 50,
-  slitY: 85.2,
-  slitW: 94.9,
-  slitH: 13.6,
+  slitY: 91.5,
+  slitW: 96.5,
+  slitH: 15,
   slitR: 999,
   guides: false,
 };
