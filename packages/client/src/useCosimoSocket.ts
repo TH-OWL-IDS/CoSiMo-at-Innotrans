@@ -224,6 +224,8 @@ export interface CosimoState {
   checkedIn: boolean;
   /** The guest chip on the check-in: continue without a card. */
   checkIn: () => void;
+  /** Browser seat: check in as a profile without a card ("__checkout" = check out). */
+  login: (persona: string) => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
   /** Host actions. */
@@ -635,6 +637,11 @@ export function useCosimoSocket(
 
   const closeSettings = () => setSettings(null);
 
+  const login = (persona: string) => {
+    touch();
+    sockRef.current?.emit("session:login", { sessionId: sessionRef.current, persona });
+  };
+
   /** The guest chip: continue without a card (the default profile). */
   const checkIn = () => {
     touch();
@@ -817,7 +824,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, checkedIn, checkIn,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, checkedIn, checkIn, login,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, hostLight, cabinLight, rig, hostRig, light, setLight, saveScene, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,

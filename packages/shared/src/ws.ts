@@ -352,6 +352,9 @@ export interface ClientToServerEvents {
   "settings:patch": (payload: SettingsPatch) => void;
   /** The guest chip on the check-in: continue without a card (default profile). */
   "session:checkin": (payload: { sessionId: string }) => void;
+  /** Browser seat only: check in as a profile without a card (its dropdown),
+   *  or check out ("__checkout"). The hub treats a login like a card scan. */
+  "session:login": (payload: { sessionId: string; persona: string }) => void;
   /** The ↻ affordance: say the last reply again (no LLM round). */
   "reply:repeat": (payload: { sessionId: string }) => void;
   /** Visitor consent decision for recording. */

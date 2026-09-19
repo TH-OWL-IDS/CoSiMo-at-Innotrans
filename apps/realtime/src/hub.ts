@@ -693,7 +693,8 @@ export class Hub {
     if (!this.personaLister) return;
     const personas = this.personaLister();
     for (const e of this.devices.values()) {
-      if (e.role === "host") e.socket.emit("host:personas", { personas });
+      // consoles for their pickers, browser seats for the check-in dropdown
+      if (e.role === "host" || e.kind === "emulator") e.socket.emit("host:personas", { personas });
     }
   }
 
@@ -804,7 +805,7 @@ export class Hub {
       socket.emit("status:update", this.status);
       if (this.lastTelemetry) socket.emit("telemetry:update", this.lastTelemetry);
       // Host consoles need the authored persona set to populate their pickers.
-      if (role === "host" && this.personaLister) {
+      if ((role === "host" || resolvedKind === "emulator") && this.personaLister) {
         socket.emit("host:personas", { personas: this.personaLister() });
       }
       if (role === "host" && this.configLister) {
@@ -967,6 +968,20 @@ export class Hub {
         (events, replay) => socket.emit("host:log", { events, replay }),
         since,
       );
+    });
+
+    // Browser seat: check in as a profile from its dropdown (like a card
+    // scan), or check out ("__checkout" — like the silence timeout).
+    socket.on("session:login", ({ sessionId, persona }) => {
+      const deviceId = this.trackSession(socket, sessionId);
+      const entry = this.devices.get(deviceId);
+      if (!entry || entry.role !== "kiosk" || entry.kind !== "emulator") return;
+      if (persona === "__checkout") { this.beginSession(deviceId, "default", "timeout"); return; }
+      const known = this.personaLister?.().some((p) => p.persona === persona);
+      if (!known) return;
+      if (entry.persona.persona === persona && entry.active) return;
+      if (entry.persona.persona === persona) { this.markActive(entry, deviceId, "nfc"); this.pushSeats(); return; }
+      this.setPersonaForDevice(deviceId, persona as PersonaKey, "nfc");
     });
 
     // The guest chip on the check-in: continue without a card.

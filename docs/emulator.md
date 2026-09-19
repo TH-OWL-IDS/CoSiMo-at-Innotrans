@@ -37,24 +37,23 @@ re-implementing it.
 
 ## The side panel replaces the hardware
 
-| Hardware | Emulator |
-|---|---|
-| Talk button (HID `s`, hold) | **hold to talk** button, or hold **Space** |
-| Info button (HID `i`) | **info** button |
-| NFC reader (`[id⏎]`) | chip-id field + the five seeded cards as shortcuts |
-| — | a text field (the same `chat:send` path as the kiosk's hidden test console) |
-| Cabin LAN → LPU-2 | **actuation log**: every `cabin:actuate` the hub sends this seat, with its URLs |
+Behind the corner handle and the operator password (2026-09-19 layout):
 
-The actuation log is the useful trick (the hub prefers a real iPad as the
-actuator but falls back to the emulator when none is connected, exactly so
-this keeps working): ask CoSiMo to change the light and the
-exact `GET /ajax/pbXX/…` calls appear — so the playback mapping in the CMS can
-be verified from a desk, with no cabin. By default they are **logged, not
-fired** (and reported `ok`, so the seat reads as healthy); tick *fire for real*
-when the machine running the browser can actually reach the controller.
-
-Voice needs a secure origin for the mic (https or localhost) plus server STT
-(Deepgram) or Chrome's speech recognition — the panel says so when it can't.
+- **Left, the legend** — every input the stand's hardware sends, with the
+  keyboard standing in: `S` hold = talk, `I` = info, `L` = next light
+  scene, `#ID⏎` = card scan, slit 3 s = the iPad's operator menu, `Esc`
+  closes. Beneath it the **check-in dropdown**: the authored profiles (the
+  hub sends `host:personas` to browser seats too), "Ohne Anmeldung" (the
+  guest chip) and **auschecken** — `session:login` is handled like a card
+  scan / the silence timeout, so the circle's check-in, the greeting,
+  language, colours, Gestalt and voice all follow.
+- **Right, the panel** — hold-to-talk and the info / light buttons; which
+  STT/TTS path is live plus the live dictation text; a text field instead
+  of the voice; any chip id (unknown ones included); the cabin light state
+  with scene / off / dimming buttons; the cabin-LAN stand-in (the LPU-2
+  URLs the hub hands this seat, logged — or fired for real when this
+  machine is on the cabin network); the status footer (LLM, STT, TTS,
+  light, net).
 
 ## Where it connects
 

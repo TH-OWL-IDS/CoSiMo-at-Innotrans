@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CabinActuation, CabinActuationResult } from "@cosimo/shared";
 import { DEFAULT_PANEL_LAYOUT, SeatView, useSeat, useHidInput } from "@cosimo/seat-ui";
-import { LockKeyhole, X } from "lucide-react";
+import { LockKeyhole, LogOut, X } from "lucide-react";
 import { Brand, Button, Dot, Eyebrow, Input, cn } from "@cosimo/ui";
 
 /** SHA-256 of the operator password — the console's page lock uses the same. */
@@ -125,7 +125,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const controls = cosimo.cabin;
   const Status = ({ ok, label }: { ok: boolean | undefined; label: string }) => (
     <span className="inline-flex items-center gap-1.5"><Dot size="sm" state={ok ? "ok" : "down"} />{label}</span>
   );
@@ -155,6 +154,48 @@ export default function App() {
         </button>
       )}
 
+
+      {/* ── the legend, docked left while the panel is open: every input the
+             stand's hardware sends (the keyboard stands in for it), and the
+             check-in — the same thing a card scan does — as a dropdown. ── */}
+      {open && unlocked && (
+        <aside
+          aria-label="Legende"
+          className="fixed left-3 top-3 z-drawer hidden w-[280px] flex-col gap-3 rounded-xl border border-line bg-white p-4 font-mono text-md text-ink shadow-drawer md:flex"
+        >
+          <Eyebrow size="xs">Tasten</Eyebrow>
+          <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">S</kbd> halten</dt><dd className="m-0">sprechen — loslassen sendet</dd>
+            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">I</kbd></dt><dd className="m-0">Info — die Vorstellungsfrage</dd>
+            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">L</kbd></dt><dd className="m-0">Licht — nächste Szene</dd>
+            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">#ID⏎</kbd></dt><dd className="m-0">Karte scannen, z. B. <code>#NOA1⏎</code></dd>
+            <dt>Schlitz 3 s</dt><dd className="m-0">Operator-Menü des iPads</dd>
+            <dt><kbd className="rounded border border-line-strong bg-well px-1.5">Esc</kbd></dt><dd className="m-0">Panel schließen</dd>
+          </dl>
+          <Eyebrow size="xs" className="mt-1">Einchecken</Eyebrow>
+          <select
+            aria-label="Als Profil einchecken"
+            className="rounded-lg border border-line-strong bg-white px-2 py-1.5 text-md"
+            value={cosimo.checkedIn ? cosimo.persona?.persona ?? "" : ""}
+            onChange={(e) => { const v = e.target.value; if (v === "__guest") cosimo.checkIn(); else if (v) cosimo.login(v); }}
+          >
+            <option value="">{cosimo.checkedIn ? "— Profil wechseln —" : "— niemand eingecheckt —"}</option>
+            {cosimo.personas.filter((p) => p.persona !== "default").map((p) => (
+              <option key={p.persona} value={p.persona}>{p.label} · {p.accommodations.language === "en" ? "EN" : "DE"} · {p.accommodations.character ?? "face"}</option>
+            ))}
+            <option value="__guest">Ohne Anmeldung (Standard)</option>
+          </select>
+          <div className="flex items-center justify-between text-xs text-mute">
+            <span>{cosimo.checkedIn ? <>eingecheckt · <b className="text-ink">{cosimo.persona?.label}</b></> : "Check-in im Kreis"}</span>
+            {cosimo.checkedIn && (
+              <Button size="xs" variant="secondary" onClick={() => cosimo.login("__checkout")} title="wie nach 2 Minuten Stille"><LogOut size={12} /> auschecken</Button>
+            )}
+          </div>
+          <span className="text-xs leading-normal text-mute">
+            Ein Profil hier ist dasselbe wie die Karte am Chip: neue Sitzung, Begrüßung, Sprache, Farbe, Gestalt, Stimme. Nach 2 Minuten Stille checkt der Hub aus.
+          </span>
+        </aside>
+      )}
       {/* ── the panel: right-side drawer on desktop, bottom sheet on a phone
              (the face stays visible above it while you hold to talk).
              Behind the password on first open; remembered for this tab. ── */}
@@ -223,28 +264,19 @@ export default function App() {
               <>
 
         <header className="flex flex-col gap-1.5">
-          <Eyebrow size="xs">Seat emulator</Eyebrow>
+          <Eyebrow size="xs">Browser-Seat</Eyebrow>
           <div className="leading-normal text-mute">
-            <Status ok={cosimo.connected} label={cosimo.connected ? "connected" : "connecting…"} /> ·{" "}
-            <span title={serverUrl || "same-origin (dev proxy)"}>
-              {serverUrl ? new URL(serverUrl).host : "same-origin"}
-            </span>
+            <Status ok={cosimo.connected} label={cosimo.connected ? "verbunden" : "verbinde…"} /> ·{" "}
+            <span title={serverUrl || "same-origin (dev proxy)"}>{serverUrl ? new URL(serverUrl).host : "same-origin"}</span>
             <br />
-            seat <code>{cosimo.sessionId.slice(0, 10)}</code>
-            {cosimo.persona && (
-              <>
-                {" "}
-                · profile <b className="text-ink">{cosimo.persona.label}</b>
-              </>
-            )}
+            Sitzung <code>{cosimo.sessionId.slice(0, 10)}</code>
+            {cosimo.persona && <> · <b className="text-ink">{cosimo.persona.label}</b>{cosimo.checkedIn ? "" : " (nicht eingecheckt)"}</>}
           </div>
-          <div className="text-xs text-mute">
-            Repoint with <code>?server=https://…</code>
-          </div>
+          <div className="text-xs text-mute">Anderer Hub: <code>?server=https://…</code> · Panel-Optik: <code>?panel=1</code> · Schaustellung: <code>?showcase=1</code></div>
         </header>
 
         <section>
-          <Eyebrow size="xs" className="mb-1.5">Buttons (ESP32)</Eyebrow>
+          <Eyebrow size="xs" className="mb-1.5">Tasten (wie am Panel)</Eyebrow>
           <div className="grid gap-2">
             <Button
               variant={ptt.active ? "on" : "primary"}
@@ -252,155 +284,82 @@ export default function App() {
               className="min-h-14 touch-none"
               aria-pressed={ptt.active}
               disabled={!ptt.supported}
-              onPointerDown={(e) => {
-                e.currentTarget.setPointerCapture(e.pointerId);
-                ptt.start();
-              }}
+              onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); ptt.start(); }}
               onPointerUp={ptt.stop}
               onPointerCancel={ptt.stop}
               onContextMenu={(e) => e.preventDefault()}
             >
-              {ptt.active ? "● listening — release to send" : "hold to talk  (or hold S)"}
+              {ptt.active ? "● hört zu — loslassen sendet" : "halten zum Sprechen (oder S halten)"}
             </Button>
-            <Button size="lg" className="justify-start" onClick={seat.askInfo}>
-              ⓘ info — canned intro question
-            </Button>
-            {/* Say which speech path is live — "STT doesn't work" is usually
-                "there is no Deepgram key and this isn't Chrome". */}
-            <div className="text-xs leading-normal text-mute">
-              STT:{" "}
-              {cosimo.status?.serverStt
-                ? "Deepgram (server)"
-                : ptt.supported
-                  ? "browser speech recognition (no DEEPGRAM_API_KEY on the server)"
-                  : "none — no DEEPGRAM_API_KEY on the server and this browser has no speech recognition (use Chrome, or set the key)"}
-              <br />
-              TTS: {cosimo.status?.serverTts ? "ElevenLabs (server)" : "browser speech synthesis"}
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="lg" onClick={seat.askInfo}>ⓘ Info</Button>
+              <Button size="lg" onClick={() => cosimo.setLight({ scene: "next" })}>☼ Licht: nächste Szene</Button>
             </div>
-            {ptt.error && (
-              <div className="text-sm leading-snug text-accent">
-                ✖ {ptt.error}
-              </div>
-            )}
-            {!ptt.supported && (
-              <div className="text-sm leading-snug text-warn">
-                Voice input is unavailable here — use the text field below, or fix the STT
-                path above. The mic also needs a secure origin (https / localhost).
-              </div>
-            )}
+            <div className="text-xs leading-normal text-mute">
+              STT: {cosimo.status?.serverStt ? "Deepgram (Server)" : ptt.supported ? "Spracherkennung des Browsers (kein Deepgram-Schlüssel auf dem Server)" : "keine — kein Deepgram-Schlüssel und dieser Browser hat keine Spracherkennung (Chrome nehmen)"}
+              <br />
+              TTS: {cosimo.status?.serverTts ? "ElevenLabs (Server)" : "Sprachausgabe des Browsers"}
+              {ptt.partial && <><br />gehört: <span className="text-ink">{ptt.partial}</span></>}
+            </div>
+            {ptt.error && <div className="text-sm leading-snug text-accent">✖ {ptt.error}</div>}
           </div>
         </section>
 
         <section>
-          <Eyebrow size="xs" className="mb-1.5">NFC card</Eyebrow>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              scanNfc();
-            }}
-            className="flex gap-2"
-          >
-            <Input
-              className="w-full"
-              aria-label="chip id"
-              value={nfc}
-              onChange={(e) => setNfc(e.target.value)}
-              placeholder="chip id, e.g. ALEX1"
-              spellCheck={false}
-            />
-            <Button type="submit" disabled={!nfc.trim()}>
-              tap
-            </Button>
-          </form>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {/* the four fair riders (Nutzungsprofile 01–04) */}
-            {["ALEX1", "NOA1", "LUCA1", "SAM1"].map((id) => (
-              <Button
-                key={id}
-                size="xs"
-                onClick={() => {
-                  setNfc(id);
-                  cosimo.registerNfc(id, lang);
-                }}
-              >
-                {id}
-              </Button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <Eyebrow size="xs" className="mb-1.5">Text (test console path)</Eyebrow>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendText();
-            }}
-            className="flex gap-2"
-          >
-            <Input
-              className="w-full"
-              aria-label="message"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={lang === "de" ? "Nachricht an CoSiMo…" : "Message to CoSiMo…"}
-            />
-            <Button type="submit" disabled={!text.trim()}>
-              →
-            </Button>
+          <Eyebrow size="xs" className="mb-1.5">Text statt Stimme</Eyebrow>
+          <form onSubmit={(e) => { e.preventDefault(); sendText(); }} className="flex gap-2">
+            <Input className="w-full" aria-label="Nachricht" value={text} onChange={(e) => setText(e.target.value)} placeholder={lang === "de" ? "Nachricht an CoSiMo…" : "Message to CoSiMo…"} />
+            <Button type="submit" disabled={!text.trim()}>→</Button>
           </form>
         </section>
 
         <section>
-          <Eyebrow size="xs" className="mb-1.5">Cabin (this seat)</Eyebrow>
-          <div className="grid gap-1 text-sm">
-            {controls.length === 0 && <span className="text-mute">—</span>}
-            {controls.map((c) => (
-              <div key={c.id} className="flex justify-between">
-                <span>{c.id}</span>
-                <span>
-                  {c.on !== undefined ? (c.on ? "on" : "off") : `${c.level ?? 0}%`}
-                  {c.degraded ? " ⚠︎" : ""}
-                </span>
-              </div>
-            ))}
+          <Eyebrow size="xs" className="mb-1.5">Karte (beliebige Chip-ID)</Eyebrow>
+          <form onSubmit={(e) => { e.preventDefault(); scanNfc(); }} className="flex gap-2">
+            <Input className="w-full" aria-label="Chip-ID" value={nfc} onChange={(e) => setNfc(e.target.value)} placeholder="z. B. ALEX1" spellCheck={false} />
+            <Button type="submit" disabled={!nfc.trim()}>scannen</Button>
+          </form>
+          <span className="mt-1 block text-xs text-mute">Die bekannten Profile stehen links im Dropdown; hier auch unbekannte IDs (der Hub meldet sie als unbekannt).</span>
+        </section>
+
+        <section>
+          <Eyebrow size="xs" className="mb-1.5">Licht (Kabine)</Eyebrow>
+          <div className="text-sm leading-normal">
+            {cosimo.light ? (
+              <>
+                Szene <b>{cosimo.light.scene === "off" ? "aus" : cosimo.light.scene ? cosimo.light.scenes.find((x) => x.key === cosimo.light!.scene)?.label ?? cosimo.light.scene : "frei"}</b>
+                {cosimo.light.dim !== 1 ? ` · gedimmt ${Math.round(cosimo.light.dim * 100)} %` : ""}
+                {cosimo.light.confirmed ? "" : <span className="text-mute"> · nicht bestätigt</span>}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {cosimo.light.scenes.map((sc) => (
+                    <Button key={sc.key} size="xs" variant={cosimo.light!.scene === sc.key ? "on" : "secondary"} onClick={() => cosimo.setLight({ scene: sc.key })}>{sc.label}</Button>
+                  ))}
+                  <Button size="xs" variant={cosimo.light.scene === "off" ? "on" : "secondary"} onClick={() => cosimo.setLight({ scene: "off" })}>aus</Button>
+                  <Button size="xs" variant="secondary" onClick={() => cosimo.setLight({ dim: "darker" })}>dunkler</Button>
+                  <Button size="xs" variant="secondary" onClick={() => cosimo.setLight({ dim: "brighter" })}>heller</Button>
+                </div>
+              </>
+            ) : <span className="text-mute">—</span>}
           </div>
         </section>
 
         <section className="flex min-h-[120px] flex-1 flex-col">
           <div className="mb-1.5 flex items-baseline justify-between">
-            <Eyebrow size="xs">Cabin LAN — LPU-2 calls</Eyebrow>
+            <Eyebrow size="xs">Kabinen-LAN — LPU-2-Aufrufe</Eyebrow>
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-mute">
-              <input
-                type="checkbox"
-                className="accent-ink"
-                checked={fireForReal}
-                onChange={(e) => setFireForReal(e.target.checked)}
-              />
-              fire for real
+              <input type="checkbox" className="accent-ink" checked={fireForReal} onChange={(e) => setFireForReal(e.target.checked)} />
+              wirklich abfeuern
             </label>
           </div>
           <div className="flex-1 overflow-y-auto rounded-lg border border-line bg-well p-2 text-xs leading-normal text-mute">
             {log.length === 0 && (
-              <span>
-                Nothing yet. Ask CoSiMo to change the light — the URLs the hub hands this seat
-                appear here{fireForReal ? " and are fired" : " (not fired)"}.
-              </span>
+              <span>Noch nichts. Sobald dieser Seat als Schalter gewählt wird, stehen die URLs hier{fireForReal ? " und werden abgefeuert" : " (nicht abgefeuert)"}. Im Kabinen-LAN übernimmt normalerweise ein iPad.</span>
             )}
             {log.map((e, i) => (
               <div key={i} className="mb-1.5">
-                <span className="text-ink">
-                  {e.at} {e.control}
-                </span>{" "}
-                <span className={cn(e.outcome === "failed" && "text-accent", e.outcome === "ok" && "text-ok")}>
-                  {e.outcome}
-                  {e.error ? ` — ${e.error}` : ""}
-                </span>
-                {e.urls.map((u) => (
-                  <div key={u} className="break-all pl-2">
-                    → GET {u}
-                  </div>
-                ))}
+                <span className="text-ink">{e.at} {e.control}</span>{" "}
+                <span className={cn(e.outcome === "failed" && "text-accent", e.outcome === "ok" && "text-ok")}>{e.outcome}{e.error ? ` — ${e.error}` : ""}</span>
+                {e.urls.map((u) => <div key={u} className="break-all pl-2">→ GET {u}</div>)}
               </div>
             ))}
           </div>
@@ -409,11 +368,12 @@ export default function App() {
         <footer className="flex flex-wrap gap-3 text-xs leading-normal text-mute">
           {cosimo.status && (
             <>
-              <Status ok={cosimo.status.llm} label="llm" />
-              <Status ok={cosimo.status.serverStt} label="stt" />
-              <Status ok={cosimo.status.serverTts} label="tts" />
-              <Status ok={cosimo.status.network} label="net" />
-              {cosimo.status.offlineCanned && <span>· offline canned</span>}
+              <Status ok={cosimo.status.llm} label="LLM" />
+              <Status ok={cosimo.status.serverStt} label="STT" />
+              <Status ok={cosimo.status.serverTts} label="TTS" />
+              <Status ok={cosimo.status.light} label="Licht" />
+              <Status ok={cosimo.status.network} label="Netz" />
+              {cosimo.status.offlineCanned && <span>· offline, feste Antworten</span>}
             </>
           )}
         </footer>
