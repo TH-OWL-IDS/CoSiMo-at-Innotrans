@@ -836,11 +836,20 @@ export class CosimoAgent {
     persona: PersonaKey,
     emotion: ExpressiveEmotion = "happy",
   ): Promise<void> {
-    // An announcement is a turn of its own — it supersedes whatever streams.
+    // An announcement is a turn of its own — it supersedes whatever streams,
+    // and the talk button cuts it like any turn (a greeting used to play
+    // on to its end after a barge-in: its clips kept coming, 2026-09-19).
+    const deviceId = this.hub.deviceOf(sessionId);
+    const ctrl = new AbortController();
+    if (deviceId) {
+      this.interrupt(deviceId);
+      this.activeTurns.set(deviceId, ctrl);
+    }
     const turnNo = this.hub.beginTurn(sessionId);
     this.emitFullReply(sessionId, text, turnNo);
     this.hub.setEmotion(emotion, sessionId, turnNo);
-    await this.speak(sessionId, text, lang, persona, turnNo);
+    await this.speak(sessionId, text, lang, persona, turnNo, ctrl.signal);
+    if (deviceId && this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
   }
 
   /** Emit a complete reply as a single delta + done (offline / error paths). */

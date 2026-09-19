@@ -598,6 +598,11 @@ export class Hub {
     this.inspectResolver = resolver;
   }
 
+  /** The seat a session belongs to (undefined once it is gone). */
+  deviceOf(sessionId: string): string | undefined {
+    return this.sessionDevice.get(sessionId);
+  }
+
   /** Latest session seen on a seat ("" before any interaction). */
   sessionOf(deviceId: string): string {
     return this.devices.get(deviceId)?.sessionId ?? "";

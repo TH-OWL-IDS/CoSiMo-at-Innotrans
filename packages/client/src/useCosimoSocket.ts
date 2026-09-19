@@ -469,11 +469,15 @@ export function useCosimoSocket(
   };
 
   /** Silence CoSiMo instantly (barge-in): stop server-TTS clips + browser speech. */
+  // the turn a barge-in cut: its clips still in flight are dropped, not
+  // played as if they were a new turn's (the "-2" reset made them look new)
+  const cutTurnRef = useRef(-1);
   const stopPlayback = () => {
     audioRef.current?.pause();
     audioRef.current = null;
     analysingRef.current = false;
     const q = ttsQueueRef.current;
+    if (q.turn >= 0) cutTurnRef.current = Math.max(cutTurnRef.current, q.turn);
     q.pending.clear(); q.ended = false; q.playing = false; q.turn = -2;
     if (settleTimerRef.current) { clearTimeout(settleTimerRef.current); settleTimerRef.current = null; }
     if (typeof window !== "undefined") window.speechSynthesis?.cancel();
@@ -491,6 +495,7 @@ export function useCosimoSocket(
       setConnected(true);
       // Fresh server state → fresh turn numbering.
       turnRef.current = 0;
+      cutTurnRef.current = -1; // turn numbers start over with the session
       socket.emit("hello", { deviceId, role, kind, ...(token ? { token } : {}), ...(seat ? { seat } : {}), ...(showcase ? { showcase: true } : {}), ...(carried ? { carried: true, autoCheckout: false } : {}) });
     });
     socket.on("disconnect", () => setConnected(false));
@@ -530,6 +535,7 @@ export function useCosimoSocket(
       // reset); only a legacy hub without one makes us mint our own.
       sessionRef.current = given ? adoptSession(role, given) : newSession(role);
       turnRef.current = 0;
+      cutTurnRef.current = -1; // turn numbers start over with the session
       replyRef.current = "";
       setReply("");
       setHeard("");
@@ -586,7 +592,7 @@ export function useCosimoSocket(
     socket.on("tts:chunk", ({ sessionId: sid, turn, seq, last, audioBase64, mime, text }) => {
       if (sid && sid !== sessionRef.current) return; // another seat's voice — never ours
       // A clip from a superseded (barged-in) turn arrives late — drop it.
-      if (turn !== -1 && turn < turnRef.current) return;
+      if (turn !== -1 && (turn < turnRef.current || turn <= cutTurnRef.current)) return;
       const q = ttsQueueRef.current;
       if (q.turn !== turn) {
         // a new turn's speech: whatever is still playing is stale

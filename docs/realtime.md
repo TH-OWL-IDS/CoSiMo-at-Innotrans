@@ -153,7 +153,12 @@ the agent abort the LLM stream mid-generation (`AbortController` per seat,
 wired into both adapters), and pending TTS is dropped. Every turn carries a
 per-seat monotonic `turn` number on `chat:delta`/`tts:chunk`; hub and clients
 drop chunks from superseded turns, so racing stragglers can't garble the new
-reply (-1 = wildcard, used by host recover). A running *tool call* is never
+reply (-1 = wildcard, used by host recover). Announcements (greetings, the
+guest hello) are registered like a turn, so the talk button cuts them too
+(a greeting used to play on to its end, 2026-09-19); and the client
+remembers the turn it cut (`cutTurnRef`) and drops that turn's clips still
+in flight instead of playing them as a "new turn" — the queue's `-2` reset
+had made them look new. A running *tool call* is never
 aborted (the cabin must not end up half-applied) — the loop stops before the
 next generation step instead. Interrupted turns record `outcome:
 "interrupted"` with the partial transcript.
