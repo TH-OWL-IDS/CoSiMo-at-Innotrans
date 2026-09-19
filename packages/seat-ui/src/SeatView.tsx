@@ -121,14 +121,23 @@ export default function SeatView({
   const liveSchemeRef = useRef(show?.scheme ?? seat.scheme);
   liveSchemeRef.current = show?.scheme ?? seat.scheme;
   const [swap, setSwap] = useState<"in" | "out" | "idle">("idle");
+  // the settle timer lives outside the effect: setShown re-runs the effect,
+  // and its cleanup would clear a timer started in the same run — the swap
+  // then never came back to "idle" and no later colour change was followed
+  // (seen 2026-09-19: "Dunkel — so?" spoken, the circle stayed white)
+  const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (sceneKey === shown) return;
     if (reduceMotion) { setShown(sceneKey); return; }
+    if (settleRef.current) clearTimeout(settleRef.current);
     setSwap("out");
-    const t1 = setTimeout(() => { setShown(sceneKey); setShownScheme(liveSchemeRef.current); setSwap("in"); }, 340);
-    const t2 = setTimeout(() => setSwap("idle"), 340 + 420);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t1 = setTimeout(() => {
+      setShown(sceneKey); setShownScheme(liveSchemeRef.current); setSwap("in");
+      settleRef.current = setTimeout(() => { setSwap("idle"); settleRef.current = null; }, 420);
+    }, 340);
+    return () => clearTimeout(t1);
   }, [sceneKey, shown, reduceMotion]);
+  useEffect(() => () => { if (settleRef.current) clearTimeout(settleRef.current); }, []);
   const shownCheckin = shown.startsWith("checkin:");
   // the Gestalt and the colours belong to what is SHOWN: during the "out"
   // phase the old rider's form leaves in the old scheme; the swap (at the
