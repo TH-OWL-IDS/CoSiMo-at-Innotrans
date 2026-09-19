@@ -76,7 +76,7 @@ const users: ProfileSeed[] = [
     name: "Alex",
     label: "Alex",
     summary: "Nutzungsprofil 01 – kommuniziert über Hören und Tasten.",
-    brief: "",
+    brief: "Alex, 68, nutzt öffentliche Verkehrsmittel regelmäßig und orientiert sich über Sprache, Geräusche und Tasten; Sichtbares nimmt Alex nur eingeschränkt wahr. Nie auf etwas Visuelles verweisen, jede Option laut nennen, jede Aktion sofort hörbar bestätigen. Klare, ruhige Sprache.",
     accommodations: {
       language: "de", theme: "weiss", textSize: "l", input: "voice",
       audioOutput: true, speechRate: 1, showText: false, reduceMotion: false,
@@ -95,9 +95,9 @@ const users: ProfileSeed[] = [
     name: "Noa",
     label: "Noa",
     summary: "Nutzungsprofil 02 – kommuniziert überwiegend visuell.",
-    brief: "",
+    brief: "Noa, 25, verarbeitet Informationen lieber über Bilder, Symbole und kurze Texte und meidet Sprache in lauten Umgebungen. Antworten kurz und so, dass sie als Text im Schlitz funktionieren; nur bei Bedarf ausführlicher sprechen. Ruhige, kontrastreiche Oberfläche.",
     accommodations: {
-      language: "de", theme: "grau", textSize: "l", input: "both",
+      language: "de", theme: "dunkel", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1, showText: true, reduceMotion: true,
       volume: 0.6, voiceGender: "female", voiceTone: "ruhig",
     },
@@ -114,7 +114,7 @@ const users: ProfileSeed[] = [
     name: "Luca",
     label: "Luca",
     summary: "Nutzungsprofil 03 – benötigt einfache und verständliche Abläufe.",
-    brief: "",
+    brief: "Luca, 42, nutzt digitale Systeme selten und fühlt sich sicher, wenn Abläufe Schritt für Schritt erklärt werden; zu viele Optionen verunsichern. Einfache Sprache, eine Sache pro Antwort, eindeutige Reihenfolge, nach jedem Schritt eine verständliche Rückmeldung. Nur die Basisfunktionen anbieten.",
     accommodations: {
       language: "de", theme: "gelb", textSize: "l", input: "both",
       audioOutput: true, speechRate: 0.9, showText: true, reduceMotion: false,
@@ -133,7 +133,7 @@ const users: ProfileSeed[] = [
     name: "Sam",
     label: "Sam",
     summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
-    brief: "",
+    brief: "Sam, 33, pendelt täglich, nutzt digitale Anwendungen routiniert und will sofort einsteigen. Das Wichtigste zuerst, meist die nächste Station und die Zeit; minimal viele Schritte, keine Rückfragen, keine Angebote. Die Interaktion endet nach wenigen Sekunden.",
     accommodations: {
       language: "de", theme: "weiss", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
