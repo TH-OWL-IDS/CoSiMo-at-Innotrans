@@ -46,6 +46,21 @@ export function errorReply(lang: Locale): CannedResult {
   };
 }
 
+/**
+ * The hello for the guest chip ("Ohne Anmeldung weiter"): one short line,
+ * picked at random, spoken without the LLM — the circle just left the
+ * check-in and CoSiMo should simply be there.
+ */
+const GUEST_HELLOS: Record<Locale, string[]> = {
+  de: ["Hi!", "Hallo!", "Hey!", "Hallo, ich bin CoSiMo.", "Hi, schön, dass du da bist."],
+  en: ["Hi!", "Hello!", "Hey!", "Hi, I'm CoSiMo.", "Hello, good to have you here."],
+};
+
+export function guestHello(lang: Locale): string {
+  const pool = GUEST_HELLOS[lang] ?? GUEST_HELLOS.de;
+  return pool[Math.floor(Math.random() * pool.length)]!;
+}
+
 export function cannedReply(
   raw: string,
   lang: Locale,

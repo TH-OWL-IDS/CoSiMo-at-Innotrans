@@ -30,6 +30,7 @@ import { ServicesMonitor } from "./services.js";
 import { logger } from "./log/logger.js";
 import { TOOL_DEFINITIONS } from "./agent/tools.js";
 import { greetingFor } from "./agent/prompt.js";
+import { guestHello } from "./agent/canned.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -229,6 +230,13 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
         : "Hmm, I don't recognise this card. Please ask the booth staff!";
     void agent.announce(sessionId, text, lang, "default", "surprised");
   }
+});
+
+// The guest chip → a short hello, spoken without the LLM (the card has its
+// own greeting above; a first talk press gets its answer instead).
+hub.onGuestCheckin(({ sessionId, deviceId, persona, lang }) => {
+  agent.interrupt(deviceId);
+  void agent.announce(sessionId, guestHello(lang), lang, persona, "happy");
 });
 
 // Voice utterances → server STT → agent (voice modality).

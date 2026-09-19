@@ -133,6 +133,9 @@ export interface IncomingNfc {
 
 export type NfcHandler = (nfc: IncomingNfc) => void;
 
+/** The guest chip was taken ("Ohne Anmeldung weiter"): the seat just checked in without a card. */
+export type GuestCheckinHandler = (p: { sessionId: string; deviceId: string; persona: PersonaKey; lang: Locale }) => void;
+
 /** Rider barge-in (talk button pressed while a turn runs) — abort that seat. */
 export type InterruptHandler = (payload: { deviceId: string; sessionId: string }) => void;
 
@@ -261,6 +264,7 @@ export class Hub {
   private chatHandler: ChatHandler | undefined;
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
+  private guestCheckinHandler: GuestCheckinHandler | undefined;
   private interruptHandler: InterruptHandler | undefined;
   private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
   /** How to reach the cabin's DMX controller — resolved per change so an
@@ -443,6 +447,11 @@ export class Hub {
     this.nfcHandler = handler;
   }
 
+  /** Register the handler for the guest check-in (the short hello without the LLM). */
+  onGuestCheckin(handler: GuestCheckinHandler): void {
+    this.guestCheckinHandler = handler;
+  }
+
   /** Register the handler for rider barge-in (talk button during a turn). */
   onInterrupt(handler: InterruptHandler): void {
     this.interruptHandler = handler;
@@ -559,6 +568,8 @@ export class Hub {
     if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
     entry.socket.emit("session:checkin", { sessionId: entry.sessionId, by });
     logger.log("session.checkin", { by }, { deviceId, sessionId: entry.sessionId });
+    // the guest chip gets a hello — a card has its own greeting, an input its answer
+    if (by === "guest") this.guestCheckinHandler?.({ sessionId: entry.sessionId, deviceId, persona: entry.persona.persona, lang: entry.persona.accommodations.language });
   }
 
   onSpeechTest(tester: SpeechTester): void {
@@ -979,6 +990,13 @@ export class Hub {
       if (persona === "__checkout") { this.beginSession(deviceId, "default", "timeout"); return; }
       const known = this.personaLister?.().some((p) => p.persona === persona);
       if (!known) return;
+      // the default profile from the dropdown IS the guest chip
+      if (persona === "default") {
+        if (entry.persona.persona !== "default") this.beginSession(deviceId, "default", "host");
+        this.markActive(entry, deviceId, "guest");
+        this.pushSeats();
+        return;
+      }
       if (entry.persona.persona === persona && entry.active) return;
       if (entry.persona.persona === persona) { this.markActive(entry, deviceId, "nfc"); this.pushSeats(); return; }
       this.setPersonaForDevice(deviceId, persona as PersonaKey, "nfc");

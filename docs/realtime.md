@@ -176,7 +176,12 @@ A kiosk seat starts checked out (`active: false`; the circle shows the
 check-in). `markActive` flips it once per session — a card scan
 (`beginSession … "nfc"`), the guest chip (`session:checkin` from the seat)
 or the first input (chat, consent, settings) — and emits `session:checkin`
-(`by`: nfc | guest | input), logged as `session.checkin`. The idle sweep
+(`by`: nfc | guest | input), logged as `session.checkin`. The guest chip
+also gets a hello: `hub.onGuestCheckin` → `agent.announce` with one of the
+short lines in `guestHello` (canned.ts — "Hi!", "Hallo, ich bin CoSiMo." …,
+in the profile's language), TTS only, no LLM; a card has `greetingFor`, a
+first talk press its answer. The browser seat's dropdown "Standard" entry
+(`session:login` with `default`) is the guest chip. The idle sweep
 (15 s) checks a seat out after `config.face.checkoutMs` (2 min) of silence
 while idle: `beginSession(deviceId, "default", "timeout")` → `session:reset`
 + the default profile, unless the kiosk said `carried: true` in its hello
