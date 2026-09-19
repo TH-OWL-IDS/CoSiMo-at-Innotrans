@@ -89,9 +89,6 @@ export default function SeatView({
   children?: ReactNode;
 }) {
   const { cosimo, lang, textScale, reduceMotion, ptt } = seat;
-  // the Gestalt: the face or an abstract scribble creature, same emotions,
-  // each with its own rig — the rider's choice (profile / slit menu / voice)
-  const Gestalt = characterById(seat.character).Component;
   // Showcase overlays the live state: same renderer, different source.
   const show = useShowcase(Boolean(showcase), lang, seat.scheme);
   // the check-in: nobody at this seat → the circle offers the card / the
@@ -102,23 +99,37 @@ export default function SeatView({
   // content grows in — keyed on who is here and which Gestalt they chose
   const sceneKey = `${checkedIn ? cosimo.persona?.persona ?? "default" : "checkin"}:${seat.character}`;
   const [shown, setShown] = useState(sceneKey);
+  const liveSchemeRef = useRef(show?.scheme ?? seat.scheme);
+  liveSchemeRef.current = show?.scheme ?? seat.scheme;
   const [swap, setSwap] = useState<"in" | "out" | "idle">("idle");
   useEffect(() => {
     if (sceneKey === shown) return;
     if (reduceMotion) { setShown(sceneKey); return; }
     setSwap("out");
-    const t1 = setTimeout(() => { setShown(sceneKey); setSwap("in"); }, 340);
+    const t1 = setTimeout(() => { setShown(sceneKey); setShownScheme(liveSchemeRef.current); setSwap("in"); }, 340);
     const t2 = setTimeout(() => setSwap("idle"), 340 + 420);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [sceneKey, shown, reduceMotion]);
   const shownCheckin = shown.startsWith("checkin:");
+  // the Gestalt and the colours belong to what is SHOWN: during the "out"
+  // phase the old rider's form leaves in the old scheme; the swap (at the
+  // low point) brings the new form and lets the colours drift to the new
+  // scheme — otherwise the new face would appear at once and only then
+  // animate (seen 2026-09-19)
+  const Gestalt = characterById(shown.slice(shown.indexOf(":") + 1)).Component;
+  const liveScheme = show?.scheme ?? seat.scheme;
+  const [shownScheme, setShownScheme] = useState(liveScheme);
+  useEffect(() => {
+    // not mid-swap (theme change via menu / voice / showcase): follow at once
+    if (swap === "idle" && sceneKey === shown && shownScheme !== liveScheme) setShownScheme(liveScheme);
+  }, [swap, sceneKey, shown, shownScheme, liveScheme]);
   const swapStyle: React.CSSProperties =
     swap === "out"
       ? { transform: "translate(-50%, -50%) translateY(6%) scale(0.55)", opacity: 0, transition: "transform 340ms cubic-bezier(0.4, 0, 1, 1), opacity 300ms ease" }
       : swap === "in"
         ? { transform: "translate(-50%, -50%)", opacity: 1, transition: "transform 420ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 260ms ease" }
         : { transform: "translate(-50%, -50%)", opacity: 1 };
-  const scheme = show?.scheme ?? seat.scheme;
+  const scheme = shownScheme;
   const showText = show ? true : seat.showText;
   const faceEmotion = show ? show.emotion : cosimo.faceEmotion;
   const phase = show ? show.phase : cosimo.phase;
