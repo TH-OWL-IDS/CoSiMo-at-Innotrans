@@ -22,6 +22,9 @@ export interface LlmToolCall {
 export interface StepOptions {
   /** Force this tool on the step (tool_choice) — see memoryTriggers.ts. */
   forceTool?: string;
+  /** No tools on this step: the model has to answer in words (after it
+   *  repeated a tool call it had already made in this reply). */
+  noTools?: boolean;
 }
 
 export interface LlmTurn {
@@ -139,7 +142,7 @@ class AnthropicTurn implements LlmTurn {
         ...(opts?.forceTool ? {} : { thinking: { type: "adaptive" as const } }),
         system: this.system,
         tools: TOOL_DEFINITIONS,
-        ...(opts?.forceTool ? { tool_choice: { type: "tool" as const, name: opts.forceTool } } : {}),
+        ...(opts?.forceTool ? { tool_choice: { type: "tool" as const, name: opts.forceTool } } : opts?.noTools ? { tool_choice: { type: "none" as const } } : {}),
         messages: this.messages,
       },
       // Barge-in: aborting kills the HTTP stream mid-generation.
@@ -283,7 +286,7 @@ class OpenAiCompatTurn implements LlmTurn {
         stream: true,
         messages: this.messages,
         tools: OPENAI_TOOLS,
-        ...(opts?.forceTool ? { tool_choice: { type: "function", function: { name: opts.forceTool } } } : {}),
+        ...(opts?.forceTool ? { tool_choice: { type: "function", function: { name: opts.forceTool } } } : opts?.noTools ? { tool_choice: "none" } : {}),
       }),
       // Timeout + barge-in: either aborts the fetch/stream.
       signal: this.signal

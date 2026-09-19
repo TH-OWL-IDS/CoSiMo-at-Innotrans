@@ -30,7 +30,11 @@ export class SessionRecorder {
   addTurn(sessionId: string, turn: Turn): void {
     const rec = this.sessions.get(sessionId);
     if (!rec) return;
-    rec.turns.push(turn);
+    // In time order: CoSiMo's turn is stamped when its text was complete but
+    // recorded after TTS — a rider who typed in between is already there.
+    let i = rec.turns.length;
+    while (i > 0 && rec.turns[i - 1]!.at > turn.at) i--;
+    rec.turns.splice(i, 0, turn);
     if (rec.turns.length > MAX_TURNS) rec.turns.splice(0, rec.turns.length - MAX_TURNS);
   }
 

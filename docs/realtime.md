@@ -102,7 +102,14 @@ explicit decision.
 
 One `handleUserTurn` runs a manual streaming tool-use loop: stream text
 deltas to the seat as they generate (latency masking), execute tool calls,
-feed results back, repeat until the model stops calling tools (guard-capped).
+feed results back, repeat until the model stops calling tools (guard-capped
+at six steps). A call the model already made in this reply (same name and
+arguments) is not executed again: it gets "already done", and when a whole
+step was repeats the next step runs with `tool_choice: none`, so the model
+answers in words instead of looping (a 35B once called `show_choices` six
+times — nine seconds of nothing). The recorded CoSiMo turn is stamped when
+its text was complete and the recorder inserts turns in time order — it is
+written after TTS, which can be later than the rider's next typed input.
 Face choreography: `thinking` while working → `speaking` phase while text
 streams → settle on the model's chosen expressive emotion, which fades
 back to neutral after ~10 s (expressive emotions are reactions, not states;

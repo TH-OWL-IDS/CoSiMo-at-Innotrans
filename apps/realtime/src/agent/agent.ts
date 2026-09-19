@@ -334,6 +334,12 @@ export class CosimoAgent {
     try {
       // Manual tool-use loop: iterate until the model stops calling tools.
       let retried = false;
+      // Every call made in this reply (name + arguments): a repeat is not
+      // executed again — the model gets "already done" and the next step
+      // runs without tools, so it answers instead of looping (a 35B once
+      // called show_choices six times in a row, nine seconds of nothing).
+      const made = new Set<string>();
+      let noTools = false;
       for (let guard = 0; guard < 6; guard++) {
         const stepStarted = Date.now();
         let stepChars = 0;
@@ -356,7 +362,8 @@ export class CosimoAgent {
           assistantText += delta;
           this.hub.emitChatDelta(sessionId, delta, false, turnNo);
           speaker.push(delta);
-        }, forceTool ? { forceTool } : undefined);
+        }, forceTool ? { forceTool } : noTools ? { noTools: true } : undefined);
+        noTools = false;
 
         logger.log(
           "llm.step",
@@ -397,7 +404,16 @@ export class CosimoAgent {
         // half-applied state); we stop before the next generation step instead.
         const results: { id: string; text: string }[] = [];
         let stepToolFailed = false;
+        let repeats = 0;
         for (const call of toolCalls) {
+          const signature = `${call.name}:${JSON.stringify(call.input)}`;
+          if (made.has(signature)) {
+            repeats++;
+            logger.log("tool.call", { tool: call.name, input: call.input, result: "repeat — not executed", ok: false, durationMs: 0 }, { ...ctx, level: "warn" });
+            results.push({ id: call.id, text: `already done: you called ${call.name} with exactly these arguments in this reply and it worked. Do not call it again — answer the rider now, in words.` });
+            continue;
+          }
+          made.add(signature);
           const t0 = Date.now();
           const res = await executeTool(call.name, call.input, {
             hub: this.hub,
@@ -431,6 +447,7 @@ export class CosimoAgent {
           results.push({ id: call.id, text: res.text });
         }
         if (ctrl.signal.aborted) break;
+        if (repeats === toolCalls.length) noTools = true;
         // The model always speaks the confirmation itself: feed the results
         // back and let the next step put it in its own words. (The former
         // server-templated shortcut saved ~1 s on the dense 27B; on the A3B a
@@ -526,7 +543,7 @@ export class CosimoAgent {
     const { ttsMs } = await speaker.finish();
     if (this.activeTurns.get(deviceId) === ctrl) this.activeTurns.delete(deviceId);
     this.recordCosimoTurn(sessionId, lang, assistantText, actions, chosenEmotion, startedAt, modality, outcome, {
-      sttMs, llmMs, ttsMs, llm: llmInfo ?? undefined, error: errorMessage,
+      sttMs, llmMs, ttsMs, llm: llmInfo ?? undefined, error: errorMessage, at: llmMs > 0 ? llmStarted + llmMs : undefined,
     });
     this.persist(sessionId);
   }
@@ -820,6 +837,9 @@ export class CosimoAgent {
       ttsMs?: number;
       llm?: { provider: string; model: string };
       error?: string;
+      /** When the reply text was complete (default: now — after TTS, which
+       *  can be later than the rider's NEXT input; the recorder orders by it). */
+      at?: number;
     } = {},
   ): void {
     const latencyMs = Date.now() - startedAt;
@@ -844,7 +864,7 @@ export class CosimoAgent {
       ...(extra.llm ? { llm: extra.llm } : {}),
       timings,
       ...(extra.error ? { error: extra.error } : {}),
-      at: new Date().toISOString(),
+      at: new Date(extra.at ?? Date.now()).toISOString(),
     });
     logger.log(
       "turn.end",
