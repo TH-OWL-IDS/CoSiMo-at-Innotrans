@@ -41,8 +41,9 @@ The **legend** is always on the page, top left, not behind the lock: the two
 rider keys (`S` hold = talk, `I` = info) and a **profile switcher** over
 every persona the hub knows (`host:personas` goes to browser seats too),
 the default profile marked "(Standard)". Choosing one is `session:login`,
-handled like a card scan — the circle's check-in, greeting, language,
-colours, Gestalt and voice all follow; the empty entry ("ausgecheckt")
+handled like a card scan — the circle's check-in, the card greeting
+(`hub.onProfileLogin` → the same `greetProfile` the NFC path uses),
+language, colours, Gestalt and voice all follow; the empty entry ("ausgecheckt")
 checks out like the silence timeout.
 
 Behind the corner handle and the operator password (2026-09-19 layout):

@@ -31,7 +31,7 @@ import { logger } from "./log/logger.js";
 import { TOOL_DEFINITIONS } from "./agent/tools.js";
 import { greetingFor } from "./agent/prompt.js";
 import { guestHello } from "./agent/canned.js";
-import { DEFAULT_VOICE_GENDER } from "@cosimo/shared";
+import { DEFAULT_VOICE_GENDER, type PersonaKey } from "@cosimo/shared";
 
 const app = express();
 const httpServer = createServer(app);
@@ -208,6 +208,17 @@ hub.onInspect((deviceId) =>
   agent.inspect(deviceId, hub.sessionOf(deviceId), hub.seatPersonaKey(deviceId)),
 );
 
+// The card greeting: where the profile becomes audible — name, the rider's
+// own language (the card tells us who they are, the kiosk's UI toggle no
+// longer has to guess), their pace, and the fact their style wants first.
+function greetProfile(sessionId: string, key: PersonaKey): void {
+  const p = personas.get(key);
+  const riderLang = p.accommodations.language;
+  const ns = telemetry.get().nextStops[0];
+  const text = greetingFor(p, ns ? { name: ns.name[riderLang], etaMinutes: ns.etaMinutes } : null);
+  void agent.announce(sessionId, text, riderLang, key, "happy");
+}
+
 // NFC scan → resolve the chip to a persona ("account") for that kiosk seat.
 hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
   // A card tap supersedes whatever CoSiMo was still saying at this seat.
@@ -218,16 +229,7 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
   logger.log("nfc.scan", { tagId, persona: key }, { deviceId, sessionId, level: key ? "info" : "warn" });
   if (key) {
     hub.setPersonaForDevice(deviceId, key, "nfc");
-    const newSession = hub.sessionOf(deviceId) || sessionId;
-    const p = personas.get(key);
-    // Greet in the rider's own preferred language — the card tells us who they
-    // are, so the kiosk's UI toggle no longer has to guess.
-    const riderLang = p.accommodations.language;
-    // The greeting is where the profile becomes audible: name, language,
-    // the rider's own pace — and the fact their style wants first.
-    const ns = telemetry.get().nextStops[0];
-    const text = greetingFor(p, ns ? { name: ns.name[riderLang], etaMinutes: ns.etaMinutes } : null);
-    void agent.announce(newSession, text, riderLang, key, "happy");
+    greetProfile(hub.sessionOf(deviceId) || sessionId, key);
   } else {
     const text =
       lang === "de"
@@ -235,6 +237,12 @@ hub.onNfc(async ({ sessionId, deviceId, tagId, lang }) => {
         : "Hmm, I don't recognise this card. Please ask the booth staff!";
     void agent.announce(sessionId, text, lang, "default", "surprised");
   }
+});
+
+// The browser seat's switcher → the same greeting a card scan gets.
+hub.onProfileLogin(({ sessionId, deviceId, persona }) => {
+  agent.interrupt(deviceId);
+  greetProfile(sessionId, persona);
 });
 
 // The guest chip → a short hello, spoken without the LLM (the card has its

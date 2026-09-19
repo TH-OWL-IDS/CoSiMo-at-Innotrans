@@ -134,6 +134,9 @@ export interface IncomingNfc {
 
 export type NfcHandler = (nfc: IncomingNfc) => void;
 
+/** The browser seat's switcher picked a profile: checked in like a card scan — greet it like one. */
+export type ProfileLoginHandler = (p: { sessionId: string; deviceId: string; persona: PersonaKey }) => void;
+
 /** The guest chip was taken ("Ohne Anmeldung weiter"): the seat just checked in without a card. */
 export type GuestCheckinHandler = (p: { sessionId: string; deviceId: string; persona: PersonaKey; lang: Locale }) => void;
 
@@ -266,6 +269,7 @@ export class Hub {
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
   private guestCheckinHandler: GuestCheckinHandler | undefined;
+  private profileLoginHandler: ProfileLoginHandler | undefined;
   private interruptHandler: InterruptHandler | undefined;
   private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
   /** How to reach the cabin's DMX controller — resolved per change so an
@@ -446,6 +450,11 @@ export class Hub {
   /** Register the handler for NFC scans (persona/"account" resolution). */
   onNfc(handler: NfcHandler): void {
     this.nfcHandler = handler;
+  }
+
+  /** Register the handler for a profile picked in the browser seat's switcher (the card greeting). */
+  onProfileLogin(handler: ProfileLoginHandler): void {
+    this.profileLoginHandler = handler;
   }
 
   /** Register the handler for the guest check-in (the short hello without the LLM). */
@@ -1018,8 +1027,10 @@ export class Hub {
         return;
       }
       if (entry.persona.persona === persona && entry.active) return;
-      if (entry.persona.persona === persona) { this.markActive(entry, deviceId, "nfc"); this.pushSeats(); return; }
-      this.setPersonaForDevice(deviceId, persona as PersonaKey, "nfc");
+      if (entry.persona.persona === persona) { this.markActive(entry, deviceId, "nfc"); this.pushSeats(); }
+      else this.setPersonaForDevice(deviceId, persona as PersonaKey, "nfc");
+      // greet like a card scan (beginSession may have started a new session)
+      this.profileLoginHandler?.({ sessionId: entry.sessionId, deviceId, persona: persona as PersonaKey });
     });
 
     // The guest chip on the check-in: continue without a card.
