@@ -44,8 +44,10 @@ cannot reach the light controller. The iPads are the only dual-homed devices
    scales the interior groups WITHIN the current scene by 0.75 per step,
    never switches or turns off; a scene switch resets it — or one group)
    comes from
-   the panel button "l", the slit menu, the console, and CoSiMo's
-   `set_light` tool (all through `applyLight`). The console's
+   the panel button "d", the slit menu (scenes and off only — no
+   per-group fine-tuning at the seat; that is the console's and, by
+   voice, `set_light`'s), the console, and CoSiMo's `set_light` tool
+   (all through `applyLight`). The console's
    `host:scene-save` writes the cabin's current levels into a scene
    (`ConfigSink` → the CMS global; `keepLevels` = rename only). The old
    `interior-light` / `reading-lamp` controls (`applyCabinControl`) remain

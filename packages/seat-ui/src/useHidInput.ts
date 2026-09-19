@@ -7,7 +7,7 @@ import { useEffect, useRef } from "react";
  *  - "s" — the physical talk button. Key-down on press, key-up on release,
  *    so it carries real hold-to-talk semantics (auto-repeats are ignored).
  *  - "i" — the physical info button (single press).
- *  - "l" — the physical light button (single press): the next light scene.
+ *  - "d" — the physical light button (single press): the next light scene.
  *  - NFC — the reader types a framed sequence, scanner-style:
  *    "[" (or "#") + chip id + Enter (or "]"). While a frame is open every key
  *    is swallowed, so ids containing s/i can't trigger the buttons. A stalled
@@ -31,7 +31,7 @@ export function useHidInput({
   onTalkEnd: () => void;
   onInfo: () => void;
   onTag: (tagId: string) => void;
-  /** "l" — the panel's light button: next scene. */
+  /** "d" — the panel's light button: next scene. */
   onLight?: () => void;
 }): void {
   const frame = useRef<string | null>(null);
@@ -92,7 +92,7 @@ export function useHidInput({
         h.onInfo();
         return;
       }
-      if ((e.key === "l" || e.key === "L") && !e.repeat) {
+      if ((e.key === "d" || e.key === "D") && !e.repeat) {
         e.preventDefault();
         h.onLight?.();
       }

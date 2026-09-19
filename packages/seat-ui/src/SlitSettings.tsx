@@ -8,10 +8,7 @@ import {
   normalizeTextSize,
   type Accommodations,
   type CabinLightState,
-  type LightGroup,
   type LightSetRequest,
-  LIGHT_GROUPS,
-  LIGHT_GROUP_LABEL,
   type Locale,
   type SeatSettingsOpen,
   type SettingsSection,
@@ -115,7 +112,7 @@ function HoldButton({ label, ink, bg, filled, onTap, onHold, children }: {
   );
 }
 
-type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme" | "character" | "light" | `light.${LightGroup}`;
+type Path = "root" | "textSize" | "volume" | "voice" | "voice.tempo" | "voice.type" | "voice.tone" | "theme" | "character" | "light";
 
 const ROOT: { path: Path; icon: typeof ALargeSmall; de: string; en: string }[] = [
   { path: "textSize", icon: ALargeSmall, de: "Textgröße", en: "Text size" },
@@ -137,13 +134,12 @@ const TONE_LABEL: Record<VoiceTone, [string, string]> = {
 function titleOf(path: Path, lang: Locale): string {
   const de = lang === "de";
   if (path === "root") return de ? "Einstellungen" : "Settings";
-  if (path.startsWith("light.")) return LIGHT_GROUP_LABEL[path.slice(6) as LightGroup][lang];
   const item = [...ROOT, ...VOICE].find((i) => i.path === path);
   return item ? (de ? item.de : item.en) : "";
 }
 function parentOf(path: Path): Path | null {
   if (path === "root") return null;
-  return path.startsWith("voice.") ? "voice" : path.startsWith("light.") ? "light" : "root";
+  return path.startsWith("voice.") ? "voice" : "root";
 }
 function sectionPath(section?: SettingsSection): Path {
   return section ?? "root";
@@ -230,7 +226,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
   const reset = () => {
     touch();
     setDirty(true);
-    if (path === "light" || path.startsWith("light.")) {
+    if (path === "light") {
       // the light's default is scene 1
       const first = light?.scenes[0];
       if (first) onLight({ scene: first.key });
@@ -308,41 +304,15 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
       ));
       break;
     case "light": {
+      // the rider's light menu is the scenes and off — fine-tuning single
+      // fixtures is the console's (and CoSiMo's, by voice)
       const scenes = light?.scenes ?? [];
-      const groupIcons = LIGHT_GROUPS.map((g) => (
-        <Chip key={g} label={LIGHT_GROUP_LABEL[g][lang]} ink={ink} textScale={textScale} onTap={() => go(`light.${g}`)}>
-          <span aria-hidden style={{ fontWeight: 700, fontSize: "0.8em", letterSpacing: "0.02em" }}>{g === "roofline" ? "≡" : g === "rooflight" ? "▭" : "▁"}</span>
-        </Chip>
-      ));
       body = (
         <>
           {scenes.map((sc) => (
             <Chip key={sc.key} label={sc.label} ink={ink} textScale={textScale} active={light?.scene === sc.key} onTap={() => lightChange({ scene: sc.key })} />
           ))}
           <Chip label={de ? "Aus" : "Off"} ink={ink} textScale={textScale} active={light?.scene === "off"} onTap={() => lightChange({ scene: "off" })} />
-          <span aria-hidden style={{ width: "max(1px, 0.6cqh)", alignSelf: "stretch", background: ink, opacity: 0.35, flexShrink: 0, margin: "0 2cqh" }} />
-          {groupIcons}
-        </>
-      );
-      break;
-    }
-    case "light.roofline":
-    case "light.rooflight":
-    case "light.floor": {
-      const g = path.slice(6) as LightGroup;
-      const lv: { on: boolean; intensity: number; bias: number } = light?.groups[g] ?? { on: false, intensity: 0, bias: 0 };
-      body = (
-        <>
-          <Chip label={de ? (lv.on ? "An" : "Aus") : lv.on ? "On" : "Off"} ink={ink} textScale={textScale} active={lv.on} onTap={() => lightChange({ group: { id: g, on: !lv.on } })} />
-          <Slider min={0} max={100} step={5} value={lv.on ? lv.intensity : 0} label={de ? "Helligkeit" : "Brightness"} ink={ink} onCommit={(v) => lightChange({ group: { id: g, intensity: v, on: v > 0 } })} />
-          <Slider
-            min={-100} max={100} step={10} value={lv.bias} label={de ? "Kalt / Warm" : "Cold / Warm"} ink={ink}
-            onCommit={(v) => lightChange({ group: { id: g, bias: v } })}
-            ends={[
-              <span key="w" aria-hidden style={{ fontWeight: 600, fontSize: "clamp(10px, 14cqh, 30px)", opacity: 0.7 }}>{de ? "warm" : "warm"}</span>,
-              <span key="c" aria-hidden style={{ fontWeight: 600, fontSize: "clamp(10px, 14cqh, 30px)", opacity: 0.7 }}>{de ? "kalt" : "cold"}</span>,
-            ]}
-          />
         </>
       );
       break;
@@ -361,7 +331,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
           aria-pressed={scheme.id === sch.id || undefined}
           title={sch.label}
           style={{
-            appearance: "none", width: "clamp(30px, 42cqh, 88px)", height: "clamp(30px, 42cqh, 88px)",
+            appearance: "none", width: "clamp(28px, 38cqh, 80px)", height: "clamp(28px, 38cqh, 80px)",
             borderRadius: "50%", border: `max(2px, 2cqh) solid ${sch.ink}`, background: sch.bg,
             outline: scheme.id === sch.id ? `max(2px, 1.5cqh) solid ${ink}` : "none", outlineOffset: "max(2px, 1.5cqh)",
             cursor: "pointer", padding: 0, flexShrink: 0, touchAction: "manipulation",

@@ -51,7 +51,7 @@ export function Chip({
         appearance: "none",
         minWidth: TAP,
         height: TAP,
-        padding: iconOnly ? 0 : "0 0.9em",
+        padding: iconOnly ? 0 : "0 0.55em",
         border: `max(1.5px, 2cqh) solid ${ink}`,
         borderRadius: 999,
         background: filled ? ink : "transparent",
@@ -109,7 +109,9 @@ export function SlitGrid({ label, scheme, textScale, children, aside, hideLabel 
         <span style={{
           display: "flex", gap: "3.5cqh", alignItems: "center", flexShrink: 0,
           overflowX: "auto", overflowY: "hidden", scrollbarWidth: "none",
-          paddingRight: "10cqh",
+          // vertical room for the colour swatches' selection ring (an outline
+          // sits outside the box and overflow:hidden would cut it top/bottom)
+          padding: "4cqh 10cqh 4cqh 0", margin: "-4cqh 0",
           maskImage: "linear-gradient(to right, black calc(100% - 10cqh), transparent)",
           WebkitMaskImage: "linear-gradient(to right, black calc(100% - 10cqh), transparent)",
         }}>

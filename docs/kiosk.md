@@ -86,7 +86,7 @@ global key stream:
 - **`s`** — talk button, real hold semantics (keydown = start recording,
   keyup = stop). Auto-repeats ignored.
 - **`i`** — info button, one press = one canned intro question to the agent.
-- **`l`** — light button, one press = the next light scene (`light:set
+- **`d`** — light button, one press = the next light scene (`light:set
   {scene:"next"}`; the hub cycles Standard → Gemütlich → Hell).
 - **NFC frames** — the reader types `[` + chip id + `Enter`. While a frame
   is open every key is swallowed (ids containing `s`/`i` can't misfire the
