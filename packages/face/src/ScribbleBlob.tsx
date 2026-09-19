@@ -1,6 +1,7 @@
 import type { FaceEmotion } from "@cosimo/shared";
 import { IN_TEST, useAmbientClock, useTweenedParams, type ScribbleEntityProps } from "./shared.js";
 import ScribbleCanvas from "./ScribbleCanvas.js";
+import { wobbleEllipse, wobblePath } from "./wobble.js";
 import { useVoice, type MouthDrive } from "./voice.js";
 
 /**
@@ -60,16 +61,17 @@ const LOOPS = [
 /* Loose thread hanging out of the tangle when sad — drawn inside the body
    group so it sags with the puddle. */
 const DROOP_THREAD = "M118 150 C114 178, 108 192, 97 199 C91 204, 85 202, 86 196";
+const DROOP_W = wobblePath(DROOP_THREAD, 37);
 
 /* Startle debris: two escaped loops and four flecks, shown when surprised. */
 const BURST_BITS = (
   <>
-    <ellipse cx={38} cy={36} rx={9} ry={8} transform="rotate(-20 38 36)" />
-    <ellipse cx={224} cy={30} rx={8} ry={7} transform="rotate(25 224 30)" />
-    <path d="M30 56 L18 44" />
-    <path d="M232 48 L245 36" />
-    <path d="M86 12 L78 1" />
-    <path d="M178 10 L186 0" />
+    <path d={wobbleEllipse(38, 36, 9, 8, 31, -20)} />
+    <path d={wobbleEllipse(224, 30, 8, 7, 32, 25)} />
+    <path d={wobblePath("M30 56 L18 44", 33)} />
+    <path d={wobblePath("M232 48 L245 36", 34)} />
+    <path d={wobblePath("M86 12 L78 1", 35)} />
+    <path d={wobblePath("M178 10 L186 0", 36)} />
   </>
 );
 
@@ -156,9 +158,9 @@ export default function ScribbleBlob({
             const lx = C.x + l.dx * p.spread;
             const ly = C.y + l.dy * p.spread;
             const swirl = l.rot + p.churn * (i % 2 ? 14 + i * 3 : -(12 + i * 2));
-            return <ellipse key={i} cx={lx} cy={ly} rx={l.rx} ry={l.ry} transform={`rotate(${swirl} ${lx} ${ly})`} />;
+            return <path key={i} d={wobbleEllipse(lx, ly, l.rx, l.ry, 40 + i, swirl)} />;
           })}
-          {p.droop > 0.02 && <path opacity={p.droop} d={DROOP_THREAD} />}
+          {p.droop > 0.02 && <path opacity={p.droop} d={DROOP_W} />}
           {p.burst > 0.02 && <g opacity={p.burst}>{BURST_BITS}</g>}
         </g>
       )}

@@ -1,6 +1,7 @@
 import type { FaceEmotion } from "@cosimo/shared";
 import { IN_TEST, smoothPath, useAmbientClock, useTweenedParams, type Pt, type ScribbleEntityProps } from "./shared.js";
 import ScribbleCanvas from "./ScribbleCanvas.js";
+import { wobblePath } from "./wobble.js";
 import { useVoice, type MouthDrive } from "./voice.js";
 
 /**
@@ -128,7 +129,7 @@ export default function ScribbleCircle({
     <ScribbleCanvas className={className} style={style} strokeWidth={strokeWidth}>
       {() => (
         <g transform={`rotate(${p.tilt} ${C.x + p.posX} ${C.y + p.posY})`}>
-          <path data-part="ring" d={ringPath(p)} />
+          <path data-part="ring" d={wobblePath(ringPath(p), 11)} />
         </g>
       )}
     </ScribbleCanvas>

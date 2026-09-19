@@ -1,6 +1,7 @@
 import type { FaceEmotion } from "@cosimo/shared";
 import { IN_TEST, smoothPath, useAmbientClock, useTweenedParams, type Pt, type ScribbleEntityProps } from "./shared.js";
 import ScribbleCanvas from "./ScribbleCanvas.js";
+import { wobblePath } from "./wobble.js";
 import { useVoice, type MouthDrive } from "./voice.js";
 
 /**
@@ -73,6 +74,7 @@ const TANGLE_D = (() => {
   }
   return smoothPath(pts);
 })();
+const TANGLE_W = wobblePath(TANGLE_D, 13);
 
 function withAmbient(p: LineParams, emotion: FaceEmotion, t: number): LineParams {
   const q = { ...p };
@@ -139,8 +141,8 @@ export default function ScribbleLine({
     <ScribbleCanvas className={className} style={style} strokeWidth={strokeWidth}>
       {() => (
         <g transform={`rotate(${p.tilt} 130 ${BASE_Y})`}>
-          <path data-part="wave" d={linePath(p)} />
-          {p.tangle > 0.02 && <path opacity={p.tangle} transform={`translate(0 ${p.posY}) rotate(${knotSpin} 130 92)`} d={TANGLE_D} />}
+          <path data-part="wave" d={wobblePath(linePath(p), 12)} />
+          {p.tangle > 0.02 && <path opacity={p.tangle} transform={`translate(0 ${p.posY}) rotate(${knotSpin} 130 92)`} d={TANGLE_W} />}
         </g>
       )}
     </ScribbleCanvas>

@@ -8,10 +8,17 @@
 CoSiMo's hand-drawn scribble face, ported from the CoSiMo-mockup project
 (the richer version — the earlier in-CMS port was a reduced copy and is
 gone). SVG strokes traced from the original ballpoint artwork, wobbled into
-pen-like lines by a turbulence filter (`ScribbleCanvas`). Single stroke
-pass — an offset "overdraw" retrace used to add sketchiness, but WKWebView
-renders the displacement filter weakly and it read as a hard double image
-on the iPads, so it's gone everywhere.
+pen-like lines — since 2026-09-19 in the GEOMETRY (`wobble.ts`: every path
+is resampled every ~5 units and each point shifted by a smooth 2-D value
+noise, two octaves, the frequency and amplitude the old filter had;
+ellipses become wobbled closed paths), not by a filter. The
+`feTurbulence`/`feDisplacementMap` filter that `ScribbleCanvas` used to put
+over the whole drawing was rasterised by WebKit on the CPU for every frame
+the face moved (~2 Mpx per frame on the iPad mini — the visible stutter);
+the baked wobble costs ~0.02 ms per frame. The wobble is fixed to each
+stroke (it moves with the eye instead of swimming under it). Single stroke
+pass — an offset "overdraw" retrace used to add sketchiness, but it read
+as a hard double image on the iPads, so it's gone everywhere.
 
 ### How animation works
 

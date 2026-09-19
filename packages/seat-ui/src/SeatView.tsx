@@ -291,6 +291,7 @@ export default function SeatView({
       style={{
         // oversized and centred, so translating/scaling it never reveals a corner
         position: "absolute", left: "-25%", top: "-25%", width: "150%", height: "150%", pointerEvents: "none",
+        willChange: "transform, opacity",
         background: gradient,
         opacity: `calc(${base} + ${voice} * var(--voice, 0))`,
         animation: reduceMotion ? "none" : `cosimo-drift ${drift} ease-in-out infinite alternate, cosimo-swell ${breathe} ease-in-out infinite`,

@@ -1,7 +1,5 @@
 "use client";
 
-import { useId } from "react";
-
 interface ScribbleCanvasProps {
   className?: string;
   style?: React.CSSProperties;
@@ -12,9 +10,9 @@ interface ScribbleCanvasProps {
 
 /**
  * Shared canvas for the scribble face: the padded viewBox (the artwork canvas
- * is 260×200; padding absorbs big poses, the brow strokes above the eyes and
- * filter displacement), ballpoint stroke defaults, and the turbulence filter
- * that wobbles clean geometry into pen strokes.
+ * is 260×200; padding absorbs big poses and the brow strokes above the eyes)
+ * and the ballpoint stroke defaults. The hand-drawn wobble is in the
+ * geometry (`wobble.ts`), not a filter — see there for why.
  */
 export default function ScribbleCanvas({
   className,
@@ -22,9 +20,6 @@ export default function ScribbleCanvas({
   strokeWidth = 4.5,
   children,
 }: ScribbleCanvasProps) {
-  // useId may contain colons, which break url(#…) references.
-  const filterId = `cosimo-scribble-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-
   return (
     <svg
       viewBox="-16 -34 292 240"
@@ -36,30 +31,7 @@ export default function ScribbleCanvas({
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <defs>
-        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.014"
-            numOctaves="2"
-            seed="7"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="4"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-      {/* Single pass: the turbulence wobble alone carries the hand-drawn
-          look. A second offset "overdraw" pass used to retrace the strokes,
-          but WKWebView renders the displacement filter weakly enough that it
-          read as a hard double image on the iPads — removed everywhere for a
-          consistent, clean line. */}
-      <g filter={`url(#${filterId})`}>{children(true)}</g>
+      <g>{children(true)}</g>
     </svg>
   );
 }

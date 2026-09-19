@@ -5,6 +5,7 @@ import { gsap } from "gsap";
 import { FACE_STATES, type FaceParams } from "./states.js";
 import { IN_TEST, type ScribbleEntityProps } from "./shared.js";
 import ScribbleCanvas from "./ScribbleCanvas.js";
+import { wobbleEllipse, wobblePath } from "./wobble.js";
 import {
   EYE_L,
   EYE_R,
@@ -37,6 +38,9 @@ import {
 const clampS = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, v));
 
+/** The nose, wobbled once (it only ever moves as a whole). */
+const NOSE_W = wobblePath(NOSE_D, 6);
+
 /** The animated node refs — one per rig-driven part. */
 interface PartRefs {
   root: SVGGElement | null;
@@ -57,18 +61,18 @@ interface PartRefs {
 /** Write one frame into the DOM. Cheap: 13 setAttribute groups, no layout. */
 function applyFrame(r: PartRefs, f: ScribbleFrame): void {
   r.root?.setAttribute("transform", f.root.transform);
-  if (r.browL) { r.browL.setAttribute("d", f.browL.d); r.browL.setAttribute("transform", f.browL.transform); }
-  if (r.browR) { r.browR.setAttribute("d", f.browR.d); r.browR.setAttribute("transform", f.browR.transform); }
+  if (r.browL) { r.browL.setAttribute("d", wobblePath(f.browL.d, 1)); r.browL.setAttribute("transform", f.browL.transform); }
+  if (r.browR) { r.browR.setAttribute("d", wobblePath(f.browR.d, 2)); r.browR.setAttribute("transform", f.browR.transform); }
   r.eyeL?.setAttribute("transform", f.eyeL.transform);
   r.eyeR?.setAttribute("transform", f.eyeR.transform);
   if (r.nestL) { r.nestL.setAttribute("transform", f.nestL.transform); r.nestL.setAttribute("opacity", String(f.nestL.opacity)); }
   if (r.nestR) { r.nestR.setAttribute("transform", f.nestR.transform); r.nestR.setAttribute("opacity", String(f.nestR.opacity)); }
   r.pupilL?.setAttribute("transform", f.pupilL.transform);
   r.pupilR?.setAttribute("transform", f.pupilR.transform);
-  if (r.lidL) { r.lidL.setAttribute("d", f.lidL.d); r.lidL.setAttribute("opacity", String(f.lidL.opacity)); }
-  if (r.lidR) { r.lidR.setAttribute("d", f.lidR.d); r.lidR.setAttribute("opacity", String(f.lidR.opacity)); }
+  if (r.lidL) { r.lidL.setAttribute("d", wobblePath(f.lidL.d, 3)); r.lidL.setAttribute("opacity", String(f.lidL.opacity)); }
+  if (r.lidR) { r.lidR.setAttribute("d", wobblePath(f.lidR.d, 4)); r.lidR.setAttribute("opacity", String(f.lidR.opacity)); }
   r.nose?.setAttribute("transform", f.nose.transform);
-  r.mouth?.setAttribute("d", f.mouth.d);
+  r.mouth?.setAttribute("d", wobblePath(f.mouth.d, 5));
 }
 
 /** One eye's STATIC artwork (loops, lash, pupil, catchlight, lid). The rig
@@ -98,9 +102,9 @@ function EyeArt({
     >
       {/* single outer lash — a short plain flick */}
       {isL ? (
-        <path d={`M${x - 16} ${y - 10} L${x - 22.5} ${y - 15.5}`} />
+        <path d={wobblePath(`M${x - 16} ${y - 10} L${x - 22.5} ${y - 15.5}`, 21)} />
       ) : (
-        <path d={`M${x + 14} ${y - 9.5} L${x + 20.5} ${y - 14.5}`} />
+        <path d={wobblePath(`M${x + 14} ${y - 9.5} L${x + 20.5} ${y - 14.5}`, 22)} />
       )}
       <g
         ref={(el) => { refs.current[isL ? "nestL" : "nestR"] = el; }}
@@ -108,9 +112,9 @@ function EyeArt({
         opacity={nest.opacity}
       >
         {isL ? (
-          <ellipse cx={x} cy={y} rx={17} ry={19} transform={`rotate(-8 ${x} ${y})`} />
+          <path d={wobbleEllipse(x, y, 17, 19, 23, -8)} />
         ) : (
-          <ellipse cx={x} cy={y} rx={16} ry={17} transform={`rotate(12 ${x} ${y})`} />
+          <path d={wobbleEllipse(x, y, 16, 17, 24, 12)} />
         )}
         {/* pupil — dense filled blob, slightly low in the nest */}
         <g
@@ -123,21 +127,21 @@ function EyeArt({
               <circle cx={x - 2} cy={y + 2} r={8} fill="currentColor" stroke="none" />
               {/* catchlight — matching glint, same light direction */}
               <circle cx={x - 5} cy={y - 1} r={2.2} fill="white" stroke="none" />
-              <ellipse cx={x - 1} cy={y + 2} rx={10.5} ry={9} />
+              <path d={wobbleEllipse(x - 1, y + 2, 10.5, 9, 25)} />
             </>
           ) : (
             <>
               <circle cx={x - 1} cy={y + 2} r={7.5} fill="currentColor" stroke="none" />
               {/* catchlight — a tiny unfilled spot for a glint of life */}
               <circle cx={x - 4} cy={y - 1} r={2} fill="white" stroke="none" />
-              <ellipse cx={x - 1} cy={y + 2} rx={9.5} ry={8.5} />
+              <path d={wobbleEllipse(x - 1, y + 2, 9.5, 8.5, 26)} />
             </>
           )}
         </g>
       </g>
       <path
         ref={(el) => { refs.current[isL ? "lidL" : "lidR"] = el; }}
-        d={lid.d}
+        d={wobblePath(lid.d, isL ? 3 : 4)}
         opacity={lid.opacity}
       />
     </g>
@@ -280,13 +284,13 @@ export default function CosimoFaceAnimated({
           <path
             data-part="brow-left"
             ref={(el) => { r.browL = el; }}
-            d={renderFrame.browL.d}
+            d={wobblePath(renderFrame.browL.d, 1)}
             transform={renderFrame.browL.transform}
           />
           <path
             data-part="brow-right"
             ref={(el) => { r.browR = el; }}
-            d={renderFrame.browR.d}
+            d={wobblePath(renderFrame.browR.d, 2)}
             transform={renderFrame.browR.transform}
           />
           <EyeArt side="L" refs={refs} frame={renderFrame} />
@@ -294,13 +298,13 @@ export default function CosimoFaceAnimated({
           <path
             data-part="nose"
             ref={(el) => { r.nose = el; }}
-            d={NOSE_D}
+            d={NOSE_W}
             transform={renderFrame.nose.transform || undefined}
           />
           <path
             data-part={mainPass ? "mouth" : undefined}
             ref={(el) => { r.mouth = el; }}
-            d={renderFrame.mouth.d}
+            d={wobblePath(renderFrame.mouth.d, 5)}
           />
         </g>
       )}
