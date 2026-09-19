@@ -253,7 +253,7 @@ export function SlitSettings({ open, acc, scheme, textScale, lang, onPatch, onCl
       const Icon = it.icon;
       return (
         <Chip key={it.path} label={de ? it.de : it.en} ink={ink} textScale={textScale} onTap={() => go(it.path)}>
-          <Icon size="52%" strokeWidth={2.2} aria-hidden />
+          <Icon size="1.2em" strokeWidth={2.2} aria-hidden />
         </Chip>
       );
     });
