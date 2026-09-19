@@ -81,11 +81,20 @@ const BURST_BITS = (
 function withAmbient(p: BlobParams, emotion: FaceEmotion, t: number): BlobParams {
   const q = { ...p };
   switch (emotion) {
-    case "neutral":
-      q.size *= 1 + 0.012 * Math.sin(t * 1.2);
+    case "neutral": {
+      // at rest the tangle is a creature, not an ornament: it breathes
+      // visibly (~5 s), drifts a little on two slow, incommensurate paths,
+      // sways, and every ~12 s its loops settle with a lazy churn
+      q.size *= 1 + 0.03 * Math.sin(t * 1.1);
+      q.posX += 6 * Math.sin(t * 0.37) + 2 * Math.sin(t * 0.91);
+      q.posY += 4 * Math.sin(t * 0.53);
+      q.tilt += 3 * Math.sin(t * 0.29);
+      q.churn += 0.12 * (1 + Math.sin(t * 0.52)) * Math.max(0, Math.sin(t * 0.26));
+      q.spread *= 1 + 0.03 * Math.sin(t * 0.44);
       break;
+    }
     case "happy": {
-      const bounce = Math.abs(Math.sin(t * 3.4));
+      const bounce = Math.abs(Math.sin(t * 2.4)); // unhurried hops
       q.posY -= 13 * bounce;
       q.squashY *= 1 - 0.1 * (bounce - 0.5);
       break;
@@ -96,8 +105,8 @@ function withAmbient(p: BlobParams, emotion: FaceEmotion, t: number): BlobParams
       q.posY += 2 * Math.sin(t * 0.7);
       break;
     case "listening":
-      q.tilt += 1.4 * Math.sin(t * 1.1);
-      q.size *= 1 + 0.01 * Math.sin(t * 2.1);
+      q.tilt += 1.6 * Math.sin(t * 0.9);
+      q.size *= 1 + 0.015 * Math.sin(t * 1.6);
       break;
     case "speaking":
       q.size *= 1 + 0.025 * Math.sin(t * 14) + 0.015 * Math.sin(t * 23);

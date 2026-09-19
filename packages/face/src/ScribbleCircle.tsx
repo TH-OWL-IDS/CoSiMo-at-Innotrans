@@ -59,13 +59,19 @@ function withAmbient(p: CircleParams, emotion: FaceEmotion, t: number): CirclePa
   const q = { ...p };
   switch (emotion) {
     case "neutral": {
-      const b = 0.012 * Math.sin(t * 1.2);
+      // at rest: a visible breath (~5 s), the pen's gap wandering slowly
+      // around the ring (a full lap in ~40 s), a gentle drift and sway
+      const b = 0.028 * Math.sin(t * 1.15);
       q.rx *= 1 + b;
-      q.ry *= 1 - b;
+      q.ry *= 1 - b * 0.8;
+      q.tilt += (t * 9) % 360; // the gap travels (the rotation carries it)
+      q.tilt += 3 * Math.sin(t * 0.33);
+      q.posX += 4 * Math.sin(t * 0.41);
+      q.posY += 3 * Math.sin(t * 0.57);
       break;
     }
     case "happy": {
-      const bounce = Math.abs(Math.sin(t * 3.2));
+      const bounce = Math.abs(Math.sin(t * 2.4)); // unhurried hops
       q.posY -= 13 * bounce;
       q.ry *= 1 + 0.08 * (bounce - 0.5);
       q.rx *= 1 - 0.08 * (bounce - 0.5);
@@ -75,7 +81,8 @@ function withAmbient(p: CircleParams, emotion: FaceEmotion, t: number): CirclePa
       q.tilt += 6 * Math.sin(t * 0.9);
       break;
     case "listening":
-      q.tilt += 2 * Math.sin(t * 1.4);
+      q.tilt += 2.5 * Math.sin(t * 1.0);
+      q.rx *= 1 + 0.01 * Math.sin(t * 1.7);
       break;
     case "speaking": {
       const w = 0.045 * Math.sin(t * 11);

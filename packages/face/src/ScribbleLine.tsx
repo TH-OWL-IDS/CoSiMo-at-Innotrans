@@ -77,26 +77,28 @@ const TANGLE_D = (() => {
 function withAmbient(p: LineParams, emotion: FaceEmotion, t: number): LineParams {
   const q = { ...p };
   switch (emotion) {
+    // all wave travel at roughly half the mockup's speed — on a 24 mm
+    // circle it read as hurried (2026-09-19)
     case "neutral":
-      q.phase += t * 0.5;
-      q.amp *= 1 + 0.1 * Math.sin(t * 0.7);
+      q.phase += t * 0.25;
+      q.amp *= 1 + 0.12 * Math.sin(t * 0.45);
       break;
     case "happy":
-      q.phase += t * 2.2;
-      q.posY -= 4 * Math.abs(Math.sin(t * 3));
-      q.amp *= 1 + 0.15 * Math.sin(t * 3);
+      q.phase += t * 1.1;
+      q.posY -= 4 * Math.abs(Math.sin(t * 1.8));
+      q.amp *= 1 + 0.15 * Math.sin(t * 1.8);
       break;
     case "thinking":
       q.phase += t * 0.3;
       q.amp *= 1 + 0.2 * Math.sin(t * 0.9); // a slow, thoughtful pulse
       break;
     case "listening":
-      q.phase -= t * 3.2;
-      q.amp *= 1 + 0.12 * Math.sin(t * 6);
+      q.phase -= t * 1.6;
+      q.amp *= 1 + 0.12 * Math.sin(t * 3);
       break;
     case "speaking":
-      q.phase += t * 4.5;
-      q.amp *= 1 + 0.22 * Math.sin(t * 7.3);
+      q.phase += t * 2.4;
+      q.amp *= 1 + 0.18 * Math.sin(t * 3.6);
       break;
     case "sleeping":
       q.swell *= 0.75 + 0.3 * Math.sin(t * 0.75);
