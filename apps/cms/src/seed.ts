@@ -132,18 +132,20 @@ const users: ProfileSeed[] = [
     key: "sam",
     name: "Sam",
     label: "Sam",
-    summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient.",
-    brief: "Sam, 33, pendelt täglich, nutzt digitale Anwendungen routiniert und will sofort einsteigen. Das Wichtigste zuerst, meist die nächste Station und die Zeit; minimal viele Schritte, keine Rückfragen, keine Angebote. Die Interaktion endet nach wenigen Sekunden.",
+    summary: "Nutzungsprofil 04 – nutzt das System schnell und effizient (englischsprachig).",
+    // the English-speaking rider of the four: CoSiMo greets, listens (dictation
+    // en-US) and answers in English, with an English voice from the catalog
+    brief: "Sam, 33, commutes daily, uses digital tools with routine and wants to get going at once. Speak English. The essentials first — usually the next station and the time; as few steps as possible, no follow-up questions, no offers. The interaction is over after a few seconds.",
     accommodations: {
-      language: "de", theme: "weiss", textSize: "l", input: "both",
+      language: "en", theme: "gelb", textSize: "l", input: "both",
       audioOutput: true, speechRate: 1.1, showText: false, reduceMotion: false,
-      volume: 1, voiceGender: "female", voiceTone: "lebhaft",
+      volume: 1, voiceGender: "male", voice: "daniel", voiceTone: "warm",
     },
     traits: { modality: "balanced", pace: "brisk", verbosity: "terse", confirmation: "result-only", initiative: "responds", scope: "full" },
     nfcIds: [{ tag: "SAM1" }],
     consent: true,
     memories: [
-      { note: "Pendelt täglich; will nur den nächsten Halt und die Zeit — kurz und ohne Rückfragen.", at: "2026-08-28T08:00:00.000Z" },
+      { note: "Commutes daily; only wants the next stop and the time — short, no follow-up questions.", at: "2026-08-28T08:00:00.000Z" },
     ],
   },
 ];
