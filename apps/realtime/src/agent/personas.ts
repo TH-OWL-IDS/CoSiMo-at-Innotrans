@@ -205,17 +205,17 @@ export class PersonaProvider {
    * `default` is always guaranteed. When the CMS is unreachable or returns
    * nothing, the last-known set (built-in defaults at boot) is kept.
    */
-  async refresh(): Promise<void> {
+  async refresh(): Promise<boolean> {
     const now = Date.now();
-    if (now - this.lastFetch < this.ttlMs) return;
+    if (now - this.lastFetch < this.ttlMs) return false;
     this.lastFetch = now;
     try {
       const url = `${config.payload.internalUrl}/api/personas?limit=50`;
       const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const body = (await res.json()) as { docs?: PayloadPersonaDoc[] };
       const docs = body.docs ?? [];
-      if (docs.length === 0) return; // keep last-known / built-ins
+      if (docs.length === 0) return false; // keep last-known / built-ins
       const next: Record<string, Persona> = {};
       const nfc = new Map<string, PersonaKey>();
       for (const doc of docs) {
@@ -229,10 +229,13 @@ export class PersonaProvider {
         }
       }
       if (!next.default) next.default = BASE_PERSONA;
+      const changed = JSON.stringify(next) !== JSON.stringify(this.cache);
       this.cache = next;
       this.nfcIndex = nfc;
+      return changed;
     } catch {
       // Payload down — keep defaults / last-known.
+      return false;
     }
   }
 }

@@ -106,9 +106,12 @@ public demo — keep it that way.
 
 ## How it resolves (data flow)
 
-1. `PersonaProvider` fetches the collection (15 s TTL); the CMS is
-   authoritative for the *set* when reachable, the built-in clean plate is the
-   offline fallback. `PersonaKey` is an open `string` — adding a profile is a
+1. `PersonaProvider` fetches the collection (15 s TTL, polled every 15 s
+   from `index.ts` — on a change the hub re-broadcasts `host:personas` and
+   `reconcilePersonas` hands the new version to every checked-out seat; a
+   seat in use keeps its session's snapshot until its next session); the
+   CMS is authoritative for the *set* when reachable, the built-in clean
+   plate is the offline fallback. `PersonaKey` is an open `string` — adding a profile is a
    CMS edit, never a code change. `"default"` always resolves.
 2. Per turn, `buildSystemPrompt` (`agent/prompt.ts`) composes: the **core
    prompt** (CMS-editable via the operator-config global's

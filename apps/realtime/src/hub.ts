@@ -701,6 +701,25 @@ export class Hub {
   }
 
   /** Push the current authored persona set to every connected host console. */
+  /**
+   * A profile was edited in the CMS: seats that are checked out (nobody has
+   * adjusted anything) take the new version at once — the next check-in
+   * greets, speaks and looks as authored. A seat in use keeps its session's
+   * snapshot until it starts a new one.
+   */
+  reconcilePersonas(): void {
+    let touched = false;
+    for (const e of this.devices.values()) {
+      if (e.role !== "kiosk" || e.active) continue;
+      const fresh = this.resolvePersona(e.persona.persona);
+      if (JSON.stringify(fresh) === JSON.stringify(e.persona)) continue;
+      e.persona = fresh;
+      e.socket.emit("persona:active", fresh);
+      touched = true;
+    }
+    if (touched) this.pushSeats();
+  }
+
   broadcastPersonas(): void {
     if (!this.personaLister) return;
     const personas = this.personaLister();

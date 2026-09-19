@@ -103,6 +103,10 @@ void personas.refresh().then(() => {
   hub.setPersona("default", "boot");
   hub.broadcastPersonas();
 });
+// … and every 15 s from then on, so an edit in the CMS (a profile's voice,
+// colour, Gestalt …) reaches the consoles, the browser seats' switcher and
+// every checked-out seat without a restart.
+setInterval(() => void personas.refresh().then((changed) => { if (changed) { hub.broadcastPersonas(); hub.reconcilePersonas(); } }), 15_000);
 
 // The journey simulation ticks every second: advance the state machine
 // (route refreshed from the CMS on its own TTL) and broadcast the derived
