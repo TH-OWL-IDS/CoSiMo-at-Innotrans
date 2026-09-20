@@ -4,7 +4,9 @@ RUN corepack enable
 WORKDIR /app
 
 # Install workspace deps (manifests first for layer caching).
-COPY pnpm-workspace.yaml package.json ./
+# The lockfile pins every version — without it a rebuild resolves "^x.y" afresh
+# (2026-09-20: payload 3.90 instead of the locked 3.85 broke every users read in prod).
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 # pnpm patches (package.json → patchedDependencies) must exist at install time
 COPY patches patches
 COPY packages/shared/package.json packages/shared/
