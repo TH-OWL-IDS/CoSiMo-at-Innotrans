@@ -152,17 +152,15 @@ export default function App() {
         onSubmit={(e) => { e.preventDefault(); void send(); }}
         className="flex flex-col gap-8"
       >
-        {BLOCK_ORDER.map((b) => {
+        <p className="m-0 text-sm text-mute">{s.agreeHint} · {s.scaleHint}</p>
+        {BLOCK_ORDER.map((b, bi) => {
           const block = SURVEY_BLOCKS[b];
           const items = SURVEY_ITEMS.filter((i) => i.block === b);
-          const hint = items[0]?.kind === "agree" ? s.agreeHint : s.scaleHint;
           return (
-            <section key={b} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <h2 className="m-0 text-lg font-bold">{block.title[lang]}</h2>
-                {block.stem && <p className="m-0 text-base text-mute">{block.stem[lang]}</p>}
-                <p className="m-0 text-sm text-mute">{hint}</p>
-              </div>
+            <section key={b} aria-label={block.title[lang]} className="flex flex-col gap-3">
+              {/* a hairline between the blocks, no headings — the items speak for themselves */}
+              {bi > 0 && <hr className="m-0 border-0 border-t border-line" />}
+              {block.stem && <p className="m-0 text-base text-mute">{block.stem[lang]}</p>}
               {items.map((item) => {
                 n += 1;
                 return (
@@ -242,7 +240,7 @@ export default function App() {
 /** Header with the wordmark and the language toggle; the page column; the version line. */
 function Shell({ lang, onLang, s, children }: { lang: Locale; onLang: (l: Locale) => void; s: (typeof STRINGS)["de"]; children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col gap-6 px-4 pb-6 pt-4">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[760px] flex-col gap-6 px-4 pb-6 pt-4 sm:px-6">
       <div className="flex items-center justify-between gap-3">
         <Brand size={34} />
         <div role="group" aria-label={s.lang} className="inline-flex overflow-hidden rounded-lg border border-line">

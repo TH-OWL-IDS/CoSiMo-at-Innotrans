@@ -3,11 +3,11 @@ import type { Locale } from "@cosimo/shared";
 /**
  * The page's own strings (the items come from @cosimo/shared survey.ts).
  * Visitor-facing, so German first, English beside it. The privacy notice is
- * the Art. 13 text shown before the consent box; fill CONTACT before the
- * fair or it falls back to "the signage at the cab".
+ * the Art. 13 text shown before the consent box; CONTACT adds a contact
+ * line when set (empty = no line, decided 2026-09-20).
  */
 
-/** The contact address for data-protection questions. Empty = point to the signage. */
+/** The contact address for data-protection questions. Empty = no contact line. */
 export const CONTACT = "";
 export const CONTROLLER = "Technische Hochschule Ostwestfalen-Lippe (TH OWL), Projekt CoSiMo";
 
@@ -26,8 +26,7 @@ export const STRINGS = {
       "Zweck: wissenschaftliche Auswertung des Demonstrators CoSiMo.",
       "Gespeichert werden nur deine Antworten (Zahlen 1 bis 7), die gewählte Sprache und der Zeitpunkt. Keine IP-Adresse, kein Gerät, kein Name, keine Verbindung zu deinem Gespräch mit CoSiMo.",
       "Weil nichts auf dich zurückführt, können wir eine Antwort nach dem Absenden nicht mehr zuordnen und deshalb auch nicht mehr löschen.",
-      "Die Seite wird über Cloudflare ausgeliefert und auf einem Server der TH OWL gespeichert.",
-      CONTACT ? `Fragen: ${CONTACT}` : "Fragen beantwortet das Standpersonal; die Kontaktadresse steht am Aushang an der Kabine.",
+      ...(CONTACT ? [`Fragen: ${CONTACT}`] : []),
     ],
     consent: "Ich bin einverstanden, dass meine Antworten anonym für Forschungszwecke ausgewertet werden.",
     submit: "Absenden",
@@ -61,8 +60,7 @@ export const STRINGS = {
       "Purpose: scientific evaluation of the CoSiMo demonstrator.",
       "We store only your answers (numbers 1 to 7), the chosen language and the time. No IP address, no device, no name, no link to your conversation with CoSiMo.",
       "Because nothing points back to you, we cannot attribute a response after it is sent and therefore cannot delete it either.",
-      "The page is delivered through Cloudflare and stored on a TH OWL server.",
-      CONTACT ? `Questions: ${CONTACT}` : "The booth staff answer questions; the contact address is on the notice at the cab.",
+      ...(CONTACT ? [`Questions: ${CONTACT}`] : []),
     ],
     consent: "I agree that my answers are evaluated anonymously for research purposes.",
     submit: "Submit",

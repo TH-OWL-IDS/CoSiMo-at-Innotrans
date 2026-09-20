@@ -75,10 +75,10 @@ Anonymous by construction: no IP (nginx `access_log off` on the API
 locations — the notice promises it), no user agent, no session link, no
 name. The Art. 13 notice (`apps/form/src/i18n.ts`) names the controller
 (TH OWL, project CoSiMo), the purpose, what is stored and what is not, that
-a response cannot be attributed and therefore not deleted after submission,
-and that Cloudflare delivers the page. **Fill `CONTACT` in `i18n.ts`** before
-the fair (empty → it points to the signage at the cab). Whether the
-institution wants an ethics vote for a visitor survey is outside this repo.
+and that a response cannot be attributed and therefore not deleted after
+submission. `CONTACT` in `i18n.ts` adds a contact line when set (empty = no
+line, the user's choice). Whether the institution wants an ethics vote for
+a visitor survey is outside this repo.
 
 ## Look
 
@@ -87,7 +87,9 @@ deliberately overrides its operator tuning in `apps/form/src/index.css`: a
 17 px body (below 16 px iOS Safari zooms every input), the system sans
 instead of the monospace, a visible focus ring (the console switched it
 off for its touch surface), 44 px scale dots, anchors above the row so
-seven dots fit a 360 px phone. Real `<input type="radio">` inside
+seven dots fit a 360 px phone, a 760 px column on larger screens, a hairline
+between the blocks instead of headings (the AttrakDiff stem „CoSiMo ist …"
+stays as a muted line). Real `<input type="radio">` inside
 `<fieldset>/<legend>` with an `aria-label` per number carrying its meaning
 — VoiceOver announces "Stimme zu, 6 von 7". Do not "fix" the overrides back
 to the console look.
