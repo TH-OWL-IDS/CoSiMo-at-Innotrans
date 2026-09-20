@@ -3,9 +3,10 @@ import { cn } from "@cosimo/ui";
 
 /**
  * The symbols on the seat panel, as line icons in the panel's own style
- * (rounded strokes, one weight): the talk button (microphone), the info
- * button (CoSiMo's face in an oval), the light button (sun) and the card
- * reader (a ring between two pairs of arcs). Used wherever the guides say
+ * (rounded strokes, one weight): the talk button (a microphone — the panel
+ * itself shows a speaker, the guides say microphone on purpose), the info
+ * button (an i in a circle), the light button (sun) and the card reader
+ * (a ring between two pairs of arcs, left and right). Used wherever the guides say
  * "press …" — visitors and staff see these on the panel, not key letters.
  */
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
@@ -24,9 +25,9 @@ export function TalkIcon({ size = 22 }: { size?: number }) {
 export function InfoIcon({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <ellipse cx="12" cy="12" rx="9.5" ry="8.2" />
-      <circle cx="8.3" cy="12.6" r="0.5" fill="currentColor" />
-      <path d="M11.3 13.6c0-1.5.8-2.2 2.2-2.2h2.3" />
+      <circle cx="12" cy="12" r="9.3" />
+      <circle cx="12" cy="8" r="0.6" fill="currentColor" />
+      <path d="M11.6 11.6h.6v4.6h.8" />
     </svg>
   );
 }
@@ -44,10 +45,10 @@ export function CardIcon({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...stroke} aria-hidden>
       <circle cx="12" cy="12" r="2.4" />
-      <path d="M8.6 8.4a4.8 4.8 0 0 1 6.8 0" />
-      <path d="M5.8 5.6a8.8 8.8 0 0 1 12.4 0" />
-      <path d="M8.6 15.6a4.8 4.8 0 0 0 6.8 0" />
-      <path d="M5.8 18.4a8.8 8.8 0 0 0 12.4 0" />
+      <path d="M8.4 8.6a4.8 4.8 0 0 0 0 6.8" />
+      <path d="M5.6 5.8a8.8 8.8 0 0 0 0 12.4" />
+      <path d="M15.6 8.6a4.8 4.8 0 0 1 0 6.8" />
+      <path d="M18.4 5.8a8.8 8.8 0 0 1 0 12.4" />
     </svg>
   );
 }

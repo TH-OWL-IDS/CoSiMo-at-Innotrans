@@ -61,7 +61,9 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
   const [lang, setLang] = useDocLang();
   const t = picker(lang);
   const live = new Map(c.personas.filter((p) => p.persona !== "default").map((p) => [p.persona, p] as [string, PersonaBroadcast]));
-  const riders = [...ORDER.filter((k) => live.has(k) || !c.personas.length), ...[...live.keys()].filter((k) => !ORDER.includes(k))];
+  // The four known riders, unless the hub reports a different set; without a
+  // hub (or with only the default profile) the four are still shown.
+  const riders = [...ORDER.filter((k) => live.size === 0 || live.has(k)), ...[...live.keys()].filter((k) => !ORDER.includes(k))];
   const scenes = c.light?.scenes.map((s) => s.label).filter(Boolean) ?? ["Standard", "Gemütlich", "Hell"];
   const n = (de: string, en: string): string | undefined => t(de, en);
 
