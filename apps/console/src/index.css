@@ -20,11 +20,24 @@
 /* Print: the Hilfe and Begleiten views double as hand-outs. The header, the
    sub-navigation and the jump buttons go; cards stay on one page. */
 @media print {
+  @page { margin: 16mm 14mm; }
   .print-hide { display: none !important; }
-  main { background: white; }
-  section { break-inside: auto; }
+  main { background: white; color: black; }
+  /* the page column uses the paper, not the screen's reading width */
+  main > div { max-width: none !important; padding: 0 !important; }
+  /* every chapter starts on a new sheet; a heading never ends a page alone */
+  section[id] { break-before: page; break-inside: auto; }
+  section[id]:first-of-type { break-before: auto; }
   section > * { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; color: black; }
+  /* cards flat: hairline, no shadow, no tint */
+  section, .shadow-card, [class*="shadow-"] { box-shadow: none !important; }
+  .bg-well, .bg-well-raised, .bg-warn-soft { background: white !important; }
+  /* the live chips and jump buttons are meaningless on paper */
+  .tip::after { display: none; }
   a { color: inherit; text-decoration: none; }
+  /* the reading views: slightly smaller on paper, sans for both */
+  .doc-large, .doc-print { --text-2xs: 9pt; --text-xs: 9.5pt; --text-sm: 10pt; --text-md: 10.5pt; --text-base: 11pt; --text-lg: 12.5pt; --text-xl: 13pt; --text-2xl: 16pt; --text-4xl: 22pt; font-family: var(--font-sans); }
 }
 
 /* The view menu slides out from beneath the sticky header. */

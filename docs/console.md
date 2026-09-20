@@ -64,7 +64,13 @@ via the URL hash):
   always work (de/en, grouped: journey, light, adapting, MonoCab/CoSiMo
   facts, with a card, small talk), what CoSiMo cannot do, the three moves
   when it sticks. No explanatory prose, no scenes (2026-09-20). The Hilfe
-  view points here at the top. Both pages carry a print button
+  view points here at the top. Both pages are **bilingual on the page**:
+  a DE/EN toggle (`docLang.tsx`, remembered per device, sets `<html
+  lang>`), every string written as a `t(de, en)` pair in the page file.
+  The panel's buttons appear as their own symbols (`PanelIcons.tsx`:
+  microphone, CoSiMo's face in an oval, sun, card-reader arcs) — never as
+  keyboard letters, those are for testing without hardware only (Hilfe).
+  Both pages carry a print button
   (`@media print` in `index.css` hides the header, sub-nav and buttons) so
   the sheet can lie on the counter. The reading primitives (`doc.tsx`:
   Section, SubNav, Steps, Symptom, Say, Table, Term …) are TSX on the
