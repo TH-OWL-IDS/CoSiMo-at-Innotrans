@@ -152,7 +152,6 @@ export default function App() {
         onSubmit={(e) => { e.preventDefault(); void send(); }}
         className="flex flex-col gap-8"
       >
-        <p className="m-0 text-sm text-mute">{s.agreeHint} · {s.scaleHint}</p>
         {BLOCK_ORDER.map((b, bi) => {
           const block = SURVEY_BLOCKS[b];
           const items = SURVEY_ITEMS.filter((i) => i.block === b);
