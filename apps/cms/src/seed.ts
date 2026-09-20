@@ -245,7 +245,8 @@ async function seed(): Promise<void> {
     console.log("[seed] core prompt seeded into agent-config");
   }
 
-  // Voice catalog: 5 female + 5 male per language. The German ten are
+  // Voice catalog: 5 female + 5 male per language (+ Leo once more as the
+  // English male default). The German ten are
   // native community-library voices (must be added to the ElevenLabs account
   // once — Voice Library → "Add"), the English ten are premades. Order
   // matters: the FIRST entry per language+gender is that combination's
@@ -270,8 +271,11 @@ async function seed(): Promise<void> {
     { key: "alice", label: "Alice", gender: "female" as const, language: "en" as const, voiceId: "Xb7hH8MSUJpSbSDYk0k2", description: "klar, weiblich, britisch, erklärend" },
     { key: "lily", label: "Lily", gender: "female" as const, language: "en" as const, voiceId: "pFZP5JQG7iQjIQuC4Bku", description: "weich, weiblich, warm, leicht britisch" },
     { key: "jessica", label: "Jessica", gender: "female" as const, language: "en" as const, voiceId: "cgSgspJ2msm6clMCkdW9", description: "verspielt, weiblich, hell und warm" },
-    // — Englisch, männlich —
-    { key: "daniel", label: "Daniel", gender: "male" as const, language: "en" as const, voiceId: "onwK4e9ZLuTAKqWW03F9", description: "tief, männlich, ruhig, seriös (Standard Englisch)" },
+    // — Englisch, männlich — Leo (the German standard voice) speaks English
+    // too and is the English default for now (user's choice, 2026-09-20);
+    // Sam keeps Daniel explicitly on the profile.
+    { key: "leo-en", label: "Leo", gender: "male" as const, language: "en" as const, voiceId: "f64OyGck4gc2zk7QOs55", description: "ausgeglichen, männlich, natürlich und klar — dieselbe Stimme wie Standard Deutsch (Standard Englisch)" },
+    { key: "daniel", label: "Daniel", gender: "male" as const, language: "en" as const, voiceId: "onwK4e9ZLuTAKqWW03F9", description: "tief, männlich, ruhig, seriös" },
     { key: "george", label: "George", gender: "male" as const, language: "en" as const, voiceId: "JBFqnCBsd6RMkjVDRZzb", description: "warm, männlich, erzählend, britisch" },
     { key: "brian", label: "Brian", gender: "male" as const, language: "en" as const, voiceId: "nPczCjzI2devNBz1zQrb", description: "tief, männlich, gelassen" },
     { key: "eric", label: "Eric", gender: "male" as const, language: "en" as const, voiceId: "cjVigY5qzO86Huf0OWal", description: "freundlich, männlich, mittleres Alter" },

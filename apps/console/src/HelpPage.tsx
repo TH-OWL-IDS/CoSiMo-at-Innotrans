@@ -136,7 +136,7 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
             ["CMS", t("Profile, Route, Konfig aus Cache/Defaults; Sessions werden nicht gespeichert; Merken geht nicht", "profiles, route, config from cache/defaults; sessions are not saved; remembering is off"), t("nichts", "nothing")],
             [t("Gehirn (GX10)", "Brain (GX10)"), t("Fallback-Modell übernimmt, sonst vorgefertigte Antworten", "fallback model takes over, else canned replies"), t("nichts, bzw. kürzere Antworten", "nothing, or shorter replies")],
             [t("Internet am Hub", "Internet at the hub"), t("vorgefertigte Antworten, Systemstimme statt ElevenLabs, Diktat auf dem iPad", "canned replies, system voice instead of ElevenLabs, dictation on the iPad"), t("einfachere Antworten, andere Stimme", "simpler replies, a different voice")],
-            ["Deepgram", t("iPad diktiert selbst (Apple, offline Deutsch)", "the iPad dictates itself (Apple, offline German)"), t("etwas schlechtere Erkennung", "slightly worse recognition")],
+            ["Deepgram", t("iPad diktiert selbst (Apple, auf dem Gerät) — der normale Weg, kein Mangel", "the iPad dictates itself (Apple, on device) — the normal path, not a deficiency"), t("nichts", "nothing")],
             ["ElevenLabs", t("iPad spricht mit der Systemstimme", "the iPad speaks with the system voice"), t("andere Stimme", "a different voice")],
             [t("LPU-2 / Ethernet", "LPU-2 / Ethernet"), t("Licht bleibt in der Standalone-Szene; Zustand „degradiert“", "light stays in the standalone scene; state “degraded”"), t("Licht reagiert nicht", "the light does not react")],
             ["Hub", t("alles steht — die iPads zeigen „Verbindung wird hergestellt …“ und verbinden von selbst neu", "everything stops — the iPads show “connecting …” and reconnect on their own"), t("kein CoSiMo", "no CoSiMo")],
@@ -188,7 +188,7 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
             t(<><b>Services</b>: alle sechs Zeilen ok — auch die Befragung, deren Ausfall sonst niemand bemerkt.</>, <><b>Services</b>: all six rows ok — including the questionnaire, whose outage nobody would notice otherwise.</>),
             t(<><b>LLM</b>: healthy, kein „Fallback aktiv“. „Testen“ drücken — eine Antwort unter drei Sekunden ist normal.</>, <><b>LLM</b>: healthy, no “Fallback aktiv”. Press “Testen” — a reply under three seconds is normal.</>),
             t(<><b>Sprechen (TTS)</b>: Pfad „ElevenLabs (Server)“. Eine Stimme antippen und anhören.</>, <><b>Sprechen (TTS)</b>: path “ElevenLabs (Server)”. Tap a voice and listen.</>),
-            t(<><b>Hören (STT)</b>: Pfad „Deepgram (Server)“. „Testen“ schickt einen gesprochenen Satz durch die Erkennung.</>, <><b>Hören (STT)</b>: path “Deepgram (Server)”. “Testen” sends a spoken sentence through recognition.</>),
+            t(<><b>Hören (STT)</b>: „Diktat auf dem iPad“ oder „Deepgram (Server)“ — beides ist in Ordnung. Bei Deepgram schickt „Testen“ einen gesprochenen Satz durch die Erkennung.</>, <><b>Hören (STT)</b>: “Diktat auf dem iPad” or “Deepgram (Server)” — both are fine. With Deepgram, “Testen” sends a spoken sentence through recognition.</>),
             t(<><b>CMS</b>: erreichbar, Konfig „aus dem CMS“, LPU-2 mit Adresse und gemappten Playbacks.</>, <><b>CMS</b>: reachable, config “aus dem CMS”, LPU-2 with address and mapped playbacks.</>),
             t(<><b>Licht</b>: Szene „Standard“ setzen und in die Kabine schauen.</>, <><b>Licht</b>: set the “Standard” scene and look into the cabin.</>),
             t(<><b>Fahrt</b>: läuft, keine Störung, nicht pausiert. Fahrt-Ansicht auf dem Standbildschirm öffnen.</>, <><b>Fahrt</b>: running, no fault, not paused. Open the journey view on the booth screen.</>),
@@ -238,9 +238,8 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
         <Symptom
           id="s-leer"
           title={t("Welle da, aber CoSiMo reagiert nicht oder sagt „nicht verstanden“", "Wave shows, but CoSiMo does not react or says “not understood”")}
-          live={has(f, "no-server-stt")}
-          check={t(<>Logs → letzter <C>stt.result</C>: 0 Zeichen heißt, die Aufnahme war leer oder zu leise. Übersicht → Hören: steht der Pfad auf „Deepgram (Server)“? Wenn nicht, diktiert das iPad lokal — dann muss Deutsch als Offline-Diktiersprache geladen sein.</>, <>Logs → last <C>stt.result</C>: 0 characters means the recording was empty or too quiet. Overview → Hören: is the path “Deepgram (Server)”? If not, the iPad dictates locally — then German must be downloaded as an offline dictation language.</>)}
-          fix={t(<>Näher ans Mikrofon, die Taste erst nach dem letzten Wort loslassen (die App nimmt 0,3 s nach). Fehlt Server-STT: <C>DEEPGRAM_API_KEY</C> in <C>.env.prod</C>, Hub neu starten. Test: „Testen“ auf der Hören-Karte.</>, <>Closer to the microphone, release the button only after the last word (the app records 0.3 s longer). No server STT: <C>DEEPGRAM_API_KEY</C> in <C>.env.prod</C>, restart the hub. Test: “Testen” on the Hören card.</>)}
+          check={t(<>Übersicht → Hören zeigt den Pfad: „Diktat auf dem iPad“ ist der normale Betrieb (Apple, auf dem Gerät) — dann muss Deutsch als Offline-Diktiersprache geladen sein und die Diktierfunktion in den iPad-Einstellungen an. Mit „Deepgram (Server)“: Logs → letzter <C>stt.result</C>, 0 Zeichen heißt, die Aufnahme war leer oder zu leise.</>, <>Overview → Hören shows the path: “Diktat auf dem iPad” is normal operation (Apple, on device) — then German must be downloaded as an offline dictation language and dictation switched on in the iPad settings. With “Deepgram (Server)”: Logs → last <C>stt.result</C>, 0 characters means the recording was empty or too quiet.</>)}
+          fix={t(<>Näher ans Mikrofon, die Taste erst nach dem letzten Wort loslassen (die App nimmt 0,3 s nach). Sagt der Schlitz „keine Spracherkennung auf diesem Gerät“: iPad-Einstellungen → Allgemein → Tastatur → Diktieren einschalten. Mit Deepgram: „Testen“ auf der Hören-Karte, <C>DEEPGRAM_API_KEY</C> in <C>.env.prod</C>.</>, <>Closer to the microphone, release the button only after the last word (the app records 0.3 s longer). If the slit says “keine Spracherkennung auf diesem Gerät”: iPad Settings → General → Keyboard → switch on dictation. With Deepgram: “Testen” on the Hören card, <C>DEEPGRAM_API_KEY</C> in <C>.env.prod</C>.</>)}
           go={[toUebersicht, toLogs]}
         />
         <Symptom
@@ -497,7 +496,8 @@ function LiveChecklist({ c, f, lang }: { c: CosimoState; f: ReturnType<typeof di
     { label: t(`${kiosks.length} Sitz${kiosks.length === 1 ? "" : "e"} verbunden`, `${kiosks.length} seat${kiosks.length === 1 ? "" : "s"} connected`), ok: kiosks.length >= 1 ? (kiosks.length >= 4 ? true : null) : false },
     { label: t("Gehirn", "Brain"), ok: st ? st.llm && !has(f, "llm-fallback") : null },
     { label: "Server-TTS", ok: st ? st.serverTts : null },
-    { label: "Server-STT", ok: st ? st.serverStt : null },
+    // local dictation on the iPad is a full path, not a degraded one
+    { label: st ? (st.serverStt ? t("Hören: Deepgram", "Hearing: Deepgram") : t("Hören: Diktat auf dem iPad", "Hearing: iPad dictation")) : t("Hören", "Hearing"), ok: st ? true : null },
     { label: "CMS", ok: st ? st.cms && !has(f, "config-defaults") : null },
     { label: t("Licht", "Light"), ok: st && c.hostConfig ? !has(f, "lpu2-unconfigured", "lpu2-unmapped", "light-unconfirmed") : null },
     { label: t("Fahrt läuft", "Journey running"), ok: c.telemetry ? !has(f, "sim-paused", "fault-active") : null },

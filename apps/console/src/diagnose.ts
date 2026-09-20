@@ -21,7 +21,6 @@ export type FindingId =
   | "offline-canned"
   | "cms-down"
   | "config-defaults"
-  | "no-server-stt"
   | "no-server-tts"
   | "lpu2-unconfigured"
   | "lpu2-unmapped"
@@ -88,9 +87,8 @@ export function diagnose(c: CosimoState): Finding[] {
   if (cfg && cfg.source !== "cms") {
     out.push({ id: "config-defaults", severity: "warn", title: "Konfiguration aus den env-Defaults", detail: "Der Hub hat die CMS-Konfiguration noch nie geladen — Routen, Stimmen und Szenen sind die eingebauten." });
   }
-  if (!st.serverStt) {
-    out.push({ id: "no-server-stt", severity: "warn", title: "Kein Server-STT", detail: "Die iPads diktieren lokal (Apple-Diktat). Funktioniert, aber ohne Deepgram-Qualität." });
-  }
+  // No server STT is NOT a finding: the iPads dictate locally (Apple, on
+  // device) and that is a normal, complete path (decided 2026-09-20).
   if (!st.serverTts) {
     out.push({ id: "no-server-tts", severity: "warn", title: "Kein Server-TTS", detail: "Die iPads sprechen mit der Systemstimme — nicht CoSiMos Stimme." });
   }
