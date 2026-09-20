@@ -232,13 +232,14 @@ async function seed(): Promise<void> {
   // stale copy of an older default, not an operator's edit — replace it
   // (2026-09-18: prod kept explaining set_cabin_control after set_light).
   // retired tool names, plus the heading of the previous default's tool section
-  const RETIRED_TOOLS = ["set_cabin_control", "start_customizer", "## Truth and tools"];
-  const stale = RETIRED_TOOLS.some((t) => stored.includes(t));
+  const RETIRED_TOOLS = ["set_cabin_control", "start_customizer", "## Truth and tools", "built by the TH OWL university for the MonoCab project"];
+  // … or predates a feature every current default carries (the Gestalt map, 2026-09-19)
+  const stale = RETIRED_TOOLS.some((t) => stored.includes(t)) || (Boolean(stored) && !stored.includes("gestalt"));
   if (stored && !stale) {
     console.log("[seed] core prompt exists: keeping the operator's text");
   } else if (stale) {
     await payload.updateGlobal({ slug: "agent-config", data: { systemPrompt: DEFAULT_CORE_PROMPT } });
-    console.log(`[seed] core prompt replaced: the stored text named a retired tool (${RETIRED_TOOLS.filter((t) => stored.includes(t)).join(", ")})`);
+    console.log(`[seed] core prompt replaced: the stored text was an older default (${RETIRED_TOOLS.filter((t) => stored.includes(t)).join(", ") || "no gestalt map"})`);
   } else {
     await payload.updateGlobal({ slug: "agent-config", data: { systemPrompt: DEFAULT_CORE_PROMPT } });
     console.log("[seed] core prompt seeded into agent-config");
