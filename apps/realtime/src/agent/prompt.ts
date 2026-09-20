@@ -41,7 +41,7 @@ function accommodationPrelude(a: Accommodations): string {
 
 /**
  * The live journey in one line — injected into every turn so the common
- * questions (next/after-next/last stop, speed, delay, faults) are answered
+ * questions (line, next/after-next/last stop, delay, faults) are answered
  * in ONE generation. Covers the whole remaining trip; what it does not
  * contain is exactly what get_telemetry is for.
  */
@@ -55,9 +55,11 @@ export function journeyLine(t: MonoCabTelemetry, lang: Locale): string {
     })
     .join(", ");
   const fault = t.faults[0];
+  // no speed: it is not something the rider is told (2026-09-20) — the line,
+  // where we are, the stops ahead, direction, punctuality, faults
   const parts = [
-    `${t.location[lang]}${t.doorsOpen ? (de ? ", Türen offen" : ", doors open") : ""}`,
-    `${Math.round(t.speedKmh)} km/h${t.simPaused ? (de ? " (pausiert)" : " (paused)") : ""}`,
+    (de ? "Linie " : "Line ") + t.line[lang],
+    `${t.location[lang]}${t.doorsOpen ? (de ? ", Türen offen" : ", doors open") : ""}${t.simPaused ? (de ? " (pausiert)" : " (paused)") : ""}`,
     (de ? "dann " : "then ") + (stops || (de ? "keine weiteren Halte" : "no further stops")),
     de ? `Richtung ${t.destination.de}` : `towards ${t.destination.en}`,
     t.delayMinutes > 0 ? (de ? `+${t.delayMinutes} min Verspätung` : `+${t.delayMinutes} min late`) : de ? "pünktlich" : "on time",
@@ -99,7 +101,7 @@ export function journeyBlock(line: string): string[] {
     "",
     "## Fahrt jetzt (live, this turn)",
     line,
-    "This line is the truth for what it contains — answer from it directly, no tool call: current position, speed, every upcoming stop with its arrival time (next, the one after, the terminal), direction, delay, fault. Anything it does NOT contain — passenger count, door/dwell details, exact seconds, accessibility notes, the way back — you MUST fetch with get_telemetry in this same turn. Never guess, never answer such details from memory.",
+    "This line is the truth for what it contains — answer from it directly, no tool call: the line, current position, every upcoming stop with its arrival time (next, the one after, the terminal), direction, delay, fault. Anything it does NOT contain — passenger count, door/dwell details, exact seconds, accessibility notes, the way back — you MUST fetch with get_telemetry in this same turn. Never guess, never answer such details from memory.",
   ];
 }
 

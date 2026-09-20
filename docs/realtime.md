@@ -165,7 +165,7 @@ next generation step instead. Interrupted turns record `outcome:
 
 ## The journey in the prompt (`journeyLine` / `journeyBlock`)
 
-Every turn injects one live line — position, speed, EVERY upcoming stop with
+Every turn injects one live line — the line, position, EVERY upcoming stop with
 its ETA (next, the one after, the terminal), direction, delay, fault — as
 `## Fahrt jetzt`, with an explicit boundary rule: answer those facts
 directly (one generation); anything the line does not carry (passenger

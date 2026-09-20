@@ -15,7 +15,7 @@ browser, or device).
 | Input | Keystrokes | Semantics |
 |---|---|---|
 | Talk button | `s` | **Key DOWN on press, key UP on release** — the app records exactly while held (push-to-talk). Auto-repeat is ignored. Firmware debounce ~50 ms. |
-| Info button | `i` | One normal keystroke per press → `info:ask`; the hub asks the CMS-configured question (agent-config), CoSiMo introduces itself. |
+| Info button | `i` | One normal keystroke per press → `info:ask`; the hub asks the CMS-configured question (agent-config), by default a short summary of the ride. |
 | Light button | `d` | One keystroke per press → the next light scene (`light:set {scene:"next"}`; the hub cycles Standard → Gemütlich → Hell). |
 | NFC scan | `[` + chip id + `Enter` | Framed, scanner-style. `]` also terminates. One frame per physical tap; debounce re-reads of the same chip ~2 s. |
 

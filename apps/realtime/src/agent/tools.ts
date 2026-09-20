@@ -47,7 +47,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "get_telemetry",
     description:
-      "Fetch journey details the Fahrt-jetzt line does not carry: passenger count, doors, dwell time at this stop, the full stop list (incl. the way back), accessibility notes. For position, speed, upcoming stops/ETAs, delay and faults use the Fahrt-jetzt line instead — no call needed.",
+      "Fetch journey details the Fahrt-jetzt line does not carry: passenger count, doors, dwell time at this stop, the full stop list (incl. the way back), accessibility notes. For the line, position, upcoming stops/ETAs, delay and faults use the Fahrt-jetzt line instead — no call needed. Speed is never part of what CoSiMo tells a rider.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -298,7 +298,6 @@ export async function executeTool(
       const here = t.stops[t.position.stopIndex];
       const compact = {
         location: t.location[l],
-        speedKmh: Math.round(t.speedKmh),
         phase: t.position.phase,
         direction: t.position.direction,
         line: t.line[l],

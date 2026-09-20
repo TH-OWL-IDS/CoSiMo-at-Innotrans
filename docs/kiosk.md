@@ -89,8 +89,9 @@ global key stream:
 - **`s`** — talk button, real hold semantics (keydown = start recording,
   keyup = stop). Auto-repeats ignored.
 - **`i`** — info button, one press = `info:ask`; the hub asks its
-  CMS-configured question (agent-config, per language) as a text turn and
-  echoes it to the seat's transcript.
+  CMS-configured question (agent-config, per language; default: a short
+  summary of this ride — line, where we are, next stop, arrival) as a text
+  turn and echoes it to the seat's transcript.
 - **`d`** — light button, one press = the next light scene (`light:set
   {scene:"next"}`; the hub cycles Standard → Gemütlich → Hell).
 - **NFC frames** — the reader types `[` + chip id + `Enter`. While a frame

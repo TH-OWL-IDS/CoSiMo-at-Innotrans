@@ -24,8 +24,8 @@ export interface CannedResult {
 }
 
 const SUGGESTIONS: Record<Locale, string[]> = {
-  de: ["Wie schnell fahren wir?", "Wann kommen wir an?", "Mach das Licht an"],
-  en: ["How fast are we going?", "When do we arrive?", "Turn on the light"],
+  de: ["Wann kommen wir an?", "Wo sind wir gerade?", "Mach das Licht an"],
+  en: ["When do we arrive?", "Where are we right now?", "Turn on the light"],
 };
 
 const has = (text: string, ...needles: string[]) => needles.some((n) => text.includes(n));
@@ -41,8 +41,8 @@ export function errorReply(lang: Locale): CannedResult {
     matched: false,
     emotion: "sad",
     text: de
-      ? "Entschuldige, da ist gerade etwas schiefgelaufen — ich kann im Moment nicht richtig nachdenken. Versuch es gleich nochmal, oder frag mich zur Fahrt, zum Beispiel: „Wie schnell fahren wir?“"
-      : "Sorry, something just went wrong — I can't quite think right now. Try again in a moment, or ask me about the ride, for example: “How fast are we going?”",
+      ? "Entschuldige, da ist gerade etwas schiefgelaufen — ich kann im Moment nicht richtig nachdenken. Versuch es gleich nochmal, oder frag mich zur Fahrt, zum Beispiel: „Wann kommen wir an?“"
+      : "Sorry, something just went wrong — I can't quite think right now. Try again in a moment, or ask me about the ride, for example: “When do we arrive?”",
   };
 }
 
@@ -91,17 +91,6 @@ export function cannedReply(
       emotion: "happy",
       cabin: { scene: "standard" },
       text: de ? "Ich schalte das Licht an." : "Turning the light on.",
-    };
-  }
-
-  // Speed
-  if (has(t, "schnell", "tempo", "speed", "fast", "km/h", "geschwindigkeit")) {
-    return {
-      matched: true,
-      emotion: "neutral",
-      text: de
-        ? `Wir fahren gerade ${Math.round(telemetry.speedKmh)} km/h.`
-        : `We're going ${Math.round(telemetry.speedKmh)} km/h right now.`,
     };
   }
 
@@ -163,8 +152,8 @@ export function cannedReply(
       matched: true,
       emotion: "happy",
       text: de
-        ? "Ich kann dir zur Fahrt Auskunft geben und das Licht im Abteil steuern. Frag mich zum Beispiel: Wie schnell fahren wir?"
-        : "I can tell you about the ride and control the cabin light. Try asking: How fast are we going?",
+        ? "Ich kann dir zur Fahrt Auskunft geben und das Licht im Abteil steuern. Frag mich zum Beispiel: Wann kommen wir an?"
+        : "I can tell you about the ride and control the cabin light. Try asking: When do we arrive?",
     };
   }
 
