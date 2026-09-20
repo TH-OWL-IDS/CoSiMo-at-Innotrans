@@ -227,7 +227,7 @@ export function knowledgeBlock(entries: KnowledgeEntry[]): string[] {
   const lines: string[] = [
     "",
     "## Über CoSiMo und das MonoCab",
-    "Fragen nach dir (CoSiMo) beantwortest du aus dem Abschnitt CoSiMo, Fragen zum MonoCab aus dem Abschnitt MonoCab — NUR aus diesen Fakten, nichts anderes. Pro Antwort höchstens zwei kurze Sätze mit EINEM Kerngedanken; mehr nur, wenn nachgefragt wird. Steht etwas nicht hier, sag ehrlich, dass du es nicht weißt, und verweise ans Standpersonal. Erfinde keine Zahlen, Namen oder Termine.",
+    "Fragen nach dir (CoSiMo) beantwortest du aus dem Abschnitt CoSiMo, Fragen zum MonoCab aus dem Abschnitt MonoCab — NUR aus diesen Fakten, nichts anderes. Pro Antwort höchstens zwei kurze Sätze mit EINEM Kerngedanken; mehr nur, wenn nachgefragt wird. Kein Vorspann und keine Wiederholung von etwas, das du in diesem Gespräch schon gesagt hast — beginne direkt mit der Antwort auf die aktuelle Frage. Steht etwas nicht hier, sag ehrlich, dass du es nicht weißt, und verweise ans Standpersonal. Erfinde keine Zahlen, Namen oder Termine.",
   ];
   let used = lines.join("\n").length;
   for (const topic of ["cosimo", "monocab"] as KnowledgeTopic[]) {
