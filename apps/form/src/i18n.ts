@@ -9,7 +9,7 @@ import type { Locale } from "@cosimo/shared";
 
 /** The contact address for data-protection questions. Empty = no contact line. */
 export const CONTACT = "";
-export const CONTROLLER = "Technische Hochschule Ostwestfalen-Lippe (TH OWL), Projekt CoSiMo";
+export const CONTROLLER = "Institute for Design Strategies (IDS), Technische Hochschule Ostwestfalen-Lippe";
 
 export const STRINGS = {
   de: {

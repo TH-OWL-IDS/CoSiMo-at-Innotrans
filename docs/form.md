@@ -74,7 +74,7 @@ phone ── POST /api/survey-responses ▶ nginx (form) ──▶ cms   hook va
 Anonymous by construction: no IP (nginx `access_log off` on the API
 locations — the notice promises it), no user agent, no session link, no
 name. The Art. 13 notice (`apps/form/src/i18n.ts`) names the controller
-(TH OWL, project CoSiMo), the purpose, what is stored and what is not, that
+(Institute for Design Strategies, IDS, at TH OWL), the purpose, what is stored and what is not, that
 and that a response cannot be attributed and therefore not deleted after
 submission. `CONTACT` in `i18n.ts` adds a contact line when set (empty = no
 line, the user's choice). Whether the institution wants an ethics vote for
