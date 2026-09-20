@@ -160,7 +160,6 @@ export default function App() {
             <section key={b} aria-label={block.title[lang]} className="flex flex-col gap-3">
               {/* a hairline between the blocks, no headings — the items speak for themselves */}
               {bi > 0 && <hr className="m-0 border-0 border-t border-line" />}
-              {block.stem && <p className="m-0 text-base text-mute">{block.stem[lang]}</p>}
               {items.map((item) => {
                 n += 1;
                 return (
@@ -173,6 +172,7 @@ export default function App() {
                     value={answers[item.id]}
                     onChange={(v) => setAnswers((a) => ({ ...a, [item.id]: v }))}
                     invalid={attempted && answers[item.id] == null}
+                    stem={block.stem?.[lang]}
                   />
                 );
               })}

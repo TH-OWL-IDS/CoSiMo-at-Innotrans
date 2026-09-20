@@ -10,7 +10,7 @@ import type { Strings } from "./i18n";
  * poles or end anchors sit ABOVE the row so seven dots still fit a 360 px
  * phone. Invalid = unanswered after a submit attempt.
  */
-export default function ScaleItem({ item, index, lang, s, value, onChange, invalid }: {
+export default function ScaleItem({ item, index, lang, s, value, onChange, invalid, stem }: {
   item: SurveyItem;
   index: number;
   lang: Locale;
@@ -18,6 +18,8 @@ export default function ScaleItem({ item, index, lang, s, value, onChange, inval
   value: number | undefined;
   onChange: (v: number) => void;
   invalid: boolean;
+  /** The block's stem („CoSiMo ist …") — the heading of a word-pair item without its own text. */
+  stem?: string;
 }) {
   const anchors = SURVEY_AGREE_ANCHORS[lang];
   const poles = item.poles?.[lang];
@@ -27,7 +29,7 @@ export default function ScaleItem({ item, index, lang, s, value, onChange, inval
     item.kind === "agree"
       ? `${anchors[n - 1]}, ${n} ${s.of} ${SURVEY_SCALE_MAX}`
       : n === 1 ? `1 ${s.of} ${SURVEY_SCALE_MAX} – ${left}` : n === SURVEY_SCALE_MAX ? `${n} ${s.of} ${SURVEY_SCALE_MAX} – ${right}` : `${n} ${s.of} ${SURVEY_SCALE_MAX}`;
-  const legend = item.text?.[lang];
+  const legend = item.text?.[lang] ?? stem;
 
   return (
     <fieldset

@@ -89,7 +89,7 @@ instead of the monospace, a visible focus ring (the console switched it
 off for its touch surface), 44 px scale dots, anchors above the row so
 seven dots fit a 360 px phone, a 760 px column on larger screens, a hairline
 between the blocks instead of headings (the AttrakDiff stem „CoSiMo ist …"
-stays as a muted line). Real `<input type="radio">` inside
+is the heading of each word-pair card). Real `<input type="radio">` inside
 `<fieldset>/<legend>` with an `aria-label` per number carrying its meaning
 — VoiceOver announces "Stimme zu, 6 von 7". Do not "fix" the overrides back
 to the console look.
