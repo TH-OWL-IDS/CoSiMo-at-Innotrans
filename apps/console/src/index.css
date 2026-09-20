@@ -2,7 +2,22 @@
    see packages/ui/src/styles.css. Console-only rules go below. */
 @import "@cosimo/ui/styles.css";
 
-/* Print: the Hilfe and Demo views double as hand-outs. The header, the
+/* The Begleiten view is read by non-technical people on a phone: a larger
+   type ladder on the same tokens (every text-* utility follows), and the
+   system sans instead of the monospace. Scoped to the wrapper only. */
+.doc-large {
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 15px;
+  --text-md: 16px;
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: 26px;
+  --text-4xl: 36px;
+}
+
+/* Print: the Hilfe and Begleiten views double as hand-outs. The header, the
    sub-navigation and the jump buttons go; cards stay on one page. */
 @media print {
   .print-hide { display: none !important; }

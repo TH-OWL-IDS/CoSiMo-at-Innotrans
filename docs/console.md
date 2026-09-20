@@ -53,12 +53,17 @@ via the URL hash):
   says „trifft gerade zu" and the top of the list is the current findings —
   with jump buttons into the other views; how to read a turn in the log; a
   glossary. Content facts come from the code and `docs/`, not from the CMS.
-- **Demo** (`#demo`, `DemoPage.tsx`) — the cheat sheet for the people
-  showing CoSiMo to visitors: what it is, how a visitor operates the seat,
-  example utterances (de/en) per topic, the rider cards as a table built
-  live from `host:personas` (story, what changes visibly, conversation
-  style), three one-minute demo routines, what CoSiMo cannot do, and the
-  three moves when something sticks. Both pages carry a print button
+- **Begleiten** (`#begleiten`, `GuidePage.tsx`; `#demo` still lands here) —
+  the guide for the people accompanying visitors at the cab, written for
+  non-engineers (2026-09-20: two older professors): larger type on the same
+  tokens (`.doc-large` rescales the `--text-*` variables) and the system
+  sans; what CoSiMo is in three sentences, how the seat is operated, the
+  four riders on the cards (who they are, what changes, one sentence to
+  say — rows read the live `host:personas`, the stories are in the file),
+  four one-minute scenes step by step (the journey with a fault, the light,
+  two riders on one seat, adapting and remembering), sentences that always
+  work (de/en), what CoSiMo cannot do, the three moves when it sticks. The
+  Hilfe view points here at the top. Both pages carry a print button
   (`@media print` in `index.css` hides the header, sub-nav and buttons) so
   the sheet can lie on the counter. The reading primitives (`doc.tsx`:
   Section, SubNav, Steps, Symptom, Say, Table, Term …) are TSX on the

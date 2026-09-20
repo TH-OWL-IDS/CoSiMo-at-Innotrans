@@ -46,6 +46,11 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
       </div>
       <SubNav items={NAV} />
 
+      <Note className="print-hide flex flex-wrap items-center justify-between gap-3">
+        <span><b>Du begleitest Besucher?</b> Dann ist die Seite „Begleiten“ die richtige: was CoSiMo ist, die Karten, vier Szenen zum Vorführen. Diese Seite hier ist für die Technik.</span>
+        <Button size="sm" variant="secondary" onClick={() => go("begleiten")}>Begleiten öffnen</Button>
+      </Note>
+
       {/* ─────────────────────────── Aufbau ─────────────────────────── */}
       <Section id="aufbau" title="Aufbau" lead="Vier Sitze, ein Hub, ein CMS, ein paar Dienste im Internet — und ein Lichtcontroller, den nur die iPads erreichen.">
         <SystemDiagram />

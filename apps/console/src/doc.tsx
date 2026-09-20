@@ -3,7 +3,7 @@ import { ArrowRight, CircleAlert } from "lucide-react";
 import { Button, Card, Chip, cn } from "@cosimo/ui";
 
 /**
- * The reading primitives for the Hilfe and Demo views — long-form text on
+ * The reading primitives for the Hilfe and Begleiten views — long-form text on
  * the console's tokens. Kept small on purpose: a section with an anchor, a
  * sticky sub-navigation, paragraphs, numbered steps, a key cap, a spoken
  * example, a code block and the Symptom card of the troubleshooting list.

@@ -69,7 +69,7 @@ import { resolveServerUrl } from "./serverUrl";
 import LogView, { Kind, SYSTEM_SEAT, summarize } from "./LogView";
 import LightPage from "./LightPage";
 import HelpPage from "./HelpPage";
-import DemoPage from "./DemoPage";
+import GuidePage from "./GuidePage";
 import type { Tab } from "./tabs";
 
 /**
@@ -1019,7 +1019,7 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "sessions", label: "Sessions", icon: Armchair },
   { id: "logs", label: "Logs", icon: ScrollText },
   { id: "hilfe", label: "Hilfe", icon: CircleHelp },
-  { id: "demo", label: "Demo", icon: Presentation },
+  { id: "begleiten", label: "Begleiten", icon: Presentation },
 ];
 
 /**
@@ -1114,6 +1114,7 @@ function TabMenu({ tab, onSwitch, badge }: { tab: Tab; onSwitch: (t: Tab) => voi
 function tabFromHash(): Tab {
   const hash = window.location.hash.replace("#", "");
   if (hash === "log" || hash === "logs") return "logs";
+  if (hash === "demo") return "begleiten"; // the former name of the guide
   return (TABS.some((t) => t.id === hash) ? hash : "uebersicht") as Tab; // fahrzeug/diagramm (removed) → Übersicht
 }
 
@@ -1168,7 +1169,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
         {tab === "hilfe" && <HelpPage c={c} go={switchTab} showLogsFor={showLogsFor} />}
-        {tab === "demo" && <DemoPage c={c} go={switchTab} />}
+        {tab === "begleiten" && <GuidePage c={c} go={switchTab} />}
       </div>
 
       {(c.reloadRequired || c.evicted) && (
