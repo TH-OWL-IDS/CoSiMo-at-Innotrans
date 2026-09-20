@@ -215,20 +215,22 @@ export { DEFAULT_CORE_PROMPT };
  * always code-built so an operator edit can't accidentally drop it.
  */
 /**
- * The fact sheet about the MonoCab and CoSiMo (CMS `knowledge`), grouped by
- * topic, capped at KNOWLEDGE_MAX_CHARS (the tail is dropped, whole entries
- * only) — with the rule that makes it safe: answer from these, say when
- * something is not in here, never invent.
+ * The fact sheet about CoSiMo and the MonoCab (CMS `knowledge`), grouped by
+ * topic — CoSiMo first, next to the identity in the core — and capped at
+ * KNOWLEDGE_MAX_CHARS (the tail is dropped, whole entries only). With the
+ * rule that makes it safe and short: answer from the matching section only,
+ * two short sentences with one point, say when something is not in here,
+ * never invent.
  */
 export function knowledgeBlock(entries: KnowledgeEntry[]): string[] {
   if (!entries.length) return [];
   const lines: string[] = [
     "",
-    "## Über das MonoCab und CoSiMo",
-    "Fragen zum MonoCab oder zu dir (CoSiMo) beantwortest du NUR aus diesen Fakten, in deinen Worten und kurz. Steht etwas nicht hier, sag ehrlich, dass du es nicht weißt, und verweise ans Standpersonal. Erfinde keine Zahlen, Namen oder Termine.",
+    "## Über CoSiMo und das MonoCab",
+    "Fragen nach dir (CoSiMo) beantwortest du aus dem Abschnitt CoSiMo, Fragen zum MonoCab aus dem Abschnitt MonoCab — NUR aus diesen Fakten, nichts anderes. Pro Antwort höchstens zwei kurze Sätze mit EINEM Kerngedanken; mehr nur, wenn nachgefragt wird. Steht etwas nicht hier, sag ehrlich, dass du es nicht weißt, und verweise ans Standpersonal. Erfinde keine Zahlen, Namen oder Termine.",
   ];
   let used = lines.join("\n").length;
-  for (const topic of ["monocab", "cosimo"] as KnowledgeTopic[]) {
+  for (const topic of ["cosimo", "monocab"] as KnowledgeTopic[]) {
     const own = entries.filter((e) => e.topic === topic);
     if (!own.length) continue;
     const head = `### ${KNOWLEDGE_TOPIC_LABEL[topic]}`;
