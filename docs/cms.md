@@ -21,6 +21,15 @@ Payload login). There is no other page — the operator console is
   Public read; writes admin-only **plus the realtime service via the internal
   key** (accommodation + memory write-back). Full model:
   [personas.md](personas.md).
+- **knowledge** („Wissen") — the fact sheet behind „Was ist das MonoCab?":
+  one row per topic (MonoCab | CoSiMo) and fact (`title`, `body`, `order`,
+  `active`), public read, admin-only writes. The realtime service reads the
+  active rows in order every 15 s and rides them into the system prompt as
+  „## Über das MonoCab und CoSiMo" (grouped by topic, capped at 6000
+  characters, whole entries only) together with the rule to answer ONLY
+  from them and to refer to the stand's staff otherwise. Seeded from
+  `@cosimo/shared` knowledge.ts when empty (the 2026-09-20 fact list checked
+  by the project); empty = those defaults.
 - **route-config (global)** — the line the journey simulation drives: stops
   in order (bilingual names, seconds of travel from the previous stop,
   dwell seconds), cruise speed, capacity, notes. The realtime service

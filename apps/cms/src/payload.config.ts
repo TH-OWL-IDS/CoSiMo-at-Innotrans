@@ -5,6 +5,7 @@ import { postgresAdapter } from "@payloadcms/db-postgres";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 
 import { Users } from "./collections/Users.js";
+import { Knowledge } from "./collections/Knowledge.js";
 import { Personas } from "./collections/Personas.js";
 import { Sessions } from "./collections/Sessions.js";
 import { SurveyResponses } from "./collections/SurveyResponses.js";
@@ -25,7 +26,7 @@ export default buildConfig({
       titleSuffix: "— CoSiMo",
     },
   },
-  collections: [Personas, Sessions, SurveyResponses, Users],
+  collections: [Personas, Knowledge, Sessions, SurveyResponses, Users],
   globals: [AgentConfig, LlmConfig, SpeechConfig, Voices, CabinConfig, RouteConfig],
   // The questionnaire's start token (docs/form.md). Root-level on purpose.
   endpoints: [surveyStartEndpoint],

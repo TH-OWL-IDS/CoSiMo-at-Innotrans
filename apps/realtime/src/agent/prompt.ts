@@ -11,6 +11,7 @@
  */
 
 import type { Accommodations, InteractionTraits, Locale, MonoCabTelemetry, Persona, PersonaMemory, VoiceCatalogEntry } from "@cosimo/shared";
+import { KNOWLEDGE_MAX_CHARS, KNOWLEDGE_TOPIC_LABEL, type KnowledgeEntry, type KnowledgeTopic } from "@cosimo/shared";
 
 /**
  * Deterministic phrasing (not a rules table) describing how the rider receives
@@ -213,7 +214,38 @@ export { DEFAULT_CORE_PROMPT };
  * rider section (brief, accommodation prelude, fenced memories), which is
  * always code-built so an operator edit can't accidentally drop it.
  */
-export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale, scenes: LightScene[] = [], lightNow?: string): string {
+/**
+ * The fact sheet about the MonoCab and CoSiMo (CMS `knowledge`), grouped by
+ * topic, capped at KNOWLEDGE_MAX_CHARS (the tail is dropped, whole entries
+ * only) — with the rule that makes it safe: answer from these, say when
+ * something is not in here, never invent.
+ */
+export function knowledgeBlock(entries: KnowledgeEntry[]): string[] {
+  if (!entries.length) return [];
+  const lines: string[] = [
+    "",
+    "## Über das MonoCab und CoSiMo",
+    "Fragen zum MonoCab oder zu dir (CoSiMo) beantwortest du NUR aus diesen Fakten, in deinen Worten und kurz. Steht etwas nicht hier, sag ehrlich, dass du es nicht weißt, und verweise ans Standpersonal. Erfinde keine Zahlen, Namen oder Termine.",
+  ];
+  let used = lines.join("\n").length;
+  for (const topic of ["monocab", "cosimo"] as KnowledgeTopic[]) {
+    const own = entries.filter((e) => e.topic === topic);
+    if (!own.length) continue;
+    const head = `### ${KNOWLEDGE_TOPIC_LABEL[topic]}`;
+    if (used + head.length + 1 > KNOWLEDGE_MAX_CHARS) break;
+    lines.push(head);
+    used += head.length + 1;
+    for (const e of own) {
+      const line = `- ${e.title}: ${e.body}`;
+      if (used + line.length + 1 > KNOWLEDGE_MAX_CHARS) return lines;
+      lines.push(line);
+      used += line.length + 1;
+    }
+  }
+  return lines;
+}
+
+export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCatalogEntry[] = [], journey?: string, replyLang?: Locale, scenes: LightScene[] = [], lightNow?: string, knowledge: KnowledgeEntry[] = []): string {
   const prelude = accommodationPrelude(profile.accommodations);
   const who = profile.name
     ? `This rider is ${profile.name}.`
@@ -268,6 +300,7 @@ export function buildSystemPrompt(profile: Persona, core = "", voices: VoiceCata
     ...(journey ? journeyBlock(journey) : []),
     ...voicesBlock,
     ...scenesBlock,
+    ...knowledgeBlock(knowledge),
     "",
     "## This rider",
     who,

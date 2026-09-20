@@ -207,6 +207,7 @@ export class CosimoAgent {
         undefined,
         this.hub.currentLight().scenes,
         this.lightNow(),
+        this.operatorConfig.get().knowledge,
       ),
       turns: this.recorder.get(sessionId)?.turns ?? [],
     };
@@ -303,6 +304,7 @@ export class CosimoAgent {
       lang,
       this.hub.currentLight().scenes,
       this.lightNow(),
+      this.operatorConfig.get().knowledge,
     );
     // Watchdog: a hung LLM stream must never strand the seat in "thinking".
     // The combined signal kills the HTTP stream either on barge-in (ctrl) or
@@ -779,6 +781,7 @@ export class CosimoAgent {
       undefined,
       this.hub.currentLight().scenes,
       this.lightNow(),
+      this.operatorConfig.get().knowledge,
     );
   }
 

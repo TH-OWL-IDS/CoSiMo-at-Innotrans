@@ -1,0 +1,147 @@
+import * as migration_20260824_083431_initial from './20260824_083431_initial';
+import * as migration_20260824_085755_persona_voice from './20260824_085755_persona_voice';
+import * as migration_20260824_092230_voice_catalog from './20260824_092230_voice_catalog';
+import * as migration_20260824_101152_cabin_controls_trim from './20260824_101152_cabin_controls_trim';
+import * as migration_20260826_065908_llm_generation from './20260826_065908_llm_generation';
+import * as migration_20260827_104113_persona_traits from './20260827_104113_persona_traits';
+import * as migration_20260827_112844_persona_consent from './20260827_112844_persona_consent';
+import * as migration_20260828_080614_route_no_scenario from './20260828_080614_route_no_scenario';
+import * as migration_20260828_103959_persona_no_contrast from './20260828_103959_persona_no_contrast';
+import * as migration_20260831_064525_cabin_control_cues from './20260831_064525_cabin_control_cues';
+import * as migration_20260831_100805_voice_language from './20260831_100805_voice_language';
+import * as migration_20260903_172812_lpu2_rig_catalog from './20260903_172812_lpu2_rig_catalog';
+import * as migration_20260903_183344_session_modality_tap from './20260903_183344_session_modality_tap';
+import * as migration_20260915_125023_text_size_l from './20260915_125023_text_size_l';
+import * as migration_20260918_130000_signal_rgb_playbacks from './20260918_130000_signal_rgb_playbacks';
+import * as migration_20260918_140000_light_scenes from './20260918_140000_light_scenes';
+import * as migration_20260918_150000_add_config_globals from './20260918_150000_add_config_globals';
+import * as migration_20260918_160000_drop_operator_config from './20260918_160000_drop_operator_config';
+import * as migration_20260918_170000_scene_all_fixtures from './20260918_170000_scene_all_fixtures';
+import * as migration_20260918_180000_llm_tool_forcing from './20260918_180000_llm_tool_forcing';
+import * as migration_20260919_100000_persona_character from './20260919_100000_persona_character';
+import * as migration_20260920_133959_survey_responses from './20260920_133959_survey_responses';
+import * as migration_20260920_150000_agent_texts from './20260920_150000_agent_texts';
+import * as migration_20260920_153652_knowledge from './20260920_153652_knowledge';
+
+export const migrations = [
+  {
+    up: migration_20260824_083431_initial.up,
+    down: migration_20260824_083431_initial.down,
+    name: '20260824_083431_initial',
+  },
+  {
+    up: migration_20260824_085755_persona_voice.up,
+    down: migration_20260824_085755_persona_voice.down,
+    name: '20260824_085755_persona_voice',
+  },
+  {
+    up: migration_20260824_092230_voice_catalog.up,
+    down: migration_20260824_092230_voice_catalog.down,
+    name: '20260824_092230_voice_catalog',
+  },
+  {
+    up: migration_20260824_101152_cabin_controls_trim.up,
+    down: migration_20260824_101152_cabin_controls_trim.down,
+    name: '20260824_101152_cabin_controls_trim',
+  },
+  {
+    up: migration_20260826_065908_llm_generation.up,
+    down: migration_20260826_065908_llm_generation.down,
+    name: '20260826_065908_llm_generation',
+  },
+  {
+    up: migration_20260827_104113_persona_traits.up,
+    down: migration_20260827_104113_persona_traits.down,
+    name: '20260827_104113_persona_traits',
+  },
+  {
+    up: migration_20260827_112844_persona_consent.up,
+    down: migration_20260827_112844_persona_consent.down,
+    name: '20260827_112844_persona_consent',
+  },
+  {
+    up: migration_20260828_080614_route_no_scenario.up,
+    down: migration_20260828_080614_route_no_scenario.down,
+    name: '20260828_080614_route_no_scenario',
+  },
+  {
+    up: migration_20260828_103959_persona_no_contrast.up,
+    down: migration_20260828_103959_persona_no_contrast.down,
+    name: '20260828_103959_persona_no_contrast',
+  },
+  {
+    up: migration_20260831_064525_cabin_control_cues.up,
+    down: migration_20260831_064525_cabin_control_cues.down,
+    name: '20260831_064525_cabin_control_cues',
+  },
+  {
+    up: migration_20260831_100805_voice_language.up,
+    down: migration_20260831_100805_voice_language.down,
+    name: '20260831_100805_voice_language',
+  },
+  {
+    up: migration_20260903_172812_lpu2_rig_catalog.up,
+    down: migration_20260903_172812_lpu2_rig_catalog.down,
+    name: '20260903_172812_lpu2_rig_catalog',
+  },
+  {
+    up: migration_20260903_183344_session_modality_tap.up,
+    down: migration_20260903_183344_session_modality_tap.down,
+    name: '20260903_183344_session_modality_tap',
+  },
+  {
+    up: migration_20260915_125023_text_size_l.up,
+    down: migration_20260915_125023_text_size_l.down,
+    name: '20260915_125023_text_size_l',
+  },
+  {
+    up: migration_20260918_130000_signal_rgb_playbacks.up,
+    down: migration_20260918_130000_signal_rgb_playbacks.down,
+    name: '20260918_130000_signal_rgb_playbacks',
+  },
+  {
+    up: migration_20260918_140000_light_scenes.up,
+    down: migration_20260918_140000_light_scenes.down,
+    name: '20260918_140000_light_scenes',
+  },
+  {
+    up: migration_20260918_150000_add_config_globals.up,
+    down: migration_20260918_150000_add_config_globals.down,
+    name: '20260918_150000_add_config_globals',
+  },
+  {
+    up: migration_20260918_160000_drop_operator_config.up,
+    down: migration_20260918_160000_drop_operator_config.down,
+    name: '20260918_160000_drop_operator_config',
+  },
+  {
+    up: migration_20260918_170000_scene_all_fixtures.up,
+    down: migration_20260918_170000_scene_all_fixtures.down,
+    name: '20260918_170000_scene_all_fixtures',
+  },
+  {
+    up: migration_20260918_180000_llm_tool_forcing.up,
+    down: migration_20260918_180000_llm_tool_forcing.down,
+    name: '20260918_180000_llm_tool_forcing',
+  },
+  {
+    up: migration_20260919_100000_persona_character.up,
+    down: migration_20260919_100000_persona_character.down,
+    name: '20260919_100000_persona_character',
+  },
+  {
+    up: migration_20260920_133959_survey_responses.up,
+    down: migration_20260920_133959_survey_responses.down,
+    name: '20260920_133959_survey_responses',
+  },
+  {
+    up: migration_20260920_150000_agent_texts.up,
+    down: migration_20260920_150000_agent_texts.down,
+    name: '20260920_150000_agent_texts',
+  },
+  {
+    up: migration_20260920_153652_knowledge.up,
+    down: migration_20260920_153652_knowledge.down,
+    name: '20260920_153652_knowledge'
+  },
+];

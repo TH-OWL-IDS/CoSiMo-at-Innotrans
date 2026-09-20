@@ -9,7 +9,7 @@
  */
 
 import { getPayload } from "payload";
-import { DEFAULT_CORE_PROMPT, DEFAULT_LIGHT_SCENES, DEFAULT_VOICE_GENDER, sceneToRow } from "@cosimo/shared";
+import { DEFAULT_CORE_PROMPT, DEFAULT_KNOWLEDGE, DEFAULT_LIGHT_SCENES, DEFAULT_VOICE_GENDER, sceneToRow } from "@cosimo/shared";
 import config from "./payload.config.js";
 
 /** Shape of a seeded profile (the default clean plate + mockup riders). */
@@ -345,6 +345,19 @@ async function seed(): Promise<void> {
       data: { lightScenes: DEFAULT_LIGHT_SCENES.map(sceneToRow) as never },
     });
     console.log(`[seed] light scenes seeded (${DEFAULT_LIGHT_SCENES.map((s) => s.label).join(", ")})`);
+  }
+
+  // What CoSiMo knows about the MonoCab and itself (shared knowledge.ts):
+  // only when the collection is empty — the operators curate it from there.
+  const known = await payload.count({ collection: "knowledge" });
+  if (known.totalDocs > 0) {
+    console.log(`[seed] knowledge exists (${known.totalDocs} entries): keeping the operator's`);
+  } else {
+    let i = 0;
+    for (const k of DEFAULT_KNOWLEDGE) {
+      await payload.create({ collection: "knowledge", data: { topic: k.topic, title: k.title, body: k.body, order: i++, active: true } as never });
+    }
+    console.log(`[seed] knowledge seeded (${DEFAULT_KNOWLEDGE.length} entries)`);
   }
 
   process.exit(0);

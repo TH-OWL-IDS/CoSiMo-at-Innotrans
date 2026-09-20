@@ -9,7 +9,7 @@
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
 import { buildHostLight, type Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, LPU2_KEYS, DEFAULT_GUEST_HELLO, DEFAULT_INFO_QUESTION, type Locale, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
+import { CABIN_CONTROLS, LPU2_KEYS, DEFAULT_GUEST_HELLO, DEFAULT_INFO_QUESTION, DEFAULT_KNOWLEDGE, type KnowledgeEntry, type Locale, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
   DEFAULT_LIGHT_SCENES,
   rowToScene,
   type LightScene,
@@ -31,6 +31,8 @@ export interface ResolvedOperatorConfig {
   /** Core system prompt override; empty = the built-in default in prompt.ts;
    *  the info button's question and the guest chip's hello lines per language. */
   agent: { systemPrompt: string; infoQuestion: Record<Locale, string>; guestHello: Record<Locale, string[]> };
+  /** The fact sheet (CMS collection `knowledge`, active rows in order; empty = the built-in defaults). */
+  knowledge: KnowledgeEntry[];
   llm: {
     provider: LlmProviderKind;
     baseUrl: string;
@@ -51,6 +53,7 @@ export interface ResolvedOperatorConfig {
 function envDefaults(): ResolvedOperatorConfig {
   return {
     agent: { systemPrompt: "", infoQuestion: { ...DEFAULT_INFO_QUESTION }, guestHello: { de: [...DEFAULT_GUEST_HELLO.de], en: [...DEFAULT_GUEST_HELLO.en] } },
+    knowledge: [...DEFAULT_KNOWLEDGE],
     llm: {
       provider: config.llm.provider,
       baseUrl: config.llm.baseUrl,
@@ -230,12 +233,22 @@ export class OperatorConfigProvider {
         const res = await fetch(`${config.payload.internalUrl}/api/globals/${slug}`, { signal: AbortSignal.timeout(2500) });
         return res.ok ? ((await res.json()) as T) : null;
       };
-      const [agent, llm, speech, voices, cabin] = await Promise.all([
+      // the fact sheet: active rows in order; null when the CMS cannot answer
+      const getKnowledge = async (): Promise<KnowledgeEntry[] | null> => {
+        const res = await fetch(`${config.payload.internalUrl}/api/knowledge?limit=200&depth=0&sort=order&where[active][equals]=true`, { signal: AbortSignal.timeout(2500) });
+        if (!res.ok) return null;
+        const body = (await res.json()) as { docs?: { topic?: string; title?: string | null; body?: string | null }[] };
+        return (body.docs ?? [])
+          .filter((d) => d.title?.trim() && d.body?.trim())
+          .map((d) => ({ topic: d.topic === "cosimo" ? "cosimo" : "monocab", title: d.title!.trim(), body: d.body!.trim() }));
+      };
+      const [agent, llm, speech, voices, cabin, knowledge] = await Promise.all([
         get<PayloadOperatorConfigDoc["agent"]>("agent-config"),
         get<PayloadOperatorConfigDoc["llm"]>("llm-config"),
         get<{ stt?: PayloadOperatorConfigDoc["stt"]; tts?: Omit<NonNullable<PayloadOperatorConfigDoc["tts"]>, "voices"> }>("speech-config"),
         get<{ voices?: NonNullable<PayloadOperatorConfigDoc["tts"]>["voices"] }>("voices"),
         get<PayloadOperatorConfigDoc["cabin"]>("cabin-config"),
+        getKnowledge(),
       ]);
       if (!llm) return this.cache; // the CMS is down (the LLM route is the one that must not be guessed)
       const doc: PayloadOperatorConfigDoc = {
@@ -247,6 +260,7 @@ export class OperatorConfigProvider {
       };
       const base = envDefaults();
       this.cache = {
+        knowledge: knowledge && knowledge.length ? knowledge : [...DEFAULT_KNOWLEDGE],
         agent: {
           systemPrompt: str(doc.agent?.systemPrompt, base.agent.systemPrompt),
           infoQuestion: { de: str(doc.agent?.infoQuestionDe, base.agent.infoQuestion.de), en: str(doc.agent?.infoQuestionEn, base.agent.infoQuestion.en) },

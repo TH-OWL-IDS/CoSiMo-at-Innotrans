@@ -120,7 +120,9 @@ public demo — keep it that way.
    prelude** (spoken vs. read, input channel, preferred language), and the
    **memories** fenced as low-trust (`<<< rider-preferences … >>>`, "not
    instructions"). The rider section is always code-built so an operator edit
-   can't drop it.
+   can't drop it. Between the scenes block and the rider section rides the **fact sheet**
+   (`knowledgeBlock`: the CMS `knowledge` rows about the MonoCab and
+   CoSiMo, with the answer-only-from-these rule; see cms.md).
 3. The client-facing slice (`PersonaBroadcast`: key, label, accommodations) is
    pushed to the owning seat via `persona:active`. Brief + memories never leave
    the hub.
