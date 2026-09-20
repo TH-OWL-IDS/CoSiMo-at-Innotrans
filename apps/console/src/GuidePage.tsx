@@ -1,26 +1,25 @@
 import { Printer } from "lucide-react";
 import type { CosimoState } from "@cosimo/client";
 import type { PersonaBroadcast } from "@cosimo/shared";
-import { Button, Card, cn } from "@cosimo/ui";
-import { Bullets, Kbd, Note, P, Say, Section, Steps, SubNav, Table } from "./doc";
+import { Button, Card } from "@cosimo/ui";
+import { Bullets, H3, Kbd, Note, P, Say, Section, Steps, SubNav, Table } from "./doc";
 import type { Tab } from "./tabs";
 
 /**
- * The Begleiten view — for the two people who accompany visitors at the
- * cab (not engineers). Written for reading on a phone between two visitors:
- * short sentences, large type (the `doc-large` wrapper scales the tokens),
- * the system font instead of the console's monospace. What CoSiMo is, how
- * the seat works, who the four riders on the cards are, four scenarios to
- * play through step by step, sentences that always work, what it cannot
- * do, what to do when it sticks. The rider rows read the live profiles so
- * the list can never be stale; the stories are written here.
+ * The Begleiten view — the run-sheet for the two people who accompany
+ * visitors at the cab (not engineers). Written for reading on a phone
+ * between two visitors: short sentences, large type (the `doc-large`
+ * wrapper scales the tokens), the system font instead of the console's
+ * monospace. The flow of one short showcase, how the seat works, who the
+ * four riders on the cards are, sentences that always work, what CoSiMo
+ * cannot do, what to do when it sticks. The rider rows read the live
+ * profiles so the list can never be stale; the stories are written here.
  */
 
 const NAV = [
-  { id: "g-was", label: "Was ist CoSiMo" },
+  { id: "g-ablauf", label: "Ablauf" },
   { id: "g-sitz", label: "Der Sitz" },
-  { id: "g-karten", label: "Die Fahrgäste" },
-  { id: "g-szenarien", label: "Szenarien" },
+  { id: "g-karten", label: "Die Karten" },
   { id: "g-saetze", label: "Sätze" },
   { id: "g-nicht", label: "Grenzen" },
   { id: "g-hakt", label: "Wenn es hakt" },
@@ -53,6 +52,18 @@ const RIDERS: Record<string, { who: string; changes: string; say: string; sayEn?
 
 const ORDER = ["alex", "noa", "luca", "sam"];
 
+/** A group of sentences: German first, the English twin small beneath. */
+function Sentences({ title, items }: { title: string; items: [string, string, string?][] }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <H3 className="mt-0">{title}</H3>
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {items.map(([de, en, note]) => <Say key={de} de={de} en={en} note={note} />)}
+      </div>
+    </div>
+  );
+}
+
 export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => void }) {
   const live = new Map(c.personas.filter((p) => p.persona !== "default").map((p) => [p.persona, p] as [string, PersonaBroadcast]));
   const riders = [...ORDER.filter((k) => live.has(k) || !c.personas.length), ...[...live.keys()].filter((k) => !ORDER.includes(k))];
@@ -64,7 +75,7 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
         <div className="flex flex-col gap-2">
           <h1 className="m-0 text-4xl font-black">Begleiten</h1>
           <p className="m-0 max-w-[60ch] text-lg leading-relaxed text-mute">
-            Für alle, die Besuchern CoSiMo zeigen. Alles Wichtige auf einer Seite: was es ist, wie man es bedient, wer die vier Fahrgäste auf den Karten sind, und vier kleine Szenen zum Vorführen.
+            Die Anleitung für ein kurzes Showcase mit Besuchern: der Ablauf, die Bedienung, die vier Karten, und Sätze, die immer funktionieren.
           </p>
         </div>
         <Button size="sm" variant="secondary" className="print-hide" onClick={() => window.print()}>
@@ -73,17 +84,22 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
       </div>
       <SubNav items={NAV} />
 
-      {/* ─────────────────────────── Was ist CoSiMo ─────────────────────────── */}
-      <Section id="g-was" title="Was ist CoSiMo?">
-        <Note>
-          <b>CoSiMo ist ein Begleiter, der im MonoCab mitfährt.</b> Man hält eine Taste gedrückt und spricht mit ihm. Er antwortet mit Stimme und Gesicht. Er weiß, wo die Fahrt gerade ist, kann das Licht in der Kabine ändern und stellt sich auf den Fahrgast ein: langsamer sprechen, größer schreiben, eine andere Stimme.
-        </Note>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Card className="gap-1.5"><b>Eine Kabine, vier Sitze.</b><span className="text-base text-mute">Jeder Sitz führt sein eigenes Gespräch. Die Fahrt und das Licht sind für alle gleich.</span></Card>
-          <Card className="gap-1.5"><b>Er hört nur, wenn die Taste gedrückt ist.</b><span className="text-base text-mute">Kein Mithören, kein Aktivierungswort.</span></Card>
-          <Card className="gap-1.5"><b>Mit Karte erkennt er den Fahrgast.</b><span className="text-base text-mute">Er begrüßt mit Namen, stellt sich um und merkt sich Wünsche.</span></Card>
-        </div>
-        <P className="text-base text-mute">Warum das Ganze: CoSiMo soll zeigen, wie ein Fahrzeug Menschen mit ganz verschiedenen Bedürfnissen begleiten kann. Menschen, die nicht gut sehen. Menschen, die nicht gut hören. Menschen, die einfache Schritte brauchen.</P>
+      {/* ─────────────────────────── Ablauf ─────────────────────────── */}
+      <Section id="g-ablauf" title="Ablauf mit einem Besucher" lead="Etwa drei bis fünf Minuten. Der Besucher sitzt, du stehst daneben und gibst die Sätze vor.">
+        <Steps
+          items={[
+            <><b>Hinsetzen und die Taste zeigen.</b> „Halten Sie die Sprechtaste gedrückt, sprechen Sie, und lassen Sie erst nach dem letzten Wort los.“</>,
+            <><b>Info-Taste drücken.</b> CoSiMo stellt sich selbst vor und sagt, was es kann. Das ist der Einstieg.</>,
+            <><b>Zur Fahrt fragen lassen.</b> „Wo sind wir gerade?“ oder „Wann kommt der nächste Halt?“ CoSiMo antwortet aus der laufenden Fahrt.</>,
+            <><b>Das Licht ändern lassen.</b> „Mach das Licht gemütlich.“ Alle in der Kabine sehen es. Danach „Etwas heller“ oder „Licht aus“.</>,
+            <><b>Eine Karte auflegen.</b> CoSiMo begrüßt den Fahrgast mit Namen und verhält sich anders: bei Sam auf Englisch, bei Noa mit Text im Schlitz, bei Luca Schritt für Schritt. Dieselbe Frage nochmal stellen lassen.</>,
+            <><b>Anpassen lassen.</b> „Sprich bitte langsamer.“ „Zeig mir den Text.“ „Stell auf grün.“ Jede Änderung passiert sofort.</>,
+            <><b>Zum MonoCab fragen lassen.</b> „Was ist das MonoCab?“ oder „Wie bleibt die Kabine aufrecht?“ CoSiMo erklärt es.</>,
+            <><b>Zum Schluss den QR-Code zeigen.</b> Der Fragebogen dauert zwei Minuten und ist anonym.</>,
+            <><b>Karte abnehmen, nächster Besucher.</b> Wenn CoSiMo noch vom vorigen Besucher spricht: in der Konsole unter Sessions den Sitz zurücksetzen.</>,
+          ]}
+        />
+        <Note>Wenn wenig Zeit ist: Info-Taste, eine Frage zur Fahrt, einmal das Licht. Das reicht für einen Eindruck.</Note>
       </Section>
 
       {/* ─────────────────────────── Der Sitz ─────────────────────────── */}
@@ -93,17 +109,18 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
           rows={[
             [<b>Sprechen</b>, <>Die <b>Sprechtaste</b> gedrückt halten, reden, erst nach dem letzten Wort loslassen.</>, "Im Schlitz erscheint eine Welle. Nach dem Loslassen denkt CoSiMo kurz und antwortet."],
             [<b>Unterbrechen</b>, "Die Sprechtaste drücken, während CoSiMo redet.", "CoSiMo verstummt sofort und hört wieder zu."],
-            [<b>Vorstellen</b>, <>Die <b>Info-Taste</b> einmal drücken.</>, "CoSiMo erklärt selbst, was es kann. Ein guter Anfang."],
+            [<b>Vorstellen</b>, <>Die <b>Info-Taste</b> einmal drücken.</>, "CoSiMo erklärt selbst, was es kann."],
             [<b>Licht</b>, <>Die <b>Licht-Taste</b> einmal drücken.</>, `Die nächste Lichtszene: ${scenes.join(" → ")}.`],
             [<b>Karte</b>, "Eine Karte auf den Leser legen.", "Der Sitz wird zu diesem Fahrgast. CoSiMo begrüßt ihn mit Namen."],
+            [<b>Nochmal hören</b>, "↻ im Schlitz tippen, kurz nach der Antwort.", "CoSiMo wiederholt die letzte Antwort."],
           ]}
         />
         <Note tone="warn">Der häufigste Fehler: die Taste zu früh loslassen. Erst zu Ende sprechen, dann loslassen.</Note>
         <P className="text-base text-mute">Zum Testen ohne Tasten, etwa im Browser: <Kbd>s</Kbd> halten = sprechen, <Kbd>i</Kbd> = Info, <Kbd>l</Kbd> = Licht.</P>
       </Section>
 
-      {/* ─────────────────────────── Die Fahrgäste ─────────────────────────── */}
-      <Section id="g-karten" title="Die vier Fahrgäste auf den Karten" lead="Jede Karte steht für einen erfundenen Fahrgast. Legt man sie auf, verhält sich CoSiMo so, wie es für diesen Menschen richtig ist. Das ist die stärkste Vorführung.">
+      {/* ─────────────────────────── Die Karten ─────────────────────────── */}
+      <Section id="g-karten" title="Die vier Karten" lead="Jede Karte steht für einen erfundenen Fahrgast. Legt man sie auf, verhält sich CoSiMo so, wie es für diesen Menschen richtig ist.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {riders.map((key) => {
             const p = live.get(key);
@@ -140,69 +157,91 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
         />
       </Section>
 
-      {/* ─────────────────────────── Szenarien ─────────────────────────── */}
-      <Section id="g-szenarien" title="Vier Szenen zum Vorführen" lead="Jede dauert etwa eine Minute. Die Sätze in Anführungszeichen spricht der Besucher oder du.">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="gap-3">
-            <span className="text-xl font-black">1 · Die Fahrt</span>
-            <P className="text-base text-mute">Ohne Karte. Zeigt, dass CoSiMo weiß, wo wir sind.</P>
-            <Steps items={[
-              <>Taste halten: <b>„Wo sind wir gerade?“</b> CoSiMo nennt den Ort und den nächsten Halt.</>,
-              <><b>„Wann kommen wir in Barntrup an?“</b> CoSiMo nennt die Minuten.</>,
-              <>Jemand mit der Konsole drückt unter Übersicht → Fahrt auf <b>Signalhalt</b>. Im Schlitz erscheint „Störung“.</>,
-              <><b>„Warum stehen wir?“</b> CoSiMo erklärt den Halt und wie lange er dauert.</>,
-            ]} />
-          </Card>
-          <Card className="gap-3">
-            <span className="text-xl font-black">2 · Das Licht</span>
-            <P className="text-base text-mute">Ohne Karte. Alle in der Kabine sehen die Änderung.</P>
-            <Steps items={[
-              <><b>„Mach das Licht gemütlich.“</b> Das Licht wird warm und dunkler.</>,
-              <><b>„Etwas heller bitte.“</b> Es wird stufenweise heller.</>,
-              <><b>„Licht aus.“</b> Dann <b>„Mach das Licht wieder an.“</b></>,
-              <>Zum Schluss die <b>Licht-Taste</b> drücken: die nächste Szene, ganz ohne Worte.</>,
-            ]} />
-          </Card>
-          <Card className="gap-3">
-            <span className="text-xl font-black">3 · Zwei Fahrgäste, ein Sitz</span>
-            <P className="text-base text-mute">Zeigt, wie unterschiedlich CoSiMo sein kann.</P>
-            <Steps items={[
-              <>Karte <b>Sam</b> auflegen. CoSiMo begrüßt auf Englisch.</>,
-              <><b>“When is the next stop?”</b> Ein Satz, fertig.</>,
-              <>Karte <b>Luca</b> auflegen. Gelbes Schema, Text im Schlitz, langsame warme Stimme.</>,
-              <><b>„Mach das Licht gemütlich.“</b> CoSiMo macht es, bestätigt es und bietet den nächsten Schritt an.</>,
-            ]} />
-          </Card>
-          <Card className="gap-3">
-            <span className="text-xl font-black">4 · Anpassen und Merken</span>
-            <P className="text-base text-mute">Mit Karte. Zeigt, dass CoSiMo sich auf einen Menschen einstellt.</P>
-            <Steps items={[
-              <>Karte <b>Noa</b> auflegen. Die Antworten stehen als Text im Schlitz.</>,
-              <><b>„Sprich bitte langsamer.“</b> Dann <b>„Stell auf blau.“</b> Beides passiert sofort.</>,
-              <><b>„Merk dir, dass ich es gern hell habe.“</b> CoSiMo bestätigt.</>,
-              <>Karte abnehmen, eine andere Karte auflegen, dann Noa wieder. <b>„Was weißt du über mich?“</b> CoSiMo weiß es noch.</>,
-            ]} />
-          </Card>
-        </div>
-        <Note>Dazwischen lohnt ein Blick auf das <b>Gesicht</b>: Es hört zu, denkt nach, spricht, freut sich, staunt. Nach zwei Minuten Ruhe schläft es ein. Die Taste weckt es wieder.</Note>
-      </Section>
-
       {/* ─────────────────────────── Sätze ─────────────────────────── */}
       <Section id="g-saetze" title="Sätze, die immer funktionieren" lead="Deutsch oder Englisch. CoSiMo antwortet in der Sprache, in der man spricht.">
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          <Say de="Wo sind wir gerade?" en="Where are we right now?" />
-          <Say de="Wann kommt der nächste Halt?" en="When is the next stop?" />
-          <Say de="Wie schnell fahren wir?" en="How fast are we going?" />
-          <Say de="Warum stehen wir?" en="Why are we stopped?" />
-          <Say de="Mach das Licht gemütlich." en="Make the light cosy." />
-          <Say de="Etwas dunkler bitte." en="A bit darker, please." />
-          <Say de="Sprich bitte langsamer." en="Please speak more slowly." />
-          <Say de="Zeig mir den Text." en="Show me the text." />
-          <Say de="Eine männliche Stimme bitte." en="A male voice, please." />
-          <Say de="Stell auf grün." en="Switch to green." />
-          <Say de="Was kannst du?" en="What can you do?" />
-          <Say de="Danke!" en="Thanks!" />
-        </div>
+        <Sentences
+          title="Zur Fahrt"
+          items={[
+            ["Wo sind wir gerade?", "Where are we right now?"],
+            ["Wann kommt der nächste Halt?", "When is the next stop?"],
+            ["Wann kommen wir in Barntrup an?", "When do we arrive in Barntrup?"],
+            ["Wie schnell fahren wir?", "How fast are we going?"],
+            ["Welche Halte kommen noch?", "Which stops are still ahead?"],
+            ["Sind wir pünktlich?", "Are we on time?"],
+            ["Wohin fahren wir?", "Where are we going?"],
+            ["Wie viele Leute sind an Bord?", "How many people are on board?"],
+            ["Sind die Türen offen?", "Are the doors open?"],
+            ["Warum stehen wir?", "Why are we stopped?", "sinnvoll, wenn in der Konsole eine Störung läuft"],
+            ["Ich möchte in Barntrup aussteigen.", "I'd like to get off at Barntrup.", "CoSiMo merkt es vor"],
+          ]}
+        />
+        <Sentences
+          title="Zum Licht"
+          items={[
+            ["Mach das Licht gemütlich.", "Make the light cosy."],
+            ["Mach es hell.", "Make it bright."],
+            ["Mach das Licht an.", "Turn the light on."],
+            ["Licht aus.", "Lights off."],
+            ["Etwas dunkler bitte.", "A bit darker, please."],
+            ["Etwas heller bitte.", "A bit brighter, please."],
+            ["Mach das Licht wärmer.", "Make the light warmer."],
+            ["Mach die Lichtlinien auf 40 Prozent.", "Set the light lines to 40 percent."],
+            ["Ist das Licht an?", "Is the light on?"],
+          ]}
+        />
+        <Sentences
+          title="Zum Anpassen"
+          items={[
+            ["Sprich bitte langsamer.", "Please speak more slowly."],
+            ["Sprich bitte schneller.", "Please speak faster."],
+            ["Etwas leiser bitte.", "A little quieter, please."],
+            ["Etwas lauter bitte.", "A little louder, please."],
+            ["Zeig mir den Text.", "Show me the text.", "Untertitel im Schlitz"],
+            ["Mach den Text größer.", "Make the text bigger."],
+            ["Eine männliche Stimme bitte.", "A male voice, please."],
+            ["Eine weibliche Stimme bitte.", "A female voice, please."],
+            ["Eine tiefere Stimme.", "A deeper voice."],
+            ["Sprich freundlicher.", "Sound warmer."],
+            ["Sprich ruhiger.", "Sound calmer."],
+            ["Stell auf grün.", "Switch to green.", "auch: blau, gelb, rosa, dunkel, grau, weiß"],
+            ["Zeig lieber das Knäuel.", "Show the blob instead.", "auch: Kreis, Linie, Gesicht"],
+            ["Sprich Englisch mit mir.", "Speak German with me."],
+            ["Welche Stimmen gibt es?", "Which voices are there?", "öffnet das Menü im Schlitz"],
+            ["Ich sehe nicht gut.", "I can't see well.", "CoSiMo wählt selbst, was hilft"],
+            ["Ich höre nicht gut.", "I can't hear well."],
+          ]}
+        />
+        <Sentences
+          title="Zum MonoCab und zu CoSiMo"
+          items={[
+            ["Was ist das MonoCab?", "What is the MonoCab?"],
+            ["Wie bleibt die Kabine aufrecht?", "How does the cabin stay upright?"],
+            ["Wer entwickelt das MonoCab?", "Who develops the MonoCab?"],
+            ["Wann fährt das MonoCab richtig?", "When will the MonoCab run for real?"],
+            ["Was bedeutet CoSiMo?", "What does CoSiMo stand for?"],
+            ["Für wen bist du gemacht?", "Who are you made for?"],
+            ["Was kannst du?", "What can you do?"],
+            ["Wer bist du?", "Who are you?"],
+          ]}
+        />
+        <Sentences
+          title="Mit Karte"
+          items={[
+            ["Merk dir, dass ich immer in Barntrup aussteige.", "Remember that I always get off at Barntrup."],
+            ["Merk dir, dass ich es gern gemütlich habe.", "Remember that I like it cosy."],
+            ["Was weißt du über mich?", "What do you know about me?"],
+            ["Vergiss das wieder.", "Forget that."],
+          ]}
+        />
+        <Sentences
+          title="Einfach so"
+          items={[
+            ["Hallo!", "Hello!"],
+            ["Sag das nochmal.", "Say that again."],
+            ["Danke!", "Thanks!", "CoSiMo freut sich sichtbar"],
+            ["Tschüss!", "Bye!"],
+          ]}
+        />
       </Section>
 
       {/* ─────────────────────────── Grenzen ─────────────────────────── */}
@@ -211,8 +250,9 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
           items={[
             <><b>Die Fahrt ist simuliert.</b> Türen, Halt, Tempo sind nicht echt. „Ich möchte aussteigen“ wird nur vorgemerkt.</>,
             <><b>Nur das Kabinenlicht.</b> Keine Leselampe, nichts sonst in der Kabine.</>,
-            <><b>Kein Lexikon.</b> Zur Fahrt und zur Kabine weiß es Bescheid. Bei anderen Fragen antwortet es nach bestem Wissen, ohne Internet.</>,
+            <><b>Kein Lexikon.</b> Zur Fahrt, zum MonoCab und zu sich selbst weiß es Bescheid. Bei allem anderen verweist es ans Standpersonal.</>,
             <><b>Nur Deutsch und Englisch.</b></>,
+            <><b>Hört nur bei gedrückter Taste.</b> Kein Aktivierungswort, kein Mithören.</>,
             <><b>Ohne Karte merkt es sich nichts.</b> Beim Zurücksetzen ist alles vergessen.</>,
           ]}
         />
@@ -231,7 +271,7 @@ export default function GuidePage({ c, go }: { c: CosimoState; go: (t: Tab) => v
           <Button size="md" variant="secondary" onClick={() => go("sessions")}>Sessions öffnen</Button>
           <Button size="md" variant="secondary" onClick={() => go("hilfe")}>Technik: Hilfe</Button>
         </div>
-        <Card className={cn("gap-1.5 border-dashed")}>
+        <Card className="gap-1.5 border-dashed">
           <b>Technik erreichbar</b>
           <span className="text-base text-mute">Name und Telefonnummer hier eintragen, bevor die Seite gedruckt wird.</span>
         </Card>

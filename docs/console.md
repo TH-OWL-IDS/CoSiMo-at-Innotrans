@@ -57,13 +57,14 @@ via the URL hash):
   the guide for the people accompanying visitors at the cab, written for
   non-engineers (2026-09-20: two older professors): larger type on the same
   tokens (`.doc-large` rescales the `--text-*` variables) and the system
-  sans; what CoSiMo is in three sentences, how the seat is operated, the
-  four riders on the cards (who they are, what changes, one sentence to
-  say — rows read the live `host:personas`, the stories are in the file),
-  four one-minute scenes step by step (the journey with a fault, the light,
-  two riders on one seat, adapting and remembering), sentences that always
-  work (de/en), what CoSiMo cannot do, the three moves when it sticks. The
-  Hilfe view points here at the top. Both pages carry a print button
+  sans; the run-sheet of one short showcase (nine steps from "sit down" to
+  "show the QR code"), how the seat is operated, the four riders on the
+  cards (who they are, what changes, one sentence to say — rows read the
+  live `host:personas`, the stories are in the file), ~50 sentences that
+  always work (de/en, grouped: journey, light, adapting, MonoCab/CoSiMo
+  facts, with a card, small talk), what CoSiMo cannot do, the three moves
+  when it sticks. No explanatory prose, no scenes (2026-09-20). The Hilfe
+  view points here at the top. Both pages carry a print button
   (`@media print` in `index.css` hides the header, sub-nav and buttons) so
   the sheet can lie on the counter. The reading primitives (`doc.tsx`:
   Section, SubNav, Steps, Symptom, Say, Table, Term …) are TSX on the
