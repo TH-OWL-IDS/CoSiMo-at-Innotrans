@@ -104,13 +104,8 @@ export function useSeat(
     setSpeaking: cosimo.setSpeaking,
   });
 
-  const askInfo = () =>
-    cosimo.send(
-      lang === "de"
-        ? "Was kannst du und wie hilfst du mir hier im MonoCab?"
-        : "What can you do and how can you help me here in the MonoCab?",
-      lang,
-    );
+  // the info button: the question is the hub's (CMS agent-config), not the seat's
+  const askInfo = () => cosimo.askInfo(lang);
 
   return {
     cosimo,

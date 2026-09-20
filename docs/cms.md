@@ -43,7 +43,12 @@ Payload login). There is no other page — the operator console is
   prompt (`systemPrompt`; empty = built-in default, the rider section is
   always appended in code — the seed replaces a stored copy that still
   names a retired tool such as `set_cabin_control`, since that is a stale
-  default, not an edit); **llm-config** — provider (`anthropic` |
+  default, not an edit), plus the seat texts: the **info button's question**
+  (`infoQuestionDe` / `infoQuestionEn` — the seat sends `info:ask`, the hub
+  asks this as a text turn) and the **guest hello** lines
+  (`guestHelloDe` / `guestHelloEn`, one per line, one picked at random,
+  TTS only); empty = the built-in defaults in `@cosimo/shared` `prompt.ts`,
+  live within the config's 15 s TTL, no device rebuild; **llm-config** — provider (`anthropic` |
   `openai-compatible`), base URL, model, fallback, generation parameters,
   **Tool-Zwang** (off by default: the model decides when to call a tool;
   on: clear light / settings / memory sentences get the matching tool

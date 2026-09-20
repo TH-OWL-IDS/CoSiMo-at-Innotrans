@@ -173,6 +173,8 @@ export interface CosimoState {
   heard: string;
   /** Send a message to CoSiMo (text or browser-transcribed voice). */
   send: (text: string, lang: Locale, modality?: Modality) => void;
+  /** The info button: the hub asks its CMS-configured question as a text turn. */
+  askInfo: (lang: Locale) => void;
   /** Switch persona — all seats, or one seat when deviceId is given (host action). */
   setPersona: (key: PersonaKey, deviceId?: string) => void;
   /** Record the visitor's GDPR consent decision for this session. */
@@ -685,6 +687,19 @@ export function useCosimoSocket(
     sockRef.current?.emit("reply:repeat", { sessionId: sessionRef.current });
   };
 
+  /** The info button: the hub asks its own (CMS-configured) question. */
+  const askInfo = (lang: Locale) => {
+    touch();
+    setCard(null);
+    setSettings(null);
+    const socket = sockRef.current;
+    if (!socket) return;
+    stopPlayback();
+    replyRef.current = "";
+    setReply("");
+    setReplying(true);
+    socket.emit("info:ask", { sessionId: sessionRef.current, lang });
+  };
   const send = (text: string, lang: Locale, modality: Modality = "text") => {
     touch();
     setCard(null); // any user turn answers/invalidates the card
@@ -844,7 +859,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, checkedIn, checkIn, login,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, checkedIn, checkIn, login, askInfo,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, hostLight, cabinLight, rig, hostRig, light, setLight, saveScene, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,

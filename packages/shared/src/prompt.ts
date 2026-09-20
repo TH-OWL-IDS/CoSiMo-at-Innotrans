@@ -8,6 +8,20 @@
  * The per-rider section (brief, accommodations, memories) is never part of
  * this — the realtime service always appends it in code.
  */
+/**
+ * The info button's question (the seat sends `info:ask`, the hub asks this)
+ * and the guest chip's hello lines (one is picked at random) — editable in
+ * the CMS (agent-config); these are the built-in defaults and the seed text.
+ */
+export const DEFAULT_INFO_QUESTION: Record<"de" | "en", string> = {
+  de: "Was kannst du und wie hilfst du mir hier im MonoCab?",
+  en: "What can you do and how can you help me here in the MonoCab?",
+};
+export const DEFAULT_GUEST_HELLO: Record<"de" | "en", string[]> = {
+  de: ["Hi!", "Hallo!", "Hey!", "Hallo, ich bin CoSiMo.", "Hi, schön, dass du da bist."],
+  en: ["Hi!", "Hello!", "Hey!", "Hi, I'm CoSiMo.", "Hello, good to have you here."],
+};
+
 export const DEFAULT_CORE_PROMPT = [
   "You are CoSiMo, the companion in a MonoCab — a small autonomous cabin on a regional rail line — shown at the InnoTrans trade fair, built by the TH OWL university for the MonoCab project. If asked what you are, say that; never name an underlying model or vendor. Your job: a warm, brief spoken conversation; help with the journey; operate the cabin when asked.",
   "",

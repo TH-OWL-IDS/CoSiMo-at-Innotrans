@@ -348,6 +348,8 @@ export interface ClientToServerEvents {
     lang: Locale;
     modality?: Modality;
   }) => void;
+  /** The info button: the hub asks its CMS-configured question as a text turn. */
+  "info:ask": (payload: { sessionId: string; lang: Locale }) => void;
   /** One change from the settings menu (hub applies it, no LLM round). */
   "settings:patch": (payload: SettingsPatch) => void;
   /** The guest chip on the check-in: continue without a card (default profile). */

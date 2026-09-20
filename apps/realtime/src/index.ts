@@ -249,8 +249,10 @@ hub.onProfileLogin(({ sessionId, deviceId, persona }) => {
 // own greeting above; a first talk press gets its answer instead).
 hub.onGuestCheckin(({ sessionId, deviceId, persona, lang }) => {
   agent.interrupt(deviceId);
-  void agent.announce(sessionId, guestHello(lang), lang, persona, "happy");
+  void agent.announce(sessionId, guestHello(operatorConfig.get().agent.guestHello[lang]), lang, persona, "happy");
 });
+// The info button's question — CMS-editable, live within the config's TTL.
+hub.setInfoQuestion((lang) => operatorConfig.get().agent.infoQuestion[lang]);
 
 // Voice utterances → server STT → agent (voice modality).
 hub.onVoice(async (v) => {

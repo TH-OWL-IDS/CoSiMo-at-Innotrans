@@ -9,7 +9,7 @@
 import { config } from "../config.js";
 import { logger } from "../log/logger.js";
 import { buildHostLight, type Lpu2Mapping } from "../cabin/lpu2.js";
-import { CABIN_CONTROLS, LPU2_KEYS, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
+import { CABIN_CONTROLS, LPU2_KEYS, DEFAULT_GUEST_HELLO, DEFAULT_INFO_QUESTION, type Locale, type HostConfigBroadcast, type LlmGeneration, type VoiceCatalogEntry,
   DEFAULT_LIGHT_SCENES,
   rowToScene,
   type LightScene,
@@ -28,8 +28,9 @@ const clampNum = (v: unknown, lo: number, hi: number, fallback: number): number 
 export type LlmProviderKind = "anthropic" | "openai-compatible";
 
 export interface ResolvedOperatorConfig {
-  /** Core system prompt override; empty = the built-in default in prompt.ts. */
-  agent: { systemPrompt: string };
+  /** Core system prompt override; empty = the built-in default in prompt.ts;
+   *  the info button's question and the guest chip's hello lines per language. */
+  agent: { systemPrompt: string; infoQuestion: Record<Locale, string>; guestHello: Record<Locale, string[]> };
   llm: {
     provider: LlmProviderKind;
     baseUrl: string;
@@ -49,7 +50,7 @@ export interface ResolvedOperatorConfig {
 
 function envDefaults(): ResolvedOperatorConfig {
   return {
-    agent: { systemPrompt: "" },
+    agent: { systemPrompt: "", infoQuestion: { ...DEFAULT_INFO_QUESTION }, guestHello: { de: [...DEFAULT_GUEST_HELLO.de], en: [...DEFAULT_GUEST_HELLO.en] } },
     llm: {
       provider: config.llm.provider,
       baseUrl: config.llm.baseUrl,
@@ -107,7 +108,7 @@ function toMapping(rows: { control?: string | null; playback?: number | null; cu
 
 /** Shape of the Payload global we care about (all fields optional). */
 interface PayloadOperatorConfigDoc {
-  agent?: { systemPrompt?: string | null };
+  agent?: { systemPrompt?: string | null; infoQuestionDe?: string | null; infoQuestionEn?: string | null; guestHelloDe?: string | null; guestHelloEn?: string | null };
   llm?: {
     provider?: string;
     baseUrl?: string | null;
@@ -135,6 +136,11 @@ interface PayloadOperatorConfigDoc {
 
 const str = (v: string | null | undefined, fallback: string): string =>
   v && v.trim() ? v.trim() : fallback;
+/** A textarea as lines: trimmed, empty ones dropped; none → the default. */
+const lines = (v: string | null | undefined, fallback: string[]): string[] => {
+  const out = (v ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return out.length ? out : fallback;
+};
 
 export class OperatorConfigProvider {
   private cache: ResolvedOperatorConfig = envDefaults();
@@ -241,7 +247,11 @@ export class OperatorConfigProvider {
       };
       const base = envDefaults();
       this.cache = {
-        agent: { systemPrompt: str(doc.agent?.systemPrompt, base.agent.systemPrompt) },
+        agent: {
+          systemPrompt: str(doc.agent?.systemPrompt, base.agent.systemPrompt),
+          infoQuestion: { de: str(doc.agent?.infoQuestionDe, base.agent.infoQuestion.de), en: str(doc.agent?.infoQuestionEn, base.agent.infoQuestion.en) },
+          guestHello: { de: lines(doc.agent?.guestHelloDe, base.agent.guestHello.de), en: lines(doc.agent?.guestHelloEn, base.agent.guestHello.en) },
+        },
         llm: {
           provider:
             doc.llm?.provider === "openai-compatible" || doc.llm?.provider === "anthropic"

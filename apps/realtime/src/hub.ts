@@ -266,6 +266,8 @@ export class Hub {
   /** Which device a session lives on — routes conversation events. */
   private readonly sessionDevice = new Map<string, string>();
   private chatHandler: ChatHandler | undefined;
+  /** The info button's question per language (from the operator config). */
+  private infoQuestion: (lang: Locale) => string = () => "";
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
   private guestCheckinHandler: GuestCheckinHandler | undefined;
@@ -438,6 +440,11 @@ export class Hub {
   }
 
   /** Register the agent that handles incoming user turns. */
+  /** Register where the info button's question comes from (CMS, per language). */
+  setInfoQuestion(resolver: (lang: Locale) => string): void {
+    this.infoQuestion = resolver;
+  }
+
   onChat(handler: ChatHandler): void {
     this.chatHandler = handler;
   }
@@ -1099,9 +1106,9 @@ export class Hub {
     });
 
     // Text or browser-transcribed message → hand to the agent.
-    socket.on("chat:send", ({ sessionId, text, lang, modality }) => {
+    const startTextTurn = (sessionId: string, text: string, lang: Locale, modality: Modality, event: string) => {
       const deviceId = this.trackSession(socket, sessionId);
-      this.countEvent("chat:send", deviceId, text);
+      this.countEvent(event, deviceId, text);
       if (!this.allowTurn(deviceId)) return;
       const entry = this.devices.get(deviceId);
       if (entry) {
@@ -1113,10 +1120,20 @@ export class Hub {
       this.chatHandler?.({
         sessionId, deviceId, text, lang,
         persona: this.personaOf(deviceId),
-        modality: modality ?? "text",
+        modality,
         consent: entry.consent,
         rider: this.riderOfEntry(entry, sessionId),
       });
+    };
+    socket.on("chat:send", ({ sessionId, text, lang, modality }) => startTextTurn(sessionId, text, lang, modality ?? "text", "chat:send"));
+    // The info button: the question lives in the CMS, not on the seat — the
+    // seat only says "info"; the question is echoed back so its transcript
+    // shows what was asked.
+    socket.on("info:ask", ({ sessionId, lang }) => {
+      const text = this.infoQuestion(lang);
+      if (!text) return;
+      socket.emit("voice:transcript", { sessionId, text, lang });
+      startTextTurn(sessionId, text, lang, "text", "info:ask");
     });
 
     // Push-to-talk → barge-in: abort any running turn for this seat, then
