@@ -1,0 +1,53 @@
+/* The CI (tokens, fonts, Brand) comes from the shared package. The rest of
+   this file is the deliberate exception to its operator tuning: this page is
+   read by visitors on their own phones, one-handed, in a hall. So: a larger
+   type ladder (17 px body — below 16 px iOS Safari zooms every input), the
+   system sans instead of the monospace (German compound words get wide),
+   and a visible focus ring, which the console switched off for its touch
+   surface. See docs/form.md before "fixing" any of this back. */
+@import "@cosimo/ui/styles.css";
+
+:root {
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 15px;
+  --text-base: 17px;
+  --text-lg: 19px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-4xl: 32px;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* keep the submit button above the home indicator */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Focus is visible here. Unlayered, so it beats the shared `focus-ring`
+   utility (outline: none) on the Button component. */
+.focus-ring:focus-visible,
+.scale-radio:focus-visible + .scale-dot,
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* The seven dots of a scale item. The input itself is visually hidden but
+   stays a real radio (VoiceOver announces "3 of 7"); the dot is its face. */
+.scale-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.scale-radio:checked + .scale-dot {
+  background: var(--color-ink);
+  color: var(--color-white);
+  border-color: var(--color-ink);
+}

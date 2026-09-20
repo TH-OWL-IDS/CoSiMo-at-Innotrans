@@ -7,6 +7,7 @@
 #   console-cosimo.homannjohannes.de -> host console (the operator's control surface)
 #   seat-cosimo.homannjohannes.de -> seat emulator (a browser iPad)
 #   journey-cosimo.homannjohannes.de -> journey view (the line, live)
+#   form-cosimo.homannjohannes.de -> visitor questionnaire (QR code at the cab)
 # Cloudflare terminates TLS at the edge. cms and realtime are published on
 # localhost only (bound to 127.0.0.1), where the host's cloudflared reaches
 # them — nothing is exposed to the public internet directly.
@@ -23,6 +24,7 @@
 #   console-cosimo.homannjohannes.de -> http://localhost:${COSIMO_CONSOLE_PORT:-6222}
 #   seat-cosimo.homannjohannes.de -> http://localhost:${COSIMO_EMU_PORT:-6223}
 #   journey-cosimo.homannjohannes.de -> http://localhost:${COSIMO_JOURNEY_PORT:-6224}
+#   form-cosimo.homannjohannes.de -> http://localhost:${COSIMO_FORM_PORT:-6225}
 # Make sure the tunnel has WebSockets enabled (default on) for the ws- host.
 
 services:
@@ -61,6 +63,7 @@ services:
       SERVICE_URL_CONSOLE: http://console
       SERVICE_URL_EMULATOR: http://emulator
       SERVICE_URL_JOURNEY: http://journey
+      SERVICE_URL_FORM: http://form
       CORS_ORIGINS: https://${COSIMO_CONSOLE_DOMAIN:-console-${COSIMO_DOMAIN}},https://${COSIMO_SEAT_DOMAIN:-seat-${COSIMO_DOMAIN}},https://${COSIMO_JOURNEY_DOMAIN:-journey-${COSIMO_DOMAIN}},capacitor://localhost
 
   # Both static bundles bake the ws- host at build time.
@@ -84,6 +87,11 @@ services:
         VITE_REALTIME_URL: https://${COSIMO_WS_DOMAIN}
     ports: !override
       - "127.0.0.1:${COSIMO_JOURNEY_PORT:-6224}:80"
+
+  # The questionnaire bakes nothing: its API is same-origin via nginx → cms.
+  form:
+    ports: !override
+      - "127.0.0.1:${COSIMO_FORM_PORT:-6225}:80"
 
   # Nightly pg_dump into ./backups (sessions are the research dataset —
   # copy this directory off the box regularly).

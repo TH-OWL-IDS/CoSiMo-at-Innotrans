@@ -211,7 +211,7 @@ export interface SpeechTestResult {
 
 /** One deployable as the hub sees it, for the console's Services card. */
 export interface ServiceInfo {
-  id: "cms" | "realtime" | "console" | "emulator" | "journey";
+  id: "cms" | "realtime" | "console" | "emulator" | "journey" | "form";
   label: string;
   /** ok = answered the probe; down = probe failed; unknown = not configured here. */
   status: "ok" | "down" | "unknown";

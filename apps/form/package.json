@@ -1,0 +1,28 @@
+{
+  "name": "@cosimo/form",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 6105",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 6105",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cosimo/shared": "workspace:*",
+    "@cosimo/ui": "workspace:^",
+    "lucide-react": "^1.33.0",
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

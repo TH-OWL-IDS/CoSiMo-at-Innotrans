@@ -32,6 +32,12 @@ Payload login). There is no other page — the operator console is
 - **sessions** — the research dataset. Written by the realtime service
   (turn transcripts, tool actions, emotions, latency, consent, modality),
   read-only in the admin. Consent gates *recording*, not conversing.
+- **survey-responses** — the anonymous visitor questionnaire
+  ([form.md](form.md)). The one publicly *writable* collection: `create`
+  is open but a hook rebuilds every document from scratch (known keys
+  only, integers 1–7, consent or 403, version stamped, start-token check →
+  `suspect`); operators read, admins delete, nothing is updated. A root
+  endpoint `/api/survey-start` issues the signed start token.
 - **The config globals** (admin group „Operations“, since 2026-09-18 five
   instead of one `operator-config`): **agent-config** — the core system
   prompt (`systemPrompt`; empty = built-in default, the rider section is

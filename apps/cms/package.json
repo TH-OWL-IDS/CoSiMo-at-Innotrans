@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "generate:types": "payload generate:types",
     "seed": "tsx src/seed.ts",
+    "survey:export": "tsx src/scripts/exportSurvey.ts",
     "payload": "payload",
     "migrate": "payload migrate"
   },

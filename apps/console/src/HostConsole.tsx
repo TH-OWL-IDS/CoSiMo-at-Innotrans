@@ -40,6 +40,7 @@ import {
   Gauge,
   CircleCheck,
   CircleHelp,
+  ClipboardList,
   Play,
   Pause,
   Lightbulb,
@@ -204,7 +205,7 @@ function DeviceRow({ d, now, onReset, onLogs }: { d: ConnectedDevice; now: numbe
   );
 }
 
-const SERVICE_ICON: Record<ServiceInfo["id"], LucideIcon> = { cms: Database, realtime: Cable, console: Monitor, emulator: AppWindow, journey: Route };
+const SERVICE_ICON: Record<ServiceInfo["id"], LucideIcon> = { cms: Database, realtime: Cable, console: Monitor, emulator: AppWindow, journey: Route, form: ClipboardList };
 
 /** One deployable, one line: name, public host, port, dot. Everything else in the tooltip. */
 function ServiceRow({ s, now, onRestart, result }: { s: ServiceInfo; now: number; onRestart?: () => void; result?: { ok: boolean; error?: string; at: number } }) {
@@ -508,7 +509,7 @@ function OverviewTab({ c, st, onShowLogs, onShowSystemLogs, onOpenLight }: { c: 
         <ServiceCard
           icon={Box}
           name="Services"
-          detail="Die fünf Deployables aus Sicht des Hubs: CMS (Payload), WS (der Hub selbst), Konsole, Seat-Emulator und Fahrt-Ansicht — je mit öffentlichem Host, internem Port und Compose-Service. Der Hub prüft alle 15 s die interne Adresse; die Details stehen im Tooltip der Zeile."
+          detail="Die Deployables aus Sicht des Hubs: CMS (Payload), WS (der Hub selbst), Konsole, Seat-Emulator, Fahrt-Ansicht und die Befragung — je mit öffentlichem Host, internem Port und Compose-Service. Der Hub prüft alle 15 s die interne Adresse; die Details stehen im Tooltip der Zeile."
           facts={[]}
         >
           <div className="flex flex-col gap-1.5">

@@ -14,7 +14,7 @@ pnpm --filter @cosimo/journey dev   # the journey view (port 6104)
 ```
 
 Ports: **6100** cms, **6101** realtime, **6102** console dev, **6103** emulator dev,
-**6104** journey dev, 5432 postgres. The kiosk has no dev server — it is the native app; the
+**6104** journey dev, **6105** form dev, 5432 postgres. The kiosk has no dev server — it is the native app; the
 emulator is its browser stand-in.
 
 The console and emulator dev servers proxy `/socket.io` → 6101, so the
@@ -54,7 +54,9 @@ hostnames**:
 - `seat-cosimo.homannjohannes.de` → the seat emulator, a browser iPad
   ([emulator.md](emulator.md))
 - `journey-cosimo.homannjohannes.de` → the journey view ([journey.md](journey.md))
-  — all three static bundles behind nginx
+- `form-cosimo.homannjohannes.de` → the visitor questionnaire ([form.md](form.md))
+  — all four static bundles behind nginx (the form's nginx also proxies two
+  API paths to the cms container)
 
 Cloudflare terminates TLS at the edge, so nothing on the box needs certs and
 nothing is published to the public internet — cms and realtime bind to
@@ -75,6 +77,7 @@ services on the box:
 - `console-cosimo.homannjohannes.de` → `http://localhost:6222`
 - `seat-cosimo.homannjohannes.de` → `http://localhost:6223`
 - `journey-cosimo.homannjohannes.de` → `http://localhost:6224`
+- `form-cosimo.homannjohannes.de` → `http://localhost:6225`
 
 Make sure the tunnel has **WebSockets enabled** (default on) for the ws- host.
 

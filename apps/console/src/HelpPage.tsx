@@ -79,6 +79,7 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
             ["Diese Konsole", "console-cosimo.homannjohannes.de", "127.0.0.1:6222", ":6102"],
             ["Sitz-Emulator (Browser-iPad)", "seat-cosimo.homannjohannes.de", "127.0.0.1:6223", ":6103"],
             ["Fahrt-Ansicht (Standbildschirm)", "journey-cosimo.homannjohannes.de", "127.0.0.1:6224", ":6104"],
+            ["Befragung (QR-Code am Ausgang)", "form-cosimo.homannjohannes.de", "127.0.0.1:6225", ":6105"],
             ["LPU-2 (Lichtcontroller)", "— nur Kabinen-LAN", "Adresse im CMS → Kabine", "—"],
           ]}
         />
@@ -138,7 +139,7 @@ export default function HelpPage({ c, go, showLogsFor }: { c: CosimoState; go: (
         <Steps
           items={[
             <><b>Verbindungen</b>: alle vier Sitze mit Sitznummer, Status „ok“, Transport <i>websocket</i>. Kein „polling“, kein „antwortet nicht“. „Jetzt prüfen“ misst sofort.</>,
-            <><b>Services</b>: alle fünf Zeilen ok.</>,
+            <><b>Services</b>: alle sechs Zeilen ok — auch die Befragung, deren Ausfall sonst niemand bemerkt.</>,
             <><b>LLM</b>: healthy, kein „Fallback aktiv“. „Testen“ drücken — eine Antwort unter drei Sekunden ist normal.</>,
             <><b>Sprechen (TTS)</b>: Pfad „ElevenLabs (Server)“. Eine Stimme antippen und anhören.</>,
             <><b>Hören (STT)</b>: Pfad „Deepgram (Server)“. „Testen“ schickt einen gesprochenen Satz durch die Erkennung.</>,

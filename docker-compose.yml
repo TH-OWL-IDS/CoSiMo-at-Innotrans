@@ -64,6 +64,7 @@ services:
       # (nginx on :80 inside the network). No emulator service in this file.
       SERVICE_URL_CONSOLE: http://console
       SERVICE_URL_JOURNEY: http://journey
+      SERVICE_URL_FORM: http://form
       PAYLOAD_INTERNAL_KEY: ${PAYLOAD_INTERNAL_KEY:-change-me-internal}
       CORS_ORIGINS: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:6100},http://localhost:6102,http://localhost:6103,http://localhost:6104,capacitor://localhost
     ports:
@@ -95,6 +96,16 @@ services:
     restart: unless-stopped
     ports:
       - "${JOURNEY_PORT:-6104}:80"
+
+  # Visitor questionnaire — a static bundle whose nginx proxies two API paths
+  # to the cms container (same-origin for the browser, no CORS). See docs/form.md.
+  form:
+    build:
+      context: .
+      dockerfile: apps/form/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FORM_PORT:-6105}:80"
 
   # Seat emulator — a browser stand-in for one iPad (static bundle). Optional.
   emulator:

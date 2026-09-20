@@ -7,6 +7,8 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { Users } from "./collections/Users.js";
 import { Personas } from "./collections/Personas.js";
 import { Sessions } from "./collections/Sessions.js";
+import { SurveyResponses } from "./collections/SurveyResponses.js";
+import { surveyStartEndpoint } from "./collections/surveyToken.js";
 import { AgentConfig } from "./globals/AgentConfig.js";
 import { LlmConfig } from "./globals/LlmConfig.js";
 import { SpeechConfig } from "./globals/SpeechConfig.js";
@@ -23,8 +25,10 @@ export default buildConfig({
       titleSuffix: "— CoSiMo",
     },
   },
-  collections: [Personas, Sessions, Users],
+  collections: [Personas, Sessions, SurveyResponses, Users],
   globals: [AgentConfig, LlmConfig, SpeechConfig, Voices, CabinConfig, RouteConfig],
+  // The questionnaire's start token (docs/form.md). Root-level on purpose.
+  endpoints: [surveyStartEndpoint],
   // The native kiosk app's WebView origin, plus the public site itself.
   cors: [
     process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:6100",

@@ -12,3 +12,4 @@ export * from "./settings.js";
 export * from "./log.js";
 export * from "./ws.js";
 export * from "./prompt.js";
+export * from "./survey.js";

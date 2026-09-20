@@ -23,6 +23,7 @@ live in [docs/](docs/).
 | [docs/tailnet.md](docs/tailnet.md) | The brain on the GX10 (`infra/gx10`), Tailscale between it and the VPS realtime container, probe + fallback provider |
 | [docs/hardware.md](docs/hardware.md) | ESP32 buttons + NFC over BLE keyboard — the firmware-facing protocol |
 | [docs/deployment.md](docs/deployment.md) | Local dev, env layering, VPS + Cloudflare Tunnel production, gotchas |
+| [docs/form.md](docs/form.md) | The visitor questionnaire (`apps/form`, QR code at the cab): the instrument, once-per-tab, the honest timer, the CMS collection, export |
 
 ## Repo shape
 
@@ -39,6 +40,10 @@ separate systems** that only meet through `packages/shared`:
 - `apps/journey` — the line as a live horizontal diagram (static,
   `journey-cosimo.…`): the cab, stops, ETAs, passengers, faults. Read-only;
   draws the hub's journey simulation.
+- `apps/form` — the visitor questionnaire (static, `form-cosimo.…`), opened
+  by QR code on the visitor's phone. Independent of the sessions; posts
+  into the CMS through its own nginx (same-origin). The one visitor
+  surface that needs the CMS — by design, see [docs/form.md](docs/form.md).
 - `apps/realtime` — Socket.IO hub + agent loop (Node). The live path.
 - `apps/cms` — Payload 3 + Next 15 + Postgres. **A UI for the database and
   nothing else**: admin at `/`→`/admin` plus the REST API. No live surface
@@ -127,11 +132,12 @@ client against :6101 works well — see the smoke pattern in git history).
 ## Environment facts
 
 - Ports: cms 6100, realtime 6101, console dev 6102, emulator dev 6103,
-  journey dev 6104. The kiosk has no browser dev server — it is the native
-  app; use the emulator.
+  journey dev 6104, form dev 6105. The kiosk has no browser dev server — it
+  is the native app; use the emulator.
 - Prod hosts (Cloudflare Tunnel): `cms-cosimo.homannjohannes.de` → CMS,
   `ws-cosimo.homannjohannes.de` → realtime, `console-cosimo.…` → host console,
-  `seat-cosimo.…` → emulator, `journey-cosimo.…` → journey view. The kiosk is socket-only, so it bakes the ws-
+  `seat-cosimo.…` → emulator, `journey-cosimo.…` → journey view,
+  `form-cosimo.…` → questionnaire. The kiosk is socket-only, so it bakes the ws-
   host in `serverUrl.ts`; the two static apps bake it at build
   (`VITE_REALTIME_URL`).
 - iOS builds: `ios/` is committed; `xcode-select` on this machine points at

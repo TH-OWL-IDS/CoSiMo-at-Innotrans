@@ -24,8 +24,9 @@ function publicHost(id: ServiceInfo["id"]): string | null {
     console: env("COSIMO_CONSOLE_DOMAIN"),
     emulator: env("COSIMO_SEAT_DOMAIN"),
     journey: env("COSIMO_JOURNEY_DOMAIN"),
+    form: env("COSIMO_FORM_DOMAIN"),
   };
-  const prefix: Record<ServiceInfo["id"], string> = { cms: "cms-", realtime: "ws-", console: "console-", emulator: "seat-", journey: "journey-" };
+  const prefix: Record<ServiceInfo["id"], string> = { cms: "cms-", realtime: "ws-", console: "console-", emulator: "seat-", journey: "journey-", form: "form-" };
   return explicit[id] ?? (base ? `${prefix[id]}${base}` : null);
 }
 
@@ -37,6 +38,7 @@ function internalUrl(id: ServiceInfo["id"]): string | null {
     case "console": return env("SERVICE_URL_CONSOLE") ?? (IN_DOCKER ? null : "http://localhost:6102");
     case "emulator": return env("SERVICE_URL_EMULATOR") ?? (IN_DOCKER ? null : "http://localhost:6103");
     case "journey": return env("SERVICE_URL_JOURNEY") ?? (IN_DOCKER ? null : "http://localhost:6104");
+    case "form": return env("SERVICE_URL_FORM") ?? (IN_DOCKER ? null : "http://localhost:6105");
   }
 }
 
@@ -56,6 +58,9 @@ const DEFS: { id: ServiceInfo["id"]; label: string; path: string }[] = [
   { id: "console", label: "Konsole", path: "/" },
   { id: "emulator", label: "Seat (Emulator)", path: "/" },
   { id: "journey", label: "Fahrt", path: "/" },
+  // The questionnaire's outage is silent (nobody at the booth notices a dead
+  // QR target), which is why it earns a row and a restart button.
+  { id: "form", label: "Befragung", path: "/" },
 ];
 
 async function probe(url: string): Promise<number | null> {
