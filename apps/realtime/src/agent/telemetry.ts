@@ -54,17 +54,18 @@ export interface SimRoute {
 
 /** Built-in fallback route so the demo works standalone (no Payload, no DB). */
 export const DEFAULT_ROUTE: SimRoute = {
-  // Begatalbahn Lemgo-Lüttfeld – Barntrup (the MonoCab stops of the OD study);
-  // travel times from the line's km posts at cruise speed
+  // Begatalbahn Brake (Lemgo) – Barntrup, the five MonoCab stops of
+  // Ausbaustufe 1 from the project's stop GeoJSON (HS02, 13, 15, 17, 21;
+  // 2026-09-21). Leg times: air-line distance × 1.08 for the track's bends,
+  // at cruise speed, plus 15 s for the ramps. Lemgo-Lüttfeld (HS01) is not
+  // connected in any stage.
   line: { de: "Begatalbahn", en: "Bega valley line" },
   stops: [
-    { id: "lemgo-luettfeld", name: { de: "Lemgo-Lüttfeld", en: "Lemgo-Lüttfeld" }, travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
-    { id: "schlossstrasse", name: { de: "Schlossstraße", en: "Schlossstraße" }, travelSecondsFromPrev: 60, dwellSeconds: 45, demand: 1 },
-    { id: "blomberger-weg", name: { de: "Blomberger Weg", en: "Blomberger Weg" }, travelSecondsFromPrev: 90, dwellSeconds: 45, demand: 1 },
-    { id: "doerentrup-mitte", name: { de: "Dörentrup Mitte", en: "Dörentrup Mitte" }, travelSecondsFromPrev: 350, dwellSeconds: 45, demand: 2 },
-    { id: "farmbeck", name: { de: "Farmbeck", en: "Farmbeck" }, travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
-    { id: "bega-friedhof", name: { de: "Bega Friedhof", en: "Bega Friedhof" }, travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 2 },
-    { id: "barntrup-hauptstation", name: { de: "Barntrup Hauptstation", en: "Barntrup main station" }, travelSecondsFromPrev: 330, dwellSeconds: 90, demand: 3 },
+    { id: "brake-bahnhof", name: { de: "Brake (Lemgo) Bahnhof", en: "Brake (Lemgo) station" }, travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
+    { id: "doerentrup-dammstrasse", name: { de: "Dörentrup Dammstraße", en: "Dörentrup Dammstraße" }, travelSecondsFromPrev: 460, dwellSeconds: 45, demand: 2 },
+    { id: "farmbeck-bahnhof", name: { de: "Farmbeck Bahnhof", en: "Farmbeck station" }, travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
+    { id: "bega-bahnhof", name: { de: "Bega Bahnhof", en: "Bega station" }, travelSecondsFromPrev: 190, dwellSeconds: 45, demand: 2 },
+    { id: "barntrup-bahnhof", name: { de: "Barntrup Bahnhof", en: "Barntrup station" }, travelSecondsFromPrev: 350, dwellSeconds: 90, demand: 3 },
   ],
   cruiseSpeedKmh: 55,
   capacity: 4,

@@ -1,4 +1,5 @@
 import type { GlobalConfig } from "payload";
+import { isInternal } from "../access/internal.js";
 
 /**
  * Route config — the line the journey simulation drives, editable live in the
@@ -19,7 +20,8 @@ export const RouteConfig: GlobalConfig = {
   access: {
     // Non-sensitive demo config — the realtime service reads it anonymously.
     read: () => true,
-    update: ({ req }) => Boolean(req.user),
+    // an admin in the UI, or a server-side update with the internal key (like the voice catalog)
+    update: ({ req }) => Boolean(req.user) || isInternal(req),
   },
   fields: [
     {

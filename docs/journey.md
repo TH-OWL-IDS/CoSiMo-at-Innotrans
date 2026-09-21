@@ -16,7 +16,11 @@ horizontal diagram with the cab moving along it in real time — out and back.
 
 The route comes from the CMS `route-config` global (refreshed every 30 s;
 an edit restarts the journey at the new first stop) with the built-in
-Begatalbahn (Lemgo-Lüttfeld – Barntrup) as the no-CMS fallback.
+Begatalbahn as the no-CMS fallback — since 2026-09-21 the five stops of
+the MonoCab line's Ausbaustufe 1 from the project's stop GeoJSON (Brake
+(Lemgo) Bahnhof · Dörentrup Dammstraße · Farmbeck Bahnhof · Bega Bahnhof ·
+Barntrup Bahnhof; leg times = air-line distance × 1.08 at 55 km/h + 15 s,
+about 24 min per direction). Lemgo-Lüttfeld is not connected in any stage.
 
 - **Journey:** dwell with open doors at each stop → cruise to the next with
   accel/decel ramps → dwell … → turn around at the terminals, forever.

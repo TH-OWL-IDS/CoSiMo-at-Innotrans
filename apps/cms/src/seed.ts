@@ -160,14 +160,14 @@ const route = {
   capacity: 4,
   notesDe: "Stufenloser Einstieg, Rollstuhlplatz vorhanden.",
   notesEn: "Step-free boarding, wheelchair space available.",
+  // Ausbaustufe 1 of the MonoCab line (stop GeoJSON, 2026-09-21): HS02, 13,
+  // 15, 17, 21. Leg times from air-line distance × 1.08 at 55 km/h + 15 s ramps.
   stops: [
-    { stopId: "lemgo-luettfeld", nameDe: "Lemgo-Lüttfeld", nameEn: "Lemgo-Lüttfeld", travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
-    { stopId: "schlossstrasse", nameDe: "Schlossstraße", nameEn: "Schlossstraße", travelSecondsFromPrev: 60, dwellSeconds: 45, demand: 1 },
-    { stopId: "blomberger-weg", nameDe: "Blomberger Weg", nameEn: "Blomberger Weg", travelSecondsFromPrev: 90, dwellSeconds: 45, demand: 1 },
-    { stopId: "doerentrup-mitte", nameDe: "Dörentrup Mitte", nameEn: "Dörentrup Mitte", travelSecondsFromPrev: 350, dwellSeconds: 45, demand: 2 },
-    { stopId: "farmbeck", nameDe: "Farmbeck", nameEn: "Farmbeck", travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
-    { stopId: "bega-friedhof", nameDe: "Bega Friedhof", nameEn: "Bega Friedhof", travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 2 },
-    { stopId: "barntrup-hauptstation", nameDe: "Barntrup Hauptstation", nameEn: "Barntrup main station", travelSecondsFromPrev: 330, dwellSeconds: 90, demand: 3 },
+    { stopId: "brake-bahnhof", nameDe: "Brake (Lemgo) Bahnhof", nameEn: "Brake (Lemgo) station", travelSecondsFromPrev: 0, dwellSeconds: 90, demand: 3 },
+    { stopId: "doerentrup-dammstrasse", nameDe: "Dörentrup Dammstraße", nameEn: "Dörentrup Dammstraße", travelSecondsFromPrev: 460, dwellSeconds: 45, demand: 2 },
+    { stopId: "farmbeck-bahnhof", nameDe: "Farmbeck Bahnhof", nameEn: "Farmbeck station", travelSecondsFromPrev: 150, dwellSeconds: 45, demand: 1 },
+    { stopId: "bega-bahnhof", nameDe: "Bega Bahnhof", nameEn: "Bega station", travelSecondsFromPrev: 190, dwellSeconds: 45, demand: 2 },
+    { stopId: "barntrup-bahnhof", nameDe: "Barntrup Bahnhof", nameEn: "Barntrup station", travelSecondsFromPrev: 350, dwellSeconds: 90, demand: 3 },
   ],
 };
 
