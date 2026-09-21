@@ -30,7 +30,6 @@ import { ServicesMonitor } from "./services.js";
 import { logger } from "./log/logger.js";
 import { TOOL_DEFINITIONS } from "./agent/tools.js";
 import { greetingFor } from "./agent/prompt.js";
-import { guestHello } from "./agent/canned.js";
 import { DEFAULT_VOICE_GENDER, type PersonaKey } from "@cosimo/shared";
 
 const app = express();
@@ -245,12 +244,6 @@ hub.onProfileLogin(({ sessionId, deviceId, persona }) => {
   greetProfile(sessionId, persona);
 });
 
-// The guest chip → a short hello, spoken without the LLM (the card has its
-// own greeting above; a first talk press gets its answer instead).
-hub.onGuestCheckin(({ sessionId, deviceId, persona, lang }) => {
-  agent.interrupt(deviceId);
-  void agent.announce(sessionId, guestHello(operatorConfig.get().agent.guestHello[lang]), lang, persona, "happy");
-});
 // The info button's question — CMS-editable, live within the config's TTL.
 hub.setInfoQuestion((lang) => operatorConfig.get().agent.infoQuestion[lang]);
 

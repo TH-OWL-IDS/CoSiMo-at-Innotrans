@@ -3,24 +3,6 @@ import type { Locale, PipelinePhase } from "@cosimo/shared";
 import { characterById, withAlpha, type StateColors } from "@cosimo/face";
 
 /** The stand's chip symbol (the NFC tag mark on the panel): a ring with two arcs each side. */
-function ChipMark({ size, color }: { size: string; color: string }) {
-  const arc = (r: number, side: 1 | -1) => {
-    // an arc of ±48° around the horizontal axis, on the given side
-    const a = (48 * Math.PI) / 180;
-    const x1 = 50 + side * r * Math.cos(a), y1 = 50 - r * Math.sin(a);
-    const x2 = 50 + side * r * Math.cos(a), y2 = 50 + r * Math.sin(a);
-    return `M ${x1} ${y1} A ${r} ${r} 0 0 ${side === 1 ? 1 : 0} ${x2} ${y2}`;
-  };
-  return (
-    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden style={{ display: "block", color }} fill="none" stroke="currentColor" strokeWidth={7.5} strokeLinecap="round">
-      <circle cx="50" cy="50" r="10" />
-      <path d={arc(23, -1)} />
-      <path d={arc(36, -1)} />
-      <path d={arc(23, 1)} />
-      <path d={arc(36, 1)} />
-    </svg>
-  );
-}
 import { RepeatAffordance, SlitCard } from "./SlitCard.js";
 import { SlitSettings } from "./SlitSettings.js";
 import TelemetryStrip, { type SlitMotion } from "./TelemetryStrip.js";
@@ -91,13 +73,10 @@ export default function SeatView({
   const { cosimo, lang, textScale, reduceMotion, ptt } = seat;
   // Showcase overlays the live state: same renderer, different source.
   const show = useShowcase(Boolean(showcase), lang, seat.scheme);
-  // the check-in: nobody at this seat → the circle offers the card / the
-  // guest chip instead of the Gestalt (the slit keeps its rotation)
-  const checkedIn = show || cosimo.checkedIn;
-  // switching riders (card, guest, checkout): what is in the circle sinks
+  // switching riders (card, silence reset): what is in the circle sinks
   // back and shrinks, the colours drift to the new scheme, then the new
   // content grows in — keyed on who is here and which Gestalt they chose
-  const sceneKey = `${checkedIn ? cosimo.persona?.persona ?? "default" : "checkin"}:${seat.character}`;
+  const sceneKey = `${cosimo.persona?.persona ?? "default"}:${seat.character}`;
   const [shown, setShown] = useState(sceneKey);
   const liveSchemeRef = useRef(show?.scheme ?? seat.scheme);
   liveSchemeRef.current = show?.scheme ?? seat.scheme;
@@ -119,7 +98,6 @@ export default function SeatView({
     return () => clearTimeout(t1);
   }, [sceneKey, shown, reduceMotion]);
   useEffect(() => () => { if (settleRef.current) clearTimeout(settleRef.current); }, []);
-  const shownCheckin = shown.startsWith("checkin:");
   // the Gestalt and the colours belong to what is SHOWN: during the "out"
   // phase the old rider's form leaves in the old scheme; the swap (at the
   // low point) brings the new form and lets the colours drift to the new
@@ -400,43 +378,20 @@ export default function SeatView({
               position: "absolute",
               // 52%: the artwork's visual mass (eyes mid 125, mouth 104) sits
               // left of its viewBox centre (130) — this optically centres it.
-              left: shownCheckin ? "50%" : "52%",
+              left: "52%",
               top: "48%",
               width: "88%",
               transformOrigin: "50% 60%",
               ...swapStyle,
             }}
           >
-            {shownCheckin ? (
-              /* the check-in, where the Gestalt otherwise is: the chip symbol,
-                 one line, and the guest chip — talking or pressing "i" also
-                 counts as "without a card" */
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3.2cqh", color: scheme.ink, textAlign: "center", padding: "0 14%" }}>
-                <ChipMark size="16cqh" color={scheme.ink} />
-                <span style={{ fontSize: `clamp(12px, ${3.1 * textScale}cqh, 28px)`, fontWeight: 600, lineHeight: 1.2, opacity: 0.9 }}>
-                  {lang === "de" ? "Mit deinem Chip einchecken" : "Check in with your chip"}
-                </span>
-                <button
-                  type="button"
-                  onClick={cosimo.checkIn}
-                  style={{
-                    appearance: "none", cursor: "pointer", touchAction: "manipulation", marginTop: "4cqh",
-                    border: `max(1.5px, 0.25cqh) solid ${scheme.ink}`, borderRadius: 999, background: "transparent", color: scheme.ink,
-                    padding: "1cqh 3cqh", fontFamily: "inherit", fontWeight: 600, fontSize: `clamp(11px, ${2.3 * textScale}cqh, 20px)`, opacity: 0.85,
-                  }}
-                >
-                  {lang === "de" ? "Ohne Check-In nutzen" : "Use without check-in"}
-                </button>
-              </div>
-            ) : (
-              <Gestalt
-                emotion={faceEmotion}
-                idle={!reduceMotion}
-                mouthDrive={mouthDrive}
-                gazeDrive={gazeDrive}
-                style={{ width: "100%", height: "auto", color: scheme.ink, display: "block", transition: "color 700ms ease" }}
-              />
-            )}
+            <Gestalt
+              emotion={faceEmotion}
+              idle={!reduceMotion}
+              mouthDrive={mouthDrive}
+              gazeDrive={gazeDrive}
+              style={{ width: "100%", height: "auto", color: scheme.ink, display: "block", transition: "color 700ms ease" }}
+            />
           </div>
 
           {/* connection state, tucked at the top of the circle */}

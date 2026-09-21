@@ -1,5 +1,5 @@
 import type { GlobalConfig } from "payload";
-import { DEFAULT_GUEST_HELLO, DEFAULT_INFO_QUESTION } from "@cosimo/shared";
+import { DEFAULT_INFO_QUESTION } from "@cosimo/shared";
 import { isInternal } from "../access/internal.js";
 
 /** The agent's core system prompt — the personality. The rider part is appended in code. */
@@ -39,23 +39,6 @@ export const AgentConfig: GlobalConfig = {
           type: "text",
           label: "Info button: question (EN)",
           admin: { width: "50%", placeholder: DEFAULT_INFO_QUESTION.en, description: "Same for English profiles. Empty = default." },
-        },
-      ],
-    },
-    {
-      type: "row",
-      fields: [
-        {
-          name: "guestHelloDe",
-          type: "textarea",
-          label: "Gast-Begrüßung (DE)",
-          admin: { width: "50%", rows: 5, placeholder: DEFAULT_GUEST_HELLO.de.join("\n"), description: "„Ohne Check-In nutzen“: eine Zeile pro Satz, CoSiMo sagt zufällig einen davon (nur TTS, kein LLM). Leer = Default." },
-        },
-        {
-          name: "guestHelloEn",
-          type: "textarea",
-          label: "Guest hello (EN)",
-          admin: { width: "50%", rows: 5, placeholder: DEFAULT_GUEST_HELLO.en.join("\n"), description: "One line per sentence, one is picked at random. Empty = default." },
         },
       ],
     },

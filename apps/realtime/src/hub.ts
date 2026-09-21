@@ -137,8 +137,6 @@ export type NfcHandler = (nfc: IncomingNfc) => void;
 /** The browser seat's switcher picked a profile: checked in like a card scan — greet it like one. */
 export type ProfileLoginHandler = (p: { sessionId: string; deviceId: string; persona: PersonaKey }) => void;
 
-/** The guest chip was taken ("Ohne Anmeldung weiter"): the seat just checked in without a card. */
-export type GuestCheckinHandler = (p: { sessionId: string; deviceId: string; persona: PersonaKey; lang: Locale }) => void;
 
 /** Rider barge-in (talk button pressed while a turn runs) — abort that seat. */
 export type InterruptHandler = (payload: { deviceId: string; sessionId: string }) => void;
@@ -270,7 +268,6 @@ export class Hub {
   private infoQuestion: (lang: Locale) => string = () => "";
   private voiceHandler: VoiceHandler | undefined;
   private nfcHandler: NfcHandler | undefined;
-  private guestCheckinHandler: GuestCheckinHandler | undefined;
   private profileLoginHandler: ProfileLoginHandler | undefined;
   private interruptHandler: InterruptHandler | undefined;
   private telemetryPatchHandler: ((patch: HostTelemetryPatch) => void) | undefined;
@@ -464,11 +461,6 @@ export class Hub {
     this.profileLoginHandler = handler;
   }
 
-  /** Register the handler for the guest check-in (the short hello without the LLM). */
-  onGuestCheckin(handler: GuestCheckinHandler): void {
-    this.guestCheckinHandler = handler;
-  }
-
   /** Register the handler for rider barge-in (talk button during a turn). */
   onInterrupt(handler: InterruptHandler): void {
     this.interruptHandler = handler;
@@ -574,19 +566,16 @@ export class Hub {
   }
 
   /**
-   * The seat is in use: a card, the guest chip, or simply the first input.
-   * Flips `active` once per session and tells the seat (the circle swaps the
-   * check-in for the Gestalt); the auto-checkout sweep watches it from here.
+   * The seat is in use: a card or simply the first input. Flips `active`
+   * once per session; the silence sweep watches it from here (after 2 min
+   * without input a used seat quietly gets a fresh default session).
    */
-  private markActive(entry: DeviceEntry, deviceId: string, by: "nfc" | "guest" | "input"): void {
+  private markActive(entry: DeviceEntry, deviceId: string, by: "nfc" | "input"): void {
     entry.lastActivity = Date.now();
     if (entry.active) return;
     entry.active = true;
     if (entry.emotion === "sleeping") this.emitEmotion(entry, "neutral");
-    entry.socket.emit("session:checkin", { sessionId: entry.sessionId, by });
     logger.log("session.checkin", { by }, { deviceId, sessionId: entry.sessionId });
-    // the guest chip gets a hello — a card has its own greeting, an input its answer
-    if (by === "guest") this.guestCheckinHandler?.({ sessionId: entry.sessionId, deviceId, persona: entry.persona.persona, lang: entry.persona.accommodations.language });
   }
 
   onSpeechTest(tester: SpeechTester): void {
@@ -1022,20 +1011,16 @@ export class Hub {
       );
     });
 
-    // Browser seat: check in as a profile from its dropdown (like a card
-    // scan), or check out ("__checkout" — like the silence timeout).
+    // Browser seat: switch to a profile from its dropdown (like a card
+    // scan); "default" = a fresh default session, like the silence reset.
     socket.on("session:login", ({ sessionId, persona }) => {
       const deviceId = this.trackSession(socket, sessionId);
       const entry = this.devices.get(deviceId);
       if (!entry || entry.role !== "kiosk" || entry.kind !== "emulator") return;
-      if (persona === "__checkout") { this.beginSession(deviceId, "default", "timeout"); return; }
       const known = this.personaLister?.().some((p) => p.persona === persona);
       if (!known) return;
-      // the default profile from the dropdown IS the guest chip
       if (persona === "default") {
         if (entry.persona.persona !== "default") this.beginSession(deviceId, "default", "host");
-        this.markActive(entry, deviceId, "guest");
-        this.pushSeats();
         return;
       }
       if (entry.persona.persona === persona && entry.active) return;
@@ -1043,15 +1028,6 @@ export class Hub {
       else this.setPersonaForDevice(deviceId, persona as PersonaKey, "nfc");
       // greet like a card scan (beginSession may have started a new session)
       this.profileLoginHandler?.({ sessionId: entry.sessionId, deviceId, persona: persona as PersonaKey });
-    });
-
-    // The guest chip on the check-in: continue without a card.
-    socket.on("session:checkin", ({ sessionId }) => {
-      const deviceId = this.trackSession(socket, sessionId);
-      const entry = this.devices.get(deviceId);
-      if (!entry || entry.role !== "kiosk") return;
-      this.markActive(entry, deviceId, "guest");
-      this.pushSeats();
     });
 
     // A tap in the settings menu — starts the visible session if it had not.

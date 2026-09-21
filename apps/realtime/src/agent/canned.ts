@@ -46,16 +46,6 @@ export function errorReply(lang: Locale): CannedResult {
   };
 }
 
-/**
- * The hello for the guest chip ("Ohne Check-In nutzen"): one line out of
- * the pool (the CMS's agent-config lines, or the built-in default), spoken
- * without the LLM — the circle just left the check-in and CoSiMo should
- * simply be there.
- */
-export function guestHello(pool: readonly string[]): string {
-  return pool[Math.floor(Math.random() * pool.length)] ?? "Hi!";
-}
-
 export function cannedReply(
   raw: string,
   lang: Locale,

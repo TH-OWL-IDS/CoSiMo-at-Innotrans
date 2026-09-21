@@ -169,10 +169,9 @@ export default function App() {
         <select
           aria-label="Profil"
           className="rounded-lg border border-line-strong bg-white px-2 py-1.5 text-sm"
-          value={cosimo.checkedIn ? cosimo.persona?.persona ?? "" : ""}
-          onChange={(e) => { const v = e.target.value; if (v) cosimo.login(v); else if (cosimo.checkedIn) cosimo.login("__checkout"); }}
+          value={cosimo.persona?.persona ?? "default"}
+          onChange={(e) => { const v = e.target.value; if (v) cosimo.login(v); }}
         >
-          <option value="">— ausgecheckt —</option>
           {cosimo.personas.map((p) => (
             <option key={p.persona} value={p.persona}>
               {p.persona === "default" ? `${p.label} (Standard)` : `${p.label} · ${p.accommodations.language === "en" ? "EN" : "DE"}`}
@@ -254,7 +253,7 @@ export default function App() {
             <span title={serverUrl || "same-origin (dev proxy)"}>{serverUrl ? new URL(serverUrl).host : "same-origin"}</span>
             <br />
             Sitzung <code>{cosimo.sessionId.slice(0, 10)}</code>
-            {cosimo.persona && <> · <b className="text-ink">{cosimo.persona.label}</b>{cosimo.checkedIn ? "" : " (nicht eingecheckt)"}</>}
+            {cosimo.persona && <> · <b className="text-ink">{cosimo.persona.label}</b></>}
           </div>
           <div className="text-xs text-mute">Anderer Hub: <code>?server=https://…</code> · Panel-Optik: <code>?panel=1</code> · Schaustellung: <code>?showcase=1</code></div>
         </header>

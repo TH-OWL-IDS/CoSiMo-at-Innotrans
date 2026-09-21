@@ -153,8 +153,8 @@ the agent abort the LLM stream mid-generation (`AbortController` per seat,
 wired into both adapters), and pending TTS is dropped. Every turn carries a
 per-seat monotonic `turn` number on `chat:delta`/`tts:chunk`; hub and clients
 drop chunks from superseded turns, so racing stragglers can't garble the new
-reply (-1 = wildcard, used by host recover). Announcements (greetings, the
-guest hello) are registered like a turn, so the talk button cuts them too
+reply (-1 = wildcard, used by host recover). Announcements (the card
+greeting) are registered like a turn, so the talk button cuts them too
 (a greeting used to play on to its end, 2026-09-19); and the client
 remembers the turn it cut (`cutTurnRef`) and drops that turn's clips still
 in flight instead of playing them as a "new turn" — the queue's `-2` reset
@@ -188,23 +188,21 @@ preferred language — reply in English anyway"). Gate: 31/32 (the rule
 alone scored 20/32 — the German journey line pulled replies back to
 German).
 
-## Sessions: check-in and auto-checkout
+## Sessions: in use and the silence reset
 
-A kiosk seat starts checked out (`active: false`; the circle shows the
-check-in). `markActive` flips it once per session — a card scan
-(`beginSession … "nfc"`), the guest chip (`session:checkin` from the seat)
-or the first input (chat, consent, settings) — and emits `session:checkin`
-(`by`: nfc | guest | input), logged as `session.checkin`. The guest chip
-also gets a hello: `hub.onGuestCheckin` → `agent.announce` with one of the
-short lines in `guestHello` (canned.ts — "Hi!", "Hallo, ich bin CoSiMo." …,
-in the profile's language), TTS only, no LLM; a card has `greetingFor`, a
-first talk press its answer. The browser seat's dropdown "Standard" entry
-(`session:login` with `default`) is the guest chip. The idle sweep
-(15 s) checks a seat out after `config.face.checkoutMs` (2 min) of silence
-while idle: `beginSession(deviceId, "default", "timeout")` → `session:reset`
-+ the default profile, unless the kiosk said `carried: true` in its hello
-(staff iPad: also never the light actuator — `pickActuator` skips it, as
-requester and as candidate) or performs the showcase.
+A kiosk seat starts with the default profile, nothing to check in (the
+2026-09-19 check-in screen and its guest hello are gone, 2026-09-21).
+`active` flips once per session in `markActive` — a card scan
+(`beginSession … "nfc"`) or the first input (chat, consent, settings) —
+logged as `session.checkin` (`by`: nfc | input); the seat is not told. The
+browser seat's dropdown "Standard" entry (`session:login` with `default`)
+starts a fresh default session. The idle sweep (15 s) resets a used seat
+after `config.face.checkoutMs` (2 min) of silence while idle:
+`beginSession(deviceId, "default", "timeout")` → `session:reset` + the
+default profile (a rider switch animation, nothing else visible), unless
+the kiosk said `carried: true` in its hello (staff iPad: also never the
+light actuator — `pickActuator` skips it, as requester and as candidate)
+or performs the showcase.
 
 ## Slit cards and the settings menu (`src/agent/cards.ts`, hub `showCard` / `openSettings`)
 

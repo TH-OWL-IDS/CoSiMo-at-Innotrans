@@ -223,11 +223,7 @@ export interface CosimoState {
   /** The last hub-driven session start: `consent` is a stored decision (card
    *  rider → no consent screen) or null (ask again). */
   lastReset: { nonce: number; consent: boolean | null } | null;
-  /** Someone is at this seat; false = the circle shows the check-in. */
-  checkedIn: boolean;
-  /** The guest chip on the check-in: continue without a card. */
-  checkIn: () => void;
-  /** Browser seat: check in as a profile without a card ("__checkout" = check out). */
+  /** Browser seat: switch to a profile without a card (the hub treats it like a card scan). */
   login: (persona: string) => void;
   /** Bumps when this device is reset by the host (re-show the welcome). */
   resetNonce: number;
@@ -311,8 +307,6 @@ export function useCosimoSocket(
   const [card, setCard] = useState<SeatCard | null>(null);
   const [settings, setSettings] = useState<SeatSettingsOpen | null>(null);
   const [lastReset, setLastReset] = useState<{ nonce: number; consent: boolean | null } | null>(null);
-  /** Someone is at this seat (card, guest chip, or first input); false = the circle shows the check-in. */
-  const [checkedIn, setCheckedIn] = useState(false);
   const [lastReplyAt, setLastReplyAt] = useState(0);
   /** The sentence being spoken right now (server TTS, per clip) — the slit's subtitle. */
   const [caption, setCaption] = useState("");
@@ -565,10 +559,8 @@ export function useCosimoSocket(
       setSettings(null);
       stopPlayback();
       setLastReset({ nonce: Date.now(), consent: consent ?? null });
-      setCheckedIn(false);
       setResetNonce((n) => n + 1);
     });
-    socket.on("session:checkin", () => setCheckedIn(true));
 
     socket.on("face:emotion", ({ emotion }) => setEmotion(emotion));
     socket.on("pipeline:phase", ({ phase }) => setPhase(phase));
@@ -668,13 +660,6 @@ export function useCosimoSocket(
   const login = (persona: string) => {
     touch();
     sockRef.current?.emit("session:login", { sessionId: sessionRef.current, persona });
-  };
-
-  /** The guest chip: continue without a card (the default profile). */
-  const checkIn = () => {
-    touch();
-    setCheckedIn(true);
-    sockRef.current?.emit("session:checkin", { sessionId: sessionRef.current });
   };
 
   const patchSettings = (patch: Partial<Accommodations>, speak: boolean, reset = false) => {
@@ -859,7 +844,7 @@ export function useCosimoSocket(
   const faceEmotion: FaceEmotion = speaking ? "speaking" : emotion;
 
   return {
-    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, checkedIn, checkIn, login, askInfo,
+    connected, emotion, phase, reply, replying, transcript, card, clearCard, settings, closeSettings, patchSettings, repeatLast, lastReplyAt, caption, lastActivityAt, lastReset, login, askInfo,
     telemetry, status, cabin, hostCabin, persona, heard, devices, seats, personas, hostConfig, services, resetNonce,
     llmTest, testLlm, hostLight, cabinLight, rig, hostRig, light, setLight, saveScene, ttsTest, testTts, sttTest, testStt,
     setCabinActuator,

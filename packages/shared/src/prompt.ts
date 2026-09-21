@@ -10,16 +10,11 @@
  */
 /**
  * The info button's question (the seat sends `info:ask`, the hub asks this)
- * and the guest chip's hello lines (one is picked at random) — editable in
- * the CMS (agent-config); these are the built-in defaults and the seed text.
+ * — editable in the CMS (agent-config); this is the built-in default.
  */
 export const DEFAULT_INFO_QUESTION: Record<"de" | "en", string> = {
   de: "Fass mir bitte kurz die aktuelle Fahrt zusammen: welche Linie, wo wir gerade sind, nächster Halt und Ankunft.",
   en: "Please give me a short summary of this ride: the line, where we are, the next stop and the arrival.",
-};
-export const DEFAULT_GUEST_HELLO: Record<"de" | "en", string[]> = {
-  de: ["Hi!", "Hallo!", "Hey!", "Hallo, ich bin CoSiMo.", "Hi, schön, dass du da bist."],
-  en: ["Hi!", "Hello!", "Hey!", "Hi, I'm CoSiMo.", "Hello, good to have you here."],
 };
 
 export const DEFAULT_CORE_PROMPT = [

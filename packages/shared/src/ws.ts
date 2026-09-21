@@ -282,11 +282,6 @@ export interface ServerToClientEvents {
    * riders), shows the consent screen again. `"*"` = every seat.
    */
   "session:reset": (payload: { deviceId: string; sessionId?: string; consent?: boolean | null }) => void;
-  /** The seat is checked in: a card was scanned, the guest chip tapped, or
-   *  the rider simply started talking. Until then the circle shows the
-   *  check-in; after 2 min of silence the hub checks the seat out again
-   *  (session:reset) unless the kiosk opted out (hello.autoCheckout=false). */
-  "session:checkin": (payload: { sessionId: string; by: "nfc" | "guest" | "input" }) => void;
   /** Currently connected devices (for the operator console). */
   "devices:update": (payload: { devices: ConnectedDevice[] }) => void;
   /** Per-seat live summaries (host consoles only). `cabin` is the shared
@@ -355,10 +350,8 @@ export interface ClientToServerEvents {
   "info:ask": (payload: { sessionId: string; lang: Locale }) => void;
   /** One change from the settings menu (hub applies it, no LLM round). */
   "settings:patch": (payload: SettingsPatch) => void;
-  /** The guest chip on the check-in: continue without a card (default profile). */
-  "session:checkin": (payload: { sessionId: string }) => void;
-  /** Browser seat only: check in as a profile without a card (its dropdown),
-   *  or check out ("__checkout"). The hub treats a login like a card scan. */
+  /** Browser seat only: switch to a profile without a card (its dropdown);
+   *  the hub treats it like a card scan. */
   "session:login": (payload: { sessionId: string; persona: string }) => void;
   /** The ↻ affordance: say the last reply again (no LLM round). */
   "reply:repeat": (payload: { sessionId: string }) => void;
