@@ -124,6 +124,8 @@ rows and never evicted.
 
 > 2026-08-31: the light panel got a **Kabine** row at the top — the cabin-scoped controls (shared interior light, later scenes/dimmers/flash, rendered per kind: toggle, slider, scene chips, flash button) read from `host:seats.cabin` and switch via `host:overrideLight` with `on`/`level`/`scene`/`flash`. Seat rows keep only seat-scoped controls (Leselampe). The routes list shows scope and one URL preview per action.
 
+> 2026-09-21: the signal light's red mode is per END — the fixture row shows two button rows, **vorn** and **hinten**, each aus · rot · blinkend, independent of each other (front white and rear red at once is possible now; the rig has a playback per end and mode: 33/34 red, 35/36 flash). White (25/26) and RGB (38/39/40) stay one control for both ends because the rig has a single playback for both — separating them needs new playbacks in Cuety. Scene rows in the CMS carry `modeFront` / `modeRear` (migration converts the old single `mode`).
+
 > 2026-09-18 (latest+3): the second card row is gone again — opening a scene card lists EVERY fixture (Lichtlinien, Deckenpaneel, Boden, Außenlicht, Kopfstützen, Leselampen 1–4, Signallicht with RGB + red modes) with its controls, marked "auch Fahrgast / CoSiMo" or "nur Personal"; slider sends are collected for 250 ms.
 >
 > 2026-09-18 (latest+2): every card carries an I/O switch (shows and switches on/off; the card body only opens the settings), and the **Weitere Leuchten** are part of the scene too — a scene row in the CMS covers every fixture; moving one makes the cabin "frei", Szene speichern takes all of them. They stay staff-only (not in the slit menu, not for set_light).

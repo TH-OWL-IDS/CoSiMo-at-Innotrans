@@ -90,7 +90,7 @@ export const CabinConfig: GlobalConfig = {
             { name: "intensity", type: "number" as const, min: 0, max: 100, defaultValue: 100, label: "Helligkeit (0–100)" },
           ],
         })),
-        // … and the signal light (white pair + RGB + one exclusive red mode) — staff-only, but part of the scene
+        // … and the signal light (white pair + RGB, both ends together, + a red mode per end) — staff-only, but part of the scene
         {
           name: "signals",
           type: "group" as const,
@@ -103,16 +103,32 @@ export const CabinConfig: GlobalConfig = {
             { name: "green", type: "number" as const, min: 0, max: 100, defaultValue: 0, label: "Grün (0–100)" },
             { name: "blue", type: "number" as const, min: 0, max: 100, defaultValue: 0, label: "Blau (0–100)" },
             {
-              name: "mode",
-              type: "select" as const,
-              defaultValue: "none",
-              label: "Roter Modus",
-              options: [
-                { label: "keiner", value: "none" },
-                { label: "vorn rot", value: "signals-front-red" },
-                { label: "hinten rot", value: "signals-rear-red" },
-                { label: "vorn blinkend", value: "signals-front-flash" },
-                { label: "hinten blinkend", value: "signals-rear-flash" },
+              type: "row" as const,
+              fields: [
+                {
+                  name: "modeFront",
+                  type: "select" as const,
+                  defaultValue: "none",
+                  label: "Rot vorn",
+                  admin: { width: "50%" },
+                  options: [
+                    { label: "aus", value: "none" },
+                    { label: "rot", value: "red" },
+                    { label: "blinkend", value: "flash" },
+                  ],
+                },
+                {
+                  name: "modeRear",
+                  type: "select" as const,
+                  defaultValue: "none",
+                  label: "Rot hinten",
+                  admin: { width: "50%" },
+                  options: [
+                    { label: "aus", value: "none" },
+                    { label: "rot", value: "red" },
+                    { label: "blinkend", value: "flash" },
+                  ],
+                },
               ],
             },
           ],

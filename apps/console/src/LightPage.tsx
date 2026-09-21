@@ -16,8 +16,7 @@ import {
   type LightScene,
   type LogEvent,
   type RigFixture,
-  type RigFixtureState,
-} from "@cosimo/shared";
+  type RigFixtureState, SIGNAL_ENDS, SIGNAL_END_LABEL, SIGNAL_MODES, SIGNAL_MODE_LABEL } from "@cosimo/shared";
 
 /**
  * The Licht view: four cards — the three scenes and "Alles aus". A scene
@@ -148,11 +147,16 @@ function FixtureRow({ f, state, disabled, playback, riderReachable = false, onAc
               <Slider key={ch} label={ch === "red" ? "Rot" : ch === "green" ? "Grün" : "Blau"} value={local.rgb?.[ch] ?? 0} min={0} max={100} step={5} disabled={dead} format={(v) => `${v} %`} onChange={(v) => queue({ rgb: { red: 0, green: 0, blue: 0, ...local.rgb, [ch]: v } })} />
             ))}
           </div>
-          <div className="grid grid-cols-2 gap-1.5 self-start">
-            {f.modes.map((m) => (
-              <Button key={m.key} size="xs" variant={local.mode === m.key ? "on" : "secondary"} disabled={dead} onClick={() => { const next = { ...local, mode: local.mode === m.key ? null : m.key }; setLocal(next); onAction("mode", next); }}>
-                {m.label}
-              </Button>
+          <div className="flex flex-col gap-2 self-start">
+            {SIGNAL_ENDS.map((end) => (
+              <div key={end} className="grid grid-cols-[52px_repeat(3,1fr)] items-center gap-1.5">
+                <span className="text-2xs uppercase tracking-caps text-mute">{SIGNAL_END_LABEL[end]}</span>
+                {SIGNAL_MODES.map((m) => (
+                  <Button key={m} size="xs" variant={(local[end] ?? "none") === m ? "on" : "secondary"} disabled={dead} onClick={() => { const next = { ...local, [end]: m }; setLocal(next); onAction("mode", next); }}>
+                    {SIGNAL_MODE_LABEL[m]}
+                  </Button>
+                ))}
+              </div>
             ))}
           </div>
         </div>

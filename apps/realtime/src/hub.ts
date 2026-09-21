@@ -29,6 +29,7 @@ import {
   type PersonaBroadcast,
   type PersonaKey,
   DEFAULT_VOICE_GENDER,
+  normalizeSignalMode,
   type PipelinePhase,
   type RiderContext,
   type SeatCard,
@@ -910,7 +911,8 @@ export class Hub {
             ...(def.kind === "combined"
               ? {
                   rgb: { red: clamp100(state.rgb?.red), green: clamp100(state.rgb?.green), blue: clamp100(state.rgb?.blue) },
-                  mode: action === "off" ? null : def.modes.some((m) => m.key === state.mode) ? state.mode! : null,
+                  front: action === "off" ? "none" : normalizeSignalMode(state.front),
+                  rear: action === "off" ? "none" : normalizeSignalMode(state.rear),
                 }
               : {}),
           };

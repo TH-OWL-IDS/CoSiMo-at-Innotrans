@@ -1,11 +1,11 @@
 import type { Locale } from "./telemetry.js";
-import { RIG_FIXTURES, rigDefaultState, type RigFixtureState } from "./rig.js";
+import { RIG_FIXTURES, rigDefaultState, type RigFixtureState, SIGNAL_ENDS, normalizeSignalMode, type SignalMode } from "./rig.js";
 
 /**
  * The cabin light as the rider, CoSiMo, the panel button and the console
  * all speak about it: SCENES. A scene is a table with a row for EVERY
  * fixture of the rig (rig.ts RIG_FIXTURES) — on/off, brightness and the
- * cold/warm bias, the signal light with its RGB and mode — in the
+ * cold/warm bias, the signal light with its RGB and a red mode per end — in the
  * installer's own model (`splitBias`). Exactly one scene is active, or
  * "off", or the cabin is "free" (someone moved a fixture by hand).
  *
@@ -85,7 +85,7 @@ export interface LightSetRequest {
    *  scene (× DIM_STEP per step), or set the factor directly. */
   dim?: "brighter" | "darker" | number;
   /** One fixture (a rider may only send LIGHT_GROUPS ids). */
-  group?: { id: string; on?: boolean; intensity?: number; bias?: number; rgb?: { red: number; green: number; blue: number }; mode?: string | null };
+  group?: { id: string; on?: boolean; intensity?: number; bias?: number; rgb?: { red: number; green: number; blue: number }; front?: SignalMode; rear?: SignalMode };
 }
 
 /** Console → hub: write the cabin's current levels into a scene (rename optional). */
@@ -109,8 +109,10 @@ export function normalizeGroupLevel(v: Partial<GroupLevel> | undefined, base: Gr
   };
   const rgb = v?.rgb ?? base.rgb;
   if (rgb) out.rgb = { red: Math.round(clamp(rgb.red, 0, 100, 0)), green: Math.round(clamp(rgb.green, 0, 100, 0)), blue: Math.round(clamp(rgb.blue, 0, 100, 0)) };
-  if (v?.mode !== undefined) out.mode = v.mode;
-  else if (base.mode !== undefined) out.mode = base.mode;
+  for (const end of SIGNAL_ENDS) {
+    if (v?.[end] !== undefined) out[end] = normalizeSignalMode(v[end]);
+    else if (base[end] !== undefined) out[end] = base[end];
+  }
   return out;
 }
 
@@ -134,7 +136,7 @@ function sameLevel(a: GroupLevel | undefined, b: GroupLevel | undefined): boolea
   if (x.intensity !== y.intensity || x.bias !== y.bias) return false;
   const rx = x.rgb ?? { red: 0, green: 0, blue: 0 }, ry = y.rgb ?? { red: 0, green: 0, blue: 0 };
   if (rx.red !== ry.red || rx.green !== ry.green || rx.blue !== ry.blue) return false;
-  return (x.mode ?? null) === (y.mode ?? null);
+  return (x.front ?? "none") === (y.front ?? "none") && (x.rear ?? "none") === (y.rear ?? "none");
 }
 
 export function sameLevels(a: FixtureLevels, b: FixtureLevels): boolean {
@@ -149,7 +151,7 @@ export const SCENE_FIELD: Record<string, string> = {
   "reading-1": "reading1", "reading-2": "reading2", "reading-3": "reading3", "reading-4": "reading4", signals: "signals",
 };
 
-export interface SceneRowLevel { on?: boolean | null; intensity?: number | null; bias?: number | null; red?: number | null; green?: number | null; blue?: number | null; mode?: string | null }
+export interface SceneRowLevel { on?: boolean | null; intensity?: number | null; bias?: number | null; red?: number | null; green?: number | null; blue?: number | null; modeFront?: string | null; modeRear?: string | null }
 export interface SceneRow { key?: string | null; label?: string | null; [field: string]: SceneRowLevel | string | null | undefined }
 
 export function sceneToRow(s: LightScene): SceneRow {
@@ -158,7 +160,7 @@ export function sceneToRow(s: LightScene): SceneRow {
     const lv = s.groups[id];
     const field = SCENE_FIELD[id]!;
     row[field] = lv
-      ? { on: lv.on, intensity: lv.intensity, bias: lv.bias, ...(lv.rgb ? { red: lv.rgb.red, green: lv.rgb.green, blue: lv.rgb.blue } : {}), ...(lv.mode !== undefined ? { mode: lv.mode ?? "none" } : {}) }
+      ? { on: lv.on, intensity: lv.intensity, bias: lv.bias, ...(lv.rgb ? { red: lv.rgb.red, green: lv.rgb.green, blue: lv.rgb.blue } : {}), ...(id === "signals" ? { modeFront: lv.front ?? "none", modeRear: lv.rear ?? "none" } : {}) }
       : { on: false, intensity: 0, bias: 0 };
   }
   return row;
@@ -175,7 +177,8 @@ export function rowToScene(r: SceneRow, fallback: LightScene): LightScene | null
     const lvl: Partial<GroupLevel> = { on: v.on ?? undefined, intensity: v.intensity ?? undefined, bias: v.bias ?? undefined };
     if (id === "signals") {
       lvl.rgb = { red: v.red ?? 0, green: v.green ?? 0, blue: v.blue ?? 0 };
-      lvl.mode = v.mode && v.mode !== "none" ? v.mode : null;
+      lvl.front = normalizeSignalMode(v.modeFront);
+      lvl.rear = normalizeSignalMode(v.modeRear);
     }
     groups[id] = normalizeGroupLevel(lvl, base);
   }

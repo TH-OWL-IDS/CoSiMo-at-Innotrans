@@ -33,7 +33,7 @@ cannot reach the light controller. The iPads are the only dual-homed devices
 1. **The light is scenes** (shared `light.ts`): three CMS-defined scenes
    (Standard · Gemütlich · Hell) plus "off". A scene has a row for EVERY
    fixture of the rig (on/off, brightness, cold/warm; the signal light with
-   RGB + red mode) — the rider / CoSiMo may only set the three interior
+   RGB, both ends together + a red mode per end: none | red | flash) — the rider / CoSiMo may only set the three interior
    groups (LIGHT_GROUPS: Lichtlinien / Deckenpaneel / Boden), outer light,
    headrests, reading lamps and signals are staff-only but part of the
    scene. The hub holds ONE `CabinLightState` (active scene, or `null` =

@@ -10,20 +10,28 @@ import type { HostLightGlobal } from "./cabin.js";
  *    intensity, one CW/WW bias; on = `go` on both + the split levels,
  *    off = `re` on both;
  *  - single-channel fixtures (the reading lamps): intensity only;
- *  - the signal light: a CW/WW pair + RGB playbacks scaled by the master +
- *    four mutually exclusive mode playbacks (one `go`, the others `re`).
+ *  - the signal light: a CW/WW pair + RGB playbacks scaled by the master
+ *    (both ends together — the rig has one playback for both) + per END a
+ *    red mode: none | red | flash (front and rear independent, 2026-09-21;
+ *    the rig has a playback per end and mode).
  *
  * Levels are 0–100 here (the device wants 0–255 — lpu2.ts scales). The
  * fixture ids are ours; the playback KEYS are the CMS catalog keys
  * (`LPU2_KEYS`), so a re-patched rig is one CMS edit away.
  */
 
-export interface RigMode { key: string; label: string }
+/** A signal end's red mode. */
+export type SignalMode = "none" | "red" | "flash";
+export const SIGNAL_MODES: SignalMode[] = ["none", "red", "flash"];
+export type SignalEnd = "front" | "rear";
+export const SIGNAL_ENDS: SignalEnd[] = ["front", "rear"];
+export const SIGNAL_END_LABEL: Record<SignalEnd, string> = { front: "vorn", rear: "hinten" };
+export const SIGNAL_MODE_LABEL: Record<SignalMode, string> = { none: "aus", red: "rot", flash: "blinkend" };
 
 export type RigFixture =
   | { id: string; label: string; kind: "pair"; cw: string; ww: string }
   | { id: string; label: string; kind: "single"; key: string }
-  | { id: string; label: string; kind: "combined"; cw: string; ww: string; rgb: { red: string; green: string; blue: string }; modes: RigMode[] };
+  | { id: string; label: string; kind: "combined"; cw: string; ww: string; rgb: { red: string; green: string; blue: string }; ends: Record<SignalEnd, { red: string; flash: string }> };
 
 export const RIG_FIXTURES: RigFixture[] = [
   { id: "outer", label: "Außenlicht", kind: "pair", cw: "outer-cw", ww: "outer-ww" },
@@ -38,12 +46,10 @@ export const RIG_FIXTURES: RigFixture[] = [
   {
     id: "signals", label: "Signallicht", kind: "combined", cw: "signals-cw", ww: "signals-ww",
     rgb: { red: "signals-red", green: "signals-green", blue: "signals-blue" },
-    modes: [
-      { key: "signals-front-red", label: "vorn rot" },
-      { key: "signals-rear-red", label: "hinten rot" },
-      { key: "signals-front-flash", label: "vorn blinkend" },
-      { key: "signals-rear-flash", label: "hinten blinkend" },
-    ],
+    ends: {
+      front: { red: "signals-front-red", flash: "signals-front-flash" },
+      rear: { red: "signals-rear-red", flash: "signals-rear-flash" },
+    },
   },
 ];
 
@@ -57,14 +63,19 @@ export interface RigFixtureState {
   bias: number;
   /** RGB levels 0–100, scaled by the master. Combined only. */
   rgb?: { red: number; green: number; blue: number };
-  /** The active exclusive mode's key. Combined only. */
-  mode?: string | null;
+  /** The red mode per end (none | red | flash). Combined only. */
+  front?: SignalMode;
+  rear?: SignalMode;
+}
+
+export function normalizeSignalMode(v: unknown): SignalMode {
+  return v === "red" || v === "flash" ? v : "none";
 }
 
 export function rigDefaultState(f: RigFixture): RigFixtureState {
   return {
     on: false, intensity: 100, bias: 0,
-    ...(f.kind === "combined" ? { rgb: { red: 0, green: 0, blue: 0 }, mode: null } : {}),
+    ...(f.kind === "combined" ? { rgb: { red: 0, green: 0, blue: 0 }, front: "none" as SignalMode, rear: "none" as SignalMode } : {}),
   };
 }
 
@@ -111,21 +122,25 @@ export function rigLevelOps(f: RigFixture, s: RigFixtureState): RigOp[] {
  * The commands for a console action, exactly as the installer's page sends
  * them: on = `go` everywhere + the levels; off = `re` everywhere (+ the
  * modes released); levels = `in=` only (a running playback follows, an
- * off one stays off); mode = the chosen mode `go`, its siblings `re`.
+ * off one stays off); mode = per end the chosen mode `go`, the other `re`.
  */
+function modeOps(f: RigFixture, s: RigFixtureState, allOff = false): RigOp[] {
+  if (f.kind !== "combined") return [];
+  return SIGNAL_ENDS.flatMap((end): RigOp[] => {
+    const want = allOff ? "none" : normalizeSignalMode(s[end]);
+    return (["red", "flash"] as const).map((m): RigOp => ({ key: f.ends[end][m], cmd: want === m ? "go" : "re" }));
+  });
+}
 export function rigOps(f: RigFixture, s: RigFixtureState, action: "on" | "off" | "levels" | "mode"): RigOp[] {
   switch (action) {
     case "on":
       return [...rigChannels(f).map((key): RigOp => ({ key, cmd: "go" })), ...rigLevelOps(f, s)];
     case "off":
-      return [
-        ...rigChannels(f).map((key): RigOp => ({ key, cmd: "re" })),
-        ...(f.kind === "combined" ? f.modes.map((m): RigOp => ({ key: m.key, cmd: "re" })) : []),
-      ];
+      return [...rigChannels(f).map((key): RigOp => ({ key, cmd: "re" })), ...modeOps(f, s, true)];
     case "levels":
       return rigLevelOps(f, s);
     case "mode":
-      return f.kind === "combined" ? f.modes.map((m): RigOp => ({ key: m.key, cmd: s.mode === m.key ? "go" : "re" })) : [];
+      return modeOps(f, s);
   }
 }
 
