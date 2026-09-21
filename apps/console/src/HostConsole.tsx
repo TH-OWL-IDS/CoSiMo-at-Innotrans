@@ -1169,7 +1169,7 @@ export default function HostConsole({ token, onUnauthorized }: { token: string; 
         {tab === "sessions" && <SessionsTab c={c} onShowLogs={showLogsFor} />}
         {tab === "logs" && <LogView logs={c.logs} onClear={c.clearLogs} onReplay={() => c.replayLogs()} seatFilter={logSeatFilter} />}
         {tab === "hilfe" && <HelpPage c={c} go={switchTab} showLogsFor={showLogsFor} />}
-        {tab === "begleiten" && <GuidePage c={c} go={switchTab} />}
+        {tab === "begleiten" && <GuidePage c={c} />}
       </div>
 
       {(c.reloadRequired || c.evicted) && (

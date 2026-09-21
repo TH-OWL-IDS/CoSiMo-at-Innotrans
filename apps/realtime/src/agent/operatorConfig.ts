@@ -216,6 +216,7 @@ export class OperatorConfigProvider {
         }),
       },
       systemPrompt: c.agent.systemPrompt,
+      infoQuestion: { ...c.agent.infoQuestion },
       tools: [],
     };
   }

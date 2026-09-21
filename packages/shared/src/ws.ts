@@ -174,6 +174,9 @@ export interface HostConfigBroadcast {
   /** The system prompt as the agent builds it right now (core + voice
    *  catalog, default rider) — for the console's prompt popup. */
   systemPrompt: string;
+  /** The question the info button asks on the rider's behalf (CMS agent-config,
+   *  else the built-in default) — the Begleiten guide shows it verbatim. */
+  infoQuestion: Record<Locale, string>;
   /** The agent's tool definitions as sent to the model (name, description,
    *  JSON schema) — for the console's tools popup. */
   tools: { name: string; description: string; schema: unknown }[];
