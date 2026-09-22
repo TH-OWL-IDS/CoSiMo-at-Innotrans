@@ -101,6 +101,19 @@ export function rigChannels(f: RigFixture): string[] {
   return [f.cw, f.ww];
 }
 
+/**
+ * The fixture a playback key belongs to (its channels, and for the signal
+ * light its per-end mode playbacks) — so a switch-on by bare key can still
+ * be given that fixture's level.
+ */
+export function fixtureForKey(key: string): RigFixture | undefined {
+  return RIG_FIXTURES.find(
+    (f) =>
+      rigChannels(f).includes(key) ||
+      (f.kind === "combined" && SIGNAL_ENDS.some((e) => f.ends[e].red === key || f.ends[e].flash === key)),
+  );
+}
+
 /** The `in=` commands for the fixture's current levels. */
 export function rigLevelOps(f: RigFixture, s: RigFixtureState): RigOp[] {
   if (f.kind === "single") return [{ key: f.key, cmd: "in", level: clamp(s.intensity, 0, 100) }];

@@ -30,6 +30,7 @@ import {
   type PersonaKey,
   DEFAULT_VOICE_GENDER,
   normalizeSignalMode,
+  fixtureForKey,
   type PipelinePhase,
   type RiderContext,
   type SeatCard,
@@ -885,7 +886,7 @@ export class Hub {
         });
         socket.on("host:light", ({ key, on }) => {
           const cfg = this.lpu2Config?.();
-          const actuation = cfg ? buildHostLight(key, Boolean(on), cfg) : null;
+          const actuation = cfg ? buildHostLight(key, Boolean(on), cfg, this.levelForKey(key)) : null;
           if (!actuation) {
             logger.log("cabin.result", { control: key, scope: "host", ok: false, error: cfg?.baseUrl ? "nicht zugeordnet" : "keine LPU-2-Adresse" }, { deviceId, level: "warn" });
             return;
@@ -1215,7 +1216,7 @@ export class Hub {
       const entry = this.devices.get(deviceId);
       if (!entry || entry.role !== "kiosk") return;
       const cfg = this.lpu2Config?.();
-      const actuation = cfg ? buildHostLight(String(key), Boolean(on), cfg) : null;
+      const actuation = cfg ? buildHostLight(String(key), Boolean(on), cfg, this.levelForKey(String(key))) : null;
       if (!actuation) {
         logger.log("cabin.result", { control: String(key), scope: "host", ok: false, error: cfg?.baseUrl ? "nicht zugeordnet" : "keine LPU-2-Adresse" }, { deviceId, level: "warn" });
         return;
@@ -1662,6 +1663,17 @@ export class Hub {
     entry.socket.emit("persona:active", entry.persona);
     this.pushSeats();
     return accommodations;
+  }
+
+  /**
+   * The level a bare switch-on (operator menu, console light buttons) drives
+   * a playback to: the owning fixture's master intensity, so the cabin keeps
+   * the brightness the scene or the console set. 0 / unknown = full, never
+   * dark (see buildHostLight).
+   */
+  private levelForKey(key: string): number | undefined {
+    const f = fixtureForKey(key);
+    return f ? this.rig.fixtures[f.id]?.intensity : undefined;
   }
 
   /** Show (or clear) a seat's option card. Stale turns are dropped like

@@ -95,6 +95,8 @@ export function buildHostLight(
   key: string,
   on: boolean,
   config: Lpu2Config,
+  /** 0–100, the level a switch-on drives the playback to (0 or omitted = full). */
+  level?: number,
 ): CabinActuation | null {
   if (!config.baseUrl) return null;
   const urls: string[] = [];
@@ -107,6 +109,16 @@ export function buildHostLight(
     // A zone's `go` must silence the additive sibling variant.
     const sibling = key.endsWith("-cw") ? key.replace(/-cw$/, "-ww") : key.endsWith("-ww") ? key.replace(/-ww$/, "-cw") : null;
     if (on && u && sibling) { const s = pbUrl(config, sibling, "re"); if (s) urls.push(s); }
+    // `in=` is sticky in the LPU-2: a bare `go` restarts a playback that an
+    // earlier dim left at zero — "an" in our state, dark in the cabin. The
+    // outer light stayed dark for a day that way (2026-09-22: the console's
+    // cold/warm slider had put pb01 to in=0, and nothing ever restored it,
+    // because the outer light is off in every scene and a scene only sends
+    // levels for what it switches ON). So every switch-on carries a level.
+    if (on && u) {
+      const lv = pbUrl(config, key, `in=${intensity(level != null && level > 0 ? level : 100)}`);
+      if (lv) urls.push(lv);
+    }
   }
   return urls.length ? { control: key, urls, timeoutMs: config.timeoutMs } : null;
 }
